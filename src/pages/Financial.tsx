@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -36,6 +37,8 @@ const methodLabels: Record<string, string> = { pix: "PIX", boleto: "Boleto", cre
 const contractTypeLabels: Record<string, string> = { service: "Serviço", contingency: "Êxito", fixed: "Fixo", hourly: "Hora", other: "Outro" };
 const periodicityLabels: Record<string, string> = { once: "Único", monthly: "Mensal", quarterly: "Trimestral", yearly: "Anual" };
 
+const ITEMS_PER_PAGE = 10;
+
 const Financial = () => {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
@@ -53,6 +56,10 @@ const Financial = () => {
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
   const [newInvoice, setNewInvoice] = useState({ description: "", amount: "", due_date: "", status: "draft", client_id: "none" });
   const [newContract, setNewContract] = useState({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "", client_id: "none" });
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "invoice" | "contract"; id: string; label: string } | null>(null);
+  const [invoicePage, setInvoicePage] = useState(0);
+  const [contractPage, setContractPage] = useState(0);
+  const [paymentPage, setPaymentPage] = useState(0);
 
   const canViewFinancial = hasPermission("VIEW_FINANCIAL");
   const canManageFinancial = hasPermission("MANAGE_FINANCIAL");
@@ -285,6 +292,39 @@ const Financial = () => {
     setContractDialogOpen(true);
   };
 
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("invoices" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["invoices"] }); toast.success("Fatura excluída!"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteContractMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("contracts" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts"] }); toast.success("Contrato excluído!"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === "invoice") deleteInvoiceMutation.mutate(deleteTarget.id);
+    else deleteContractMutation.mutate(deleteTarget.id);
+    setDeleteTarget(null);
+  };
+
+  // Pagination helpers
+  const paginatedInvoices = filteredInvoices.slice(invoicePage * ITEMS_PER_PAGE, (invoicePage + 1) * ITEMS_PER_PAGE);
+  const invoiceTotalPages = Math.max(1, Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE));
+  const paginatedContracts = filteredContracts.slice(contractPage * ITEMS_PER_PAGE, (contractPage + 1) * ITEMS_PER_PAGE);
+  const contractTotalPages = Math.max(1, Math.ceil(filteredContracts.length / ITEMS_PER_PAGE));
+  const paginatedPayments = filteredPayments.slice(paymentPage * ITEMS_PER_PAGE, (paymentPage + 1) * ITEMS_PER_PAGE);
+  const paymentTotalPages = Math.max(1, Math.ceil(filteredPayments.length / ITEMS_PER_PAGE));
+
   if (!canViewFinancial) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -401,7 +441,7 @@ const Financial = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredInvoices.map((inv: any) => (
+                    {paginatedInvoices.map((inv: any) => (
                       <tr key={inv.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="py-3.5 font-medium">{inv.description || "—"}</td>
                         <td className="py-3.5 text-muted-foreground">{orgClients.find(c => c.id === inv.client_id)?.full_name || "—"}</td>
@@ -410,14 +450,24 @@ const Financial = () => {
                         <td className="py-3.5 text-muted-foreground">{inv.due_date ? format(new Date(inv.due_date), "dd/MM/yyyy") : "—"}</td>
                         <td className="py-3.5 text-muted-foreground">{format(new Date(inv.created_at), "dd/MM/yyyy", { locale: ptBR })}</td>
                         {canManageFinancial && (
-                          <td className="py-3.5">
+                          <td className="py-3.5 flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "invoice", id: inv.id, label: inv.description || "esta fatura" })}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </td>
                         )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {invoiceTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
+                    <span className="text-caption text-muted-foreground">{filteredInvoices.length} faturas — Página {invoicePage + 1} de {invoiceTotalPages}</span>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" disabled={invoicePage === 0} onClick={() => setInvoicePage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="sm" disabled={invoicePage >= invoiceTotalPages - 1} onClick={() => setInvoicePage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </LexCard>
@@ -454,7 +504,7 @@ const Financial = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPayments.map((pay: any) => (
+                    {paginatedPayments.map((pay: any) => (
                       <tr key={pay.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="py-3.5 font-mono text-primary">{formatCurrency(pay.amount_cents)}</td>
                         <td className="py-3.5">{methodLabels[pay.method] || pay.method}</td>
@@ -465,6 +515,15 @@ const Financial = () => {
                     ))}
                   </tbody>
                 </table>
+                {paymentTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
+                    <span className="text-caption text-muted-foreground">{filteredPayments.length} pagamentos — Página {paymentPage + 1} de {paymentTotalPages}</span>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" disabled={paymentPage === 0} onClick={() => setPaymentPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="sm" disabled={paymentPage >= paymentTotalPages - 1} onClick={() => setPaymentPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </LexCard>
@@ -499,7 +558,7 @@ const Financial = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredContracts.map((c: any) => (
+                    {paginatedContracts.map((c: any) => (
                       <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="py-3.5 font-medium">{c.title}</td>
                         <td className="py-3.5 text-muted-foreground">{orgClients.find(cl => cl.id === c.client_id)?.full_name || "—"}</td>
@@ -510,14 +569,24 @@ const Financial = () => {
                         <td className="py-3.5 text-muted-foreground">{c.start_date ? format(new Date(c.start_date), "dd/MM/yyyy") : "—"}</td>
                         <td className="py-3.5 text-muted-foreground">{c.end_date ? format(new Date(c.end_date), "dd/MM/yyyy") : "—"}</td>
                         {canManageFinancial && (
-                          <td className="py-3.5">
+                          <td className="py-3.5 flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => openEditContract(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "contract", id: c.id, label: c.title })}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </td>
                         )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {contractTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
+                    <span className="text-caption text-muted-foreground">{filteredContracts.length} contratos — Página {contractPage + 1} de {contractTotalPages}</span>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" disabled={contractPage === 0} onClick={() => setContractPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="sm" disabled={contractPage >= contractTotalPages - 1} onClick={() => setContractPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </LexCard>
@@ -739,6 +808,22 @@ const Financial = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>"{deleteTarget?.label}"</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
