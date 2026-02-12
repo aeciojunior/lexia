@@ -11,7 +11,7 @@ import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink, ScrollText, CalendarDays, PenTool,
+  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink, ScrollText, CalendarDays, PenTool, Gavel, MapPin, Video, ExternalLink as LinkIcon,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -121,6 +121,20 @@ const ClientPortal = () => {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // Fetch hearings (RLS: clients can view own process hearings)
+  const { data: hearings = [], isLoading: loadingHearings } = useQuery({
+    queryKey: ["client-hearings", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("hearings")
+        .select("*, processes(title, number)")
+        .order("hearing_date", { ascending: true });
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!activeOrgId,
   });
@@ -745,8 +759,92 @@ const ClientPortal = () => {
         </LexCard>
       </motion.div>
 
+      {/* Hearings */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+        <LexCard hover={false}>
+          <LexCardHeader>
+            <LexCardTitle className="flex items-center gap-2">
+              <Gavel className="h-5 w-5 text-primary" /> Audiências ({hearings.length})
+            </LexCardTitle>
+          </LexCardHeader>
+
+          {loadingHearings ? (
+            <div className="py-12 text-center">
+              <div className="flex gap-1.5 justify-center mb-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
+                <span className="h-2.5 w-2.5 rounded-full bg-secondary animate-pulse-glow" style={{ animationDelay: "200ms" }} />
+              </div>
+            </div>
+          ) : hearings.length === 0 ? (
+            <div className="py-12 text-center">
+              <Gavel className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+              <p className="text-body-sm text-muted-foreground">Nenhuma audiência agendada.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {hearings.map((h: any, i: number) => {
+                const hearingTypeLabels: Record<string, string> = { initial: "Inicial", conciliation: "Conciliação", instruction: "Instrução", judgment: "Julgamento", other: "Outra" };
+                const hearingStatusLabels: Record<string, string> = { scheduled: "Agendada", completed: "Realizada", cancelled: "Cancelada", postponed: "Adiada" };
+                const hearingStatusVariant: Record<string, string> = { scheduled: "warning", completed: "success", cancelled: "destructive", postponed: "secondary" };
+                const date = new Date(h.hearing_date);
+                const isPast = date < new Date();
+                return (
+                  <motion.div
+                    key={h.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl border shrink-0 ${
+                        h.status === "completed" ? "bg-success/10 border-success/20" :
+                        h.status === "cancelled" ? "bg-destructive/10 border-destructive/20" :
+                        "bg-warning/10 border-warning/20"
+                      }`}>
+                        <Gavel className={`h-5 w-5 ${
+                          h.status === "completed" ? "text-success" :
+                          h.status === "cancelled" ? "text-destructive" :
+                          "text-warning"
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="text-body-sm font-medium">
+                          {hearingTypeLabels[h.hearing_type] || h.hearing_type}
+                          {h.processes && <span className="text-muted-foreground"> — <span className="font-mono text-primary">{h.processes.number}</span></span>}
+                        </p>
+                        <p className="text-caption text-muted-foreground flex items-center gap-1.5">
+                          <CalendarDays className="h-3 w-3" />
+                          {date.toLocaleDateString("pt-BR")} às {date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          <span className="mx-1">•</span>
+                          <MapPin className="h-3 w-3" />
+                          {h.location}
+                        </p>
+                        {h.video_link && (
+                          <a
+                            href={h.video_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-caption text-primary flex items-center gap-1 mt-0.5 hover:underline"
+                          >
+                            <Video className="h-3 w-3" /> Link da videoconferência
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <LexBadge variant={hearingStatusVariant[h.status] as any || "default"}>
+                      {hearingStatusLabels[h.status] || h.status}
+                    </LexBadge>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </LexCard>
+      </motion.div>
+
       {/* Documents */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
         <LexCard hover={false}>
           <LexCardHeader>
             <LexCardTitle className="flex items-center gap-2">
