@@ -22,8 +22,8 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // Preferences (local state — stored in localStorage)
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem("lex-notif") !== "false");
+  // Preferences
+  const [emailNotifications, setEmailNotifications] = useState(true);
   const [compactMode, setCompactMode] = useState(() => localStorage.getItem("lex-compact") === "true");
   const [defaultView, setDefaultView] = useState(() => localStorage.getItem("lex-view") || "dashboard");
 
@@ -42,6 +42,7 @@ const Profile = () => {
       setFullName(profile.full_name || "");
       setPhone(profile.phone || "");
       setAvatarUrl(profile.avatar_url || "");
+      setEmailNotifications((profile as any).email_notifications ?? true);
     }
   }, [profile]);
 
@@ -90,12 +91,23 @@ const Profile = () => {
     }
   };
 
-  const savePreferences = () => {
-    localStorage.setItem("lex-notif", String(notificationsEnabled));
-    localStorage.setItem("lex-compact", String(compactMode));
-    localStorage.setItem("lex-view", defaultView);
-    toast.success("Preferências salvas!");
-  };
+  const savePreferencesMutation = useMutation({
+    mutationFn: async () => {
+      localStorage.setItem("lex-compact", String(compactMode));
+      localStorage.setItem("lex-view", defaultView);
+      if (user) {
+        const { error } = await supabase.from("profiles").update({
+          email_notifications: emailNotifications,
+        } as any).eq("user_id", user.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Preferências salvas!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const initials = fullName
     ? fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -178,11 +190,11 @@ const Profile = () => {
               <div className="flex items-center gap-3">
                 <Bell className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <p className="text-body-sm font-medium">Notificações</p>
-                  <p className="text-caption text-muted-foreground">Receber alertas de prazos e atualizações</p>
+                  <p className="text-body-sm font-medium">Notificações por Email</p>
+                  <p className="text-caption text-muted-foreground">Receber alertas de prazos por email</p>
                 </div>
               </div>
-              <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
+              <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
             </div>
 
             <Separator className="bg-border" />
@@ -218,8 +230,8 @@ const Profile = () => {
               </Select>
             </div>
 
-            <Button variant="outline" onClick={savePreferences} className="mt-2">
-              <Save className="h-4 w-4" /> Salvar Preferências
+            <Button variant="outline" onClick={() => savePreferencesMutation.mutate()} disabled={savePreferencesMutation.isPending} className="mt-2">
+              <Save className="h-4 w-4" /> {savePreferencesMutation.isPending ? "Salvando..." : "Salvar Preferências"}
             </Button>
           </div>
         </LexCard>
