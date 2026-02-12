@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -36,6 +36,20 @@ export const useRealtimeNotifications = () => {
   // Use ref to access latest prefs in callbacks
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
+
+  // Helper: send browser push notification
+  const sendBrowserNotification = useCallback((title: string, body: string) => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/favicon.ico" });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") {
+          new Notification(title, { body, icon: "/favicon.ico" });
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!user || !activeOrgId) return;
@@ -186,6 +200,49 @@ export const useRealtimeNotifications = () => {
       )
       .subscribe();
 
+    // --- Contract signatures channel (browser push for admins) ---
+    const sigChannel = supabase
+      .channel(`sigs-rt-${activeOrgId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "contract_signatures", filter: `organization_id=eq.${activeOrgId}` },
+        async (payload) => {
+          const sig = payload.new as any;
+          queryClient.invalidateQueries({ queryKey: ["admin-all-signatures"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-contracts"] });
+
+          // Only notify other users (not the signer)
+          if (sig.user_id !== user.id) {
+            // Fetch contract title for the notification
+            const { data: contract } = await supabase
+              .from("contracts")
+              .select("title, clients(full_name)")
+              .eq("id", sig.contract_id)
+              .single();
+
+            const contractTitle = contract?.title || "Contrato";
+            const clientName = (contract as any)?.clients?.full_name || "Cliente";
+
+            const p = prefsRef.current;
+            if (p?.inApp !== false) {
+              toast("✍️ Contrato assinado!", {
+                description: `${clientName} assinou "${contractTitle}"`,
+                duration: 8000,
+              });
+            }
+
+            // Browser push notification
+            sendBrowserNotification(
+              "Contrato Assinado",
+              `${clientName} assinou "${contractTitle}"`
+            );
+
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+          }
+        }
+      )
+      .subscribe();
+
     // --- Notifications channel (badge updates) ---
     const notifChannel = supabase
       .channel(`notif-rt-${user.id}`)
@@ -203,7 +260,8 @@ export const useRealtimeNotifications = () => {
       supabase.removeChannel(docsChannel);
       supabase.removeChannel(deadlinesChannel);
       supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(sigChannel);
       supabase.removeChannel(notifChannel);
     };
-  }, [user, activeOrgId, queryClient]);
+  }, [user, activeOrgId, queryClient, sendBrowserNotification]);
 };
