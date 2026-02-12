@@ -1316,6 +1316,53 @@ const Financial = () => {
                 Rentabilidade por Cliente
               </LexCardTitle>
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => {
+                  const periodLabel = { all: "todos", month: "mes", quarter: "trimestre", year: "ano" }[profitPeriod];
+                  const headers = ["Cliente", "Horas", "Custo Horas (R$)", "Faturado (R$)", "Recebido (R$)", "R$/hora efetivo", "Margem (%)"];
+                  const rows = profitabilityData.map(r => [
+                    r.name, String(r.hours), r.hoursCost.toFixed(2).replace(".", ","),
+                    r.invoiced.toFixed(2).replace(".", ","), r.paid.toFixed(2).replace(".", ","),
+                    r.ratePerHour !== null ? r.ratePerHour.toFixed(2).replace(".", ",") : "",
+                    r.margin !== null ? String(r.margin) : "",
+                  ]);
+                  downloadCSV(`rentabilidade-${periodLabel}.csv`, headers, rows);
+                }} disabled={profitabilityData.length === 0} className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => {
+                  const periodLabel = { all: "Todo o período", month: "Este mês", quarter: "Trimestre", year: "Último ano" }[profitPeriod];
+                  const now = new Date();
+                  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+                  const pw = pdf.internal.pageSize.getWidth();
+                  pdf.setFontSize(16); pdf.setTextColor(30, 30, 30);
+                  pdf.text("Relatório de Rentabilidade por Cliente", 15, 18);
+                  pdf.setFontSize(9); pdf.setTextColor(120, 120, 120);
+                  pdf.text(`Período: ${periodLabel} — Gerado em ${format(now, "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 15, 25);
+                  pdf.setDrawColor(200, 200, 200); pdf.line(15, 28, pw - 15, 28);
+
+                  const cols = ["Cliente", "Horas", "Custo (R$)", "Faturado (R$)", "Recebido (R$)", "R$/h", "Margem"];
+                  const colW = (pw - 30) / cols.length;
+                  let y = 36;
+                  pdf.setFontSize(8); pdf.setTextColor(100, 100, 100);
+                  cols.forEach((c, i) => pdf.text(c, 15 + i * colW, y));
+                  y += 5; pdf.line(15, y - 1, pw - 15, y - 1);
+                  pdf.setTextColor(40, 40, 40); pdf.setFontSize(8);
+                  profitabilityData.forEach(r => {
+                    if (y > pdf.internal.pageSize.getHeight() - 15) { pdf.addPage(); y = 20; }
+                    const vals = [r.name, `${r.hours}h`, `R$ ${r.hoursCost.toFixed(2)}`, `R$ ${r.invoiced.toFixed(2)}`, `R$ ${r.paid.toFixed(2)}`, r.ratePerHour !== null ? `R$ ${r.ratePerHour.toFixed(2)}` : "—", r.margin !== null ? `${r.margin}%` : "—"];
+                    vals.forEach((v, i) => pdf.text(v, 15 + i * colW, y));
+                    y += 5;
+                  });
+                  // Totals
+                  y += 2; pdf.line(15, y - 1, pw - 15, y - 1);
+                  pdf.setFont(undefined!, "bold");
+                  const totals = ["Total", `${profitabilityData.reduce((s, r) => s + r.hours, 0).toFixed(1)}h`, `R$ ${profitabilityData.reduce((s, r) => s + r.hoursCost, 0).toFixed(2)}`, `R$ ${profitabilityData.reduce((s, r) => s + r.invoiced, 0).toFixed(2)}`, `R$ ${profitabilityData.reduce((s, r) => s + r.paid, 0).toFixed(2)}`, "—", "—"];
+                  totals.forEach((v, i) => pdf.text(v, 15 + i * colW, y));
+                  pdf.save(`rentabilidade-${format(now, "yyyy-MM-dd")}.pdf`);
+                  toast.success("PDF exportado!");
+                }} disabled={profitabilityData.length === 0} className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                 <Select value={profitPeriod} onValueChange={(v: any) => setProfitPeriod(v)}>
                   <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
