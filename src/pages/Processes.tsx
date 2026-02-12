@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -299,41 +300,112 @@ const Processes = () => {
 
       {/* View Dialog */}
       <Dialog open={viewDialog} onOpenChange={setViewDialog}>
-        <DialogContent className="bg-card border-border">
+        <DialogContent className="bg-card border-border max-w-2xl">
           <DialogHeader><DialogTitle className="text-display-sm">Detalhes do Processo</DialogTitle></DialogHeader>
           {selectedProcess && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-body-sm">
-                <div><span className="text-overline text-muted-foreground block mb-0.5">Número</span><span className="font-mono text-primary">{selectedProcess.number}</span></div>
-                <div><span className="text-overline text-muted-foreground block mb-0.5">Cliente</span>{selectedProcess.client_name}</div>
-                <div><span className="text-overline text-muted-foreground block mb-0.5">Título</span>{selectedProcess.title}</div>
-                <div><span className="text-overline text-muted-foreground block mb-0.5">Tipo</span>{typeMap[selectedProcess.type] || selectedProcess.type}</div>
-                <div><span className="text-overline text-muted-foreground block mb-0.5">Status</span><LexBadge variant={selectedProcess.status === "active" ? "success" : "warning"}>{statusMap[selectedProcess.status]}</LexBadge></div>
-                <div><span className="text-overline text-muted-foreground block mb-0.5">Risco</span><RiskIndicator level={selectedProcess.risk_level || "low"} /></div>
-                {selectedProcess.responsible_id && (
-                  <div><span className="text-overline text-muted-foreground block mb-0.5">Responsável</span>
-                    <div className="flex items-center gap-1.5">
-                      <Avatar className="h-5 w-5"><AvatarFallback className="text-[10px]">{getMemberName(selectedProcess.responsible_id).charAt(0)}</AvatarFallback></Avatar>
-                      <span>{getMemberName(selectedProcess.responsible_id)}</span>
-                    </div>
-                  </div>
-                )}
-                {selectedProcess.court && <div><span className="text-overline text-muted-foreground block mb-0.5">Vara/Tribunal</span>{selectedProcess.court}</div>}
-                {selectedProcess.judge && <div><span className="text-overline text-muted-foreground block mb-0.5">Juiz</span>{selectedProcess.judge}</div>}
-              </div>
-              {selectedProcess.description && <div><span className="text-overline text-muted-foreground block mb-1">Descrição</span><p className="text-body-sm rounded-xl bg-muted p-3">{selectedProcess.description}</p></div>}
-              {selectedProcess.tags?.length > 0 && (
-                <div><span className="text-overline text-muted-foreground block mb-1">Tags</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedProcess.tags.map((tag: string) => <LexBadge key={tag} variant="outline">{tag}</LexBadge>)}
-                  </div>
-                </div>
-              )}
-              {selectedProcess.notes && <div><span className="text-overline text-muted-foreground block mb-1">Observações</span><p className="text-body-sm rounded-xl bg-muted p-3">{selectedProcess.notes}</p></div>}
-            </div>
+            <ProcessDetailsContent process={selectedProcess} getMemberName={getMemberName} activeOrgId={activeOrgId} />
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+};
+
+/* ─── Process Details with Linked Tasks ─── */
+const TASK_STATUS_ICON: Record<string, React.ReactNode> = {
+  todo: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
+  in_progress: <Clock className="h-3.5 w-3.5 text-warning" />,
+  done: <CheckCircle2 className="h-3.5 w-3.5 text-accent" />,
+};
+const TASK_STATUS_LABEL: Record<string, string> = { todo: "A fazer", in_progress: "Em progresso", done: "Concluído" };
+const PRIORITY_DOT: Record<string, string> = { urgent: "bg-destructive", high: "bg-warning", medium: "bg-muted-foreground", low: "bg-muted-foreground/40" };
+
+const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { process: any; getMemberName: (id: string) => string; activeOrgId: string | null }) => {
+  const { data: linkedTasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["process-linked-tasks", process.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quick_tasks")
+        .select("id, title, status, priority, due_date, assigned_to, done")
+        .eq("process_id", process.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!process.id,
+  });
+
+  const doneCount = linkedTasks.filter((t: any) => t.status === "done").length;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 text-body-sm">
+        <div><span className="text-overline text-muted-foreground block mb-0.5">Número</span><span className="font-mono text-primary">{process.number}</span></div>
+        <div><span className="text-overline text-muted-foreground block mb-0.5">Cliente</span>{process.client_name}</div>
+        <div><span className="text-overline text-muted-foreground block mb-0.5">Título</span>{process.title}</div>
+        <div><span className="text-overline text-muted-foreground block mb-0.5">Tipo</span>{typeMap[process.type] || process.type}</div>
+        <div><span className="text-overline text-muted-foreground block mb-0.5">Status</span><LexBadge variant={process.status === "active" ? "success" : "warning"}>{statusMap[process.status]}</LexBadge></div>
+        <div><span className="text-overline text-muted-foreground block mb-0.5">Risco</span><RiskIndicator level={process.risk_level || "low"} /></div>
+        {process.responsible_id && (
+          <div><span className="text-overline text-muted-foreground block mb-0.5">Responsável</span>
+            <div className="flex items-center gap-1.5">
+              <Avatar className="h-5 w-5"><AvatarFallback className="text-[10px]">{getMemberName(process.responsible_id).charAt(0)}</AvatarFallback></Avatar>
+              <span>{getMemberName(process.responsible_id)}</span>
+            </div>
+          </div>
+        )}
+        {process.court && <div><span className="text-overline text-muted-foreground block mb-0.5">Vara/Tribunal</span>{process.court}</div>}
+        {process.judge && <div><span className="text-overline text-muted-foreground block mb-0.5">Juiz</span>{process.judge}</div>}
+      </div>
+      {process.description && <div><span className="text-overline text-muted-foreground block mb-1">Descrição</span><p className="text-body-sm rounded-xl bg-muted p-3">{process.description}</p></div>}
+      {process.tags?.length > 0 && (
+        <div><span className="text-overline text-muted-foreground block mb-1">Tags</span>
+          <div className="flex flex-wrap gap-1.5">
+            {process.tags.map((tag: string) => <LexBadge key={tag} variant="outline">{tag}</LexBadge>)}
+          </div>
+        </div>
+      )}
+      {process.notes && <div><span className="text-overline text-muted-foreground block mb-1">Observações</span><p className="text-body-sm rounded-xl bg-muted p-3">{process.notes}</p></div>}
+
+      {/* Linked Tasks */}
+      <div className="border-t border-border pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ListTodo className="h-4 w-4 text-primary" />
+            <span className="text-overline text-muted-foreground">Tarefas vinculadas</span>
+          </div>
+          {linkedTasks.length > 0 && (
+            <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+              {doneCount}/{linkedTasks.length} concluídas
+            </span>
+          )}
+        </div>
+        {tasksLoading ? (
+          <p className="text-caption text-muted-foreground text-center py-4">Carregando tarefas...</p>
+        ) : linkedTasks.length === 0 ? (
+          <p className="text-caption text-muted-foreground text-center py-4">Nenhuma tarefa vinculada a este processo.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {linkedTasks.map((task: any) => (
+              <div key={task.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                {TASK_STATUS_ICON[task.status] || TASK_STATUS_ICON.todo}
+                <span className={`flex-1 text-caption truncate ${task.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                  {task.title}
+                </span>
+                <div className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.medium}`} title={task.priority} />
+                {task.due_date && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {new Date(task.due_date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </span>
+                )}
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
+                  {TASK_STATUS_LABEL[task.status] || task.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
