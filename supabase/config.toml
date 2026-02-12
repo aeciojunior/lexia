@@ -1,1 +1,4 @@
 project_id = "dnpakncqtzjdtkwcjpsw"
+
+[functions.lexia-chat]
+verify_jwt = false
