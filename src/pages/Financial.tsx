@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,7 +19,9 @@ import { motion } from "framer-motion";
 import { format, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore, subQuarters, subYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area, ComposedChart } from "recharts";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const statusColors: Record<string, string> = {
   draft: "default", pending: "warning", paid: "success", overdue: "destructive",
@@ -196,6 +198,103 @@ const Financial = () => {
     }
     return months;
   }, [invoices]);
+
+  // Projected cash flow (next 6 months)
+  const cashFlowProjection = useMemo(() => {
+    const now = new Date();
+    const months: { name: string; entradas: number; saidas: number; saldo: number }[] = [];
+    let runningBalance = 0;
+
+    for (let i = 0; i < 6; i++) {
+      const d = i === 0 ? now : new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const start = startOfMonth(d);
+      const end = endOfMonth(d);
+
+      // Entries: pending/draft invoices due in this month
+      const monthEntries = invoices
+        .filter((inv: any) => {
+          if (!inv.due_date || inv.status === "paid" || inv.status === "cancelled") return false;
+          const due = new Date(inv.due_date);
+          return due >= start && due <= end;
+        })
+        .reduce((s: number, inv: any) => s + (inv.amount_cents || 0), 0);
+
+      // Recurring contract revenue expected this month
+      const contractEntries = contracts
+        .filter((c: any) => {
+          if (c.status !== "active") return false;
+          const cStart = c.start_date ? new Date(c.start_date) : new Date(c.created_at);
+          const cEnd = c.end_date ? new Date(c.end_date) : null;
+          if (cStart > end) return false;
+          if (cEnd && cEnd < start) return false;
+          if (c.periodicity === "once" && i > 0) return false;
+          if (c.periodicity === "quarterly" && i % 3 !== 0) return false;
+          if (c.periodicity === "yearly" && i !== 0) return false;
+          return true;
+        })
+        .reduce((s: number, c: any) => s + (c.amount_cents || 0), 0);
+
+      const totalIn = (monthEntries + contractEntries) / 100;
+      runningBalance += totalIn;
+
+      months.push({
+        name: format(d, "MMM yy", { locale: ptBR }),
+        entradas: parseFloat(totalIn.toFixed(2)),
+        saidas: 0,
+        saldo: parseFloat(runningBalance.toFixed(2)),
+      });
+    }
+    return months;
+  }, [invoices, contracts]);
+
+  const reportsRef = useRef<HTMLDivElement>(null);
+
+  const exportReportsPDF = useCallback(async () => {
+    if (!reportsRef.current) return;
+    toast.info("Gerando PDF...");
+    try {
+      const canvas = await html2canvas(reportsRef.current, {
+        backgroundColor: "#0d0f14",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let yOffset = 10;
+      if (imgHeight <= pageHeight - 20) {
+        pdf.addImage(imgData, "PNG", 10, yOffset, imgWidth, imgHeight);
+      } else {
+        // Multi-page
+        const pageImgHeight = pageHeight - 20;
+        const totalPages = Math.ceil(imgHeight / pageImgHeight);
+        for (let p = 0; p < totalPages; p++) {
+          if (p > 0) pdf.addPage();
+          const sy = (p * pageImgHeight * canvas.width) / imgWidth;
+          const sh = Math.min((pageImgHeight * canvas.width) / imgWidth, canvas.height - sy);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sh;
+          const ctx = sliceCanvas.getContext("2d")!;
+          ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+          const sliceImg = sliceCanvas.toDataURL("image/png");
+          const sliceHeight = (sh * imgWidth) / canvas.width;
+          pdf.addImage(sliceImg, "PNG", 10, 10, imgWidth, sliceHeight);
+        }
+      }
+
+      pdf.save(`relatorio-financeiro-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      toast.success("PDF exportado com sucesso!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao gerar PDF");
+    }
+  }, []);
 
   const CHART_COLORS = [
     "hsl(192, 95%, 55%)", "hsl(270, 80%, 62%)", "hsl(160, 85%, 45%)", 
@@ -956,6 +1055,12 @@ const Financial = () => {
         </TabsContent>
         {/* Reports Tab */}
         <TabsContent value="reports" className="mt-4 space-y-6">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={exportReportsPDF} className="gap-2">
+              <Download className="h-4 w-4" /> Exportar PDF
+            </Button>
+          </div>
+          <div ref={reportsRef} className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue by Month */}
             <LexCard hover={false}>
@@ -1074,6 +1179,45 @@ const Financial = () => {
               </div>
             )}
           </LexCard>
+
+          {/* Cash Flow Projection */}
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" /> Fluxo de Caixa Projetado (6 meses)</LexCardTitle>
+            </LexCardHeader>
+            {cashFlowProjection.some(m => m.entradas > 0) ? (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={cashFlowProjection}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(228, 12%, 18%)" />
+                    <XAxis dataKey="name" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} />
+                    <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} tickFormatter={(v) => `R$${v.toLocaleString("pt-BR")}`} />
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: "hsl(228, 16%, 12%)", border: "1px solid hsl(228, 12%, 18%)", borderRadius: 8, color: "hsl(210, 20%, 95%)" }}
+                      formatter={(value: number, name: string) => {
+                        const labels: Record<string, string> = { entradas: "Entradas Previstas", saldo: "Saldo Acumulado" };
+                        return [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, labels[name] || name];
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ fontSize: 11, color: "hsl(220, 10%, 55%)" }}
+                      formatter={(value: string) => {
+                        const labels: Record<string, string> = { entradas: "Entradas Previstas (R$)", saldo: "Saldo Acumulado (R$)" };
+                        return labels[value] || value;
+                      }}
+                    />
+                    <Bar dataKey="entradas" fill="hsl(192, 95%, 55%)" radius={[4, 4, 0, 0]} barSize={32} />
+                    <Line type="monotone" dataKey="saldo" stroke="hsl(160, 85%, 45%)" strokeWidth={2.5} dot={{ r: 4, fill: "hsl(160, 85%, 45%)" }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-72 flex items-center justify-center">
+                <p className="text-body-sm text-muted-foreground">Sem dados de faturas ou contratos futuros para projeção.</p>
+              </div>
+            )}
+          </LexCard>
+          </div>{/* end reportsRef */}
         </TabsContent>
       </Tabs>
 
