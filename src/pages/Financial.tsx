@@ -249,52 +249,7 @@ const Financial = () => {
 
   const reportsRef = useRef<HTMLDivElement>(null);
 
-  const exportReportsPDF = useCallback(async () => {
-    if (!reportsRef.current) return;
-    toast.info("Gerando PDF...");
-    try {
-      const canvas = await html2canvas(reportsRef.current, {
-        backgroundColor: "#0d0f14",
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let yOffset = 10;
-      if (imgHeight <= pageHeight - 20) {
-        pdf.addImage(imgData, "PNG", 10, yOffset, imgWidth, imgHeight);
-      } else {
-        // Multi-page
-        const pageImgHeight = pageHeight - 20;
-        const totalPages = Math.ceil(imgHeight / pageImgHeight);
-        for (let p = 0; p < totalPages; p++) {
-          if (p > 0) pdf.addPage();
-          const sy = (p * pageImgHeight * canvas.width) / imgWidth;
-          const sh = Math.min((pageImgHeight * canvas.width) / imgWidth, canvas.height - sy);
-          const sliceCanvas = document.createElement("canvas");
-          sliceCanvas.width = canvas.width;
-          sliceCanvas.height = sh;
-          const ctx = sliceCanvas.getContext("2d")!;
-          ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
-          const sliceImg = sliceCanvas.toDataURL("image/png");
-          const sliceHeight = (sh * imgWidth) / canvas.width;
-          pdf.addImage(sliceImg, "PNG", 10, 10, imgWidth, sliceHeight);
-        }
-      }
-
-      pdf.save(`relatorio-financeiro-${format(new Date(), "yyyy-MM-dd")}.pdf`);
-      toast.success("PDF exportado com sucesso!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro ao gerar PDF");
-    }
-  }, []);
+  
 
   const CHART_COLORS = [
     "hsl(192, 95%, 55%)", "hsl(270, 80%, 62%)", "hsl(160, 85%, 45%)", 
@@ -550,6 +505,138 @@ const Financial = () => {
     };
   }, [invoices, contracts, dashboardPeriod]);
 
+  const exportReportsPDF = useCallback(async () => {
+    if (!reportsRef.current) return;
+    toast.info("Gerando PDF...");
+    try {
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // --- Page 1: Executive Summary ---
+      const now = new Date();
+      pdf.setFontSize(18);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text("Relatório Financeiro — Resumo Executivo", 15, 20);
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(`Gerado em ${format(now, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 15, 27);
+
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(15, 30, pageWidth - 15, 30);
+
+      let y = 38;
+      pdf.setFontSize(12);
+      pdf.setTextColor(30, 30, 30);
+      pdf.text("Indicadores-Chave (KPIs)", 15, y);
+      y += 8;
+
+      const kpis = [
+        { label: "Taxa de Inadimplência", value: `${executiveDashboard.defaultRate.toFixed(1)}%`, detail: `${formatCurrency(executiveDashboard.totalOverdueAmt)} vencido` },
+        { label: "Taxa de Recebimento", value: `${executiveDashboard.collectionRate.toFixed(1)}%`, detail: `${formatCurrency(executiveDashboard.totalCollected)} de ${formatCurrency(executiveDashboard.totalBilled)}` },
+        { label: "Ticket Médio", value: formatCurrency(executiveDashboard.avgTicket), detail: "por fatura paga" },
+        { label: "Contratos Ativos", value: `${executiveDashboard.activeContractsCount}`, detail: `${formatCurrency(executiveDashboard.activeContractsValue)} em valor total` },
+        { label: "Faturas em Aberto", value: `${executiveDashboard.pendingCount}`, detail: "pendentes + vencidas" },
+        { label: "Prazo Médio de Recebimento", value: executiveDashboard.avgDaysToReceive !== null ? `${executiveDashboard.avgDaysToReceive.toFixed(0)} dias` : "—", detail: "após vencimento" },
+        { label: "Total Faturado", value: formatCurrency(executiveDashboard.totalBilled), detail: executiveDashboard.periodLabel },
+        { label: "Total Recebido", value: formatCurrency(executiveDashboard.totalCollected), detail: executiveDashboard.periodLabel },
+      ];
+
+      pdf.setFontSize(10);
+      const colWidth = (pageWidth - 30) / 2;
+      kpis.forEach((kpi, i) => {
+        const col = i % 2;
+        const x = 15 + col * colWidth;
+        if (col === 0 && i > 0) y += 14;
+        pdf.setTextColor(80, 80, 80);
+        pdf.text(kpi.label, x, y);
+        pdf.setTextColor(30, 30, 30);
+        pdf.setFont(undefined!, "bold");
+        pdf.text(kpi.value, x + 70, y);
+        pdf.setFont(undefined!, "normal");
+        pdf.setTextColor(140, 140, 140);
+        pdf.setFontSize(8);
+        pdf.text(kpi.detail, x + 70, y + 4);
+        pdf.setFontSize(10);
+      });
+
+      y += 22;
+      if (executiveDashboard.defaultRate > 10) {
+        pdf.setFillColor(255, 240, 240);
+        pdf.roundedRect(15, y - 5, pageWidth - 30, 14, 2, 2, "F");
+        pdf.setTextColor(180, 30, 30);
+        pdf.setFontSize(10);
+        pdf.setFont(undefined!, "bold");
+        pdf.text(`⚠ ALERTA: Inadimplência em ${executiveDashboard.defaultRate.toFixed(1)}% — acima do limite de 10%`, 20, y + 3);
+        pdf.setFont(undefined!, "normal");
+        y += 18;
+      }
+
+      // Monthly comparison
+      if (monthlySummary && y + 40 < pageHeight - 15) {
+        pdf.setFontSize(12);
+        pdf.setTextColor(30, 30, 30);
+        pdf.text(`Comparativo: ${monthlySummary.curMonth} vs ${monthlySummary.prevMonth}`, 15, y);
+        y += 7;
+        pdf.setFontSize(9);
+        const tableHeaders = ["Indicador", "Atual", "Anterior", "Variação"];
+        const tColW = (pageWidth - 30) / tableHeaders.length;
+        pdf.setTextColor(100, 100, 100);
+        tableHeaders.forEach((h, i) => pdf.text(h, 15 + i * tColW, y));
+        y += 5;
+        pdf.setDrawColor(220, 220, 220);
+        pdf.line(15, y - 1, pageWidth - 15, y - 1);
+        pdf.setTextColor(50, 50, 50);
+        monthlySummary.items.forEach((item: any) => {
+          const curStr = item.isCount ? `${item.cur}` : formatCurrency(item.cur);
+          const prevStr = item.isCount ? `${item.prev}` : formatCurrency(item.prev);
+          const deltaStr = `${item.delta >= 0 ? "+" : ""}${item.delta.toFixed(1)}%`;
+          [item.label, curStr, prevStr, deltaStr].forEach((cell, i) => pdf.text(cell, 15 + i * tColW, y));
+          y += 5;
+        });
+      }
+
+      // --- Page 2+: Chart screenshots ---
+      pdf.addPage();
+      const canvas = await html2canvas(reportsRef.current, {
+        backgroundColor: "#0d0f14",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = pageWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight <= pageHeight - 20) {
+        pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+      } else {
+        const pageImgHeight = pageHeight - 20;
+        const totalPages = Math.ceil(imgHeight / pageImgHeight);
+        for (let p = 0; p < totalPages; p++) {
+          if (p > 0) pdf.addPage();
+          const sy = (p * pageImgHeight * canvas.width) / imgWidth;
+          const sh = Math.min((pageImgHeight * canvas.width) / imgWidth, canvas.height - sy);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sh;
+          const ctx = sliceCanvas.getContext("2d")!;
+          ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+          const sliceImg = sliceCanvas.toDataURL("image/png");
+          const sliceHeight = (sh * imgWidth) / canvas.width;
+          pdf.addImage(sliceImg, "PNG", 10, 10, imgWidth, sliceHeight);
+        }
+      }
+
+      pdf.save(`relatorio-financeiro-${format(now, "yyyy-MM-dd")}.pdf`);
+      toast.success("PDF exportado com sucesso!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao gerar PDF");
+    }
+  }, [executiveDashboard, monthlySummary]);
+
   // CSV export helpers
   const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
     const bom = "\uFEFF";
@@ -734,6 +821,29 @@ const Financial = () => {
                   + {dueSoonInvoices.length - 5} fatura{dueSoonInvoices.length - 5 > 1 ? "s" : ""} a vencer
                 </p>
               )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* High Default Rate Alert Banner */}
+      {executiveDashboard.defaultRate > 10 && (
+        <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.28 }}>
+          <div className="rounded-xl border border-destructive/40 bg-destructive/8 p-5 flex items-start gap-4">
+            <div className="rounded-full bg-destructive/15 p-2.5 shrink-0">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-body font-semibold text-destructive mb-1">
+                Alerta: Taxa de inadimplência em {executiveDashboard.defaultRate.toFixed(1)}%
+              </h3>
+              <p className="text-body-sm text-muted-foreground">
+                A inadimplência ultrapassou o limite de 10%. Atualmente há{" "}
+                <span className="font-semibold text-foreground">{formatCurrency(executiveDashboard.totalOverdueAmt)}</span>{" "}
+                em faturas vencidas de um total de{" "}
+                <span className="font-semibold text-foreground">{formatCurrency(executiveDashboard.totalBilled)}</span>{" "}
+                faturado. Recomenda-se revisar as cobranças pendentes e entrar em contato com os clientes inadimplentes.
+              </p>
             </div>
           </div>
         </motion.div>
