@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Mail, Lock, User } from "lucide-react";
 import heroImage from "@/assets/hero-bg.jpg";
 
 type AuthMode = "login" | "register" | "forgot";
@@ -22,125 +24,148 @@ const Auth = () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      navigate("/dashboard");
-    }
+    if (error) toast.error(error.message);
+    else navigate("/dashboard");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: fullName },
-      },
+      email, password,
+      options: { emailRedirectTo: window.location.origin, data: { full_name: fullName } },
     });
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Conta criada! Verifique seu e-mail para confirmar.");
-      setMode("login");
-    }
+    if (error) toast.error(error.message);
+    else { toast.success("Conta criada! Verifique seu e-mail."); setMode("login"); }
   };
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("E-mail de recuperação enviado!");
-      setMode("login");
-    }
+    if (error) toast.error(error.message);
+    else { toast.success("E-mail de recuperação enviado!"); setMode("login"); }
   };
 
   const onSubmit = mode === "login" ? handleLogin : mode === "register" ? handleRegister : handleForgot;
 
   return (
     <div className="flex min-h-screen">
-      {/* Left side - branding */}
-      <div
-        className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative"
-        style={{ backgroundImage: `url(${heroImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
-      >
-        <div className="absolute inset-0 bg-neutral-900/70" />
-        <div className="relative z-10 text-center max-w-md">
-          <LexLogo size="lg" className="justify-center mb-8" />
-          <p className="text-body-lg text-neutral-300">
-            Plataforma jurídica inteligente com IA avançada para transformar a gestão do seu escritório.
-          </p>
+      {/* Left - immersive branding */}
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
+        <img src={heroImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0" style={{ background: "var(--gradient-hero)" }} />
+        <div className="absolute inset-0 dot-grid opacity-20" />
+
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
+          <LexLogo size="lg" />
+
+          <div className="max-w-lg">
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="text-display-xl text-foreground mb-6"
+            >
+              Inteligência jurídica de{" "}
+              <span className="gradient-text">próxima geração</span>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="text-body-lg text-muted-foreground"
+            >
+              IA avançada, automação e agentes inteligentes para transformar a gestão do seu escritório.
+            </motion.p>
+          </div>
+
+          <div className="flex gap-8 text-sm text-muted-foreground">
+            <div><span className="text-display-md gradient-text block">99.9%</span>Uptime</div>
+            <div><span className="text-display-md gradient-text-accent block">500+</span>Escritórios</div>
+            <div><span className="text-display-md gradient-text block">50k+</span>Processos</div>
+          </div>
         </div>
       </div>
 
-      {/* Right side - form */}
-      <div className="flex flex-1 flex-col justify-center items-center px-6 py-12 bg-background">
+      {/* Right - form */}
+      <div className="flex flex-1 flex-col justify-center items-center px-8 py-12 bg-background">
         <div className="w-full max-w-sm">
-          <div className="lg:hidden mb-8 flex justify-center">
+          <div className="lg:hidden mb-10 flex justify-center">
             <LexLogo size="md" />
           </div>
 
-          <h2 className="text-display-md mb-2">
-            {mode === "login" ? "Entrar" : mode === "register" ? "Criar conta" : "Recuperar senha"}
-          </h2>
-          <p className="text-body-sm text-muted-foreground mb-8">
-            {mode === "login"
-              ? "Acesse sua conta LexIA"
-              : mode === "register"
-              ? "Crie sua conta para começar"
-              : "Enviaremos um link de recuperação"}
-          </p>
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            {mode === "register" && (
-              <div>
-                <label className="text-label block mb-1.5">Nome completo</label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome" required />
-              </div>
-            )}
-            <div>
-              <label className="text-label block mb-1.5">E-mail</label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" required />
-            </div>
-            {mode !== "forgot" && (
-              <div>
-                <label className="text-label block mb-1.5">Senha</label>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
-              </div>
-            )}
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Carregando..." : mode === "login" ? "Entrar" : mode === "register" ? "Criar conta" : "Enviar link"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center space-y-2">
-            {mode === "login" && (
-              <>
-                <button onClick={() => setMode("forgot")} className="text-body-sm text-primary hover:underline block w-full">
-                  Esqueceu a senha?
-                </button>
-                <p className="text-body-sm text-muted-foreground">
-                  Não tem conta?{" "}
-                  <button onClick={() => setMode("register")} className="text-primary hover:underline">Criar conta</button>
-                </p>
-              </>
-            )}
-            {mode !== "login" && (
-              <p className="text-body-sm text-muted-foreground">
-                Já tem conta?{" "}
-                <button onClick={() => setMode("login")} className="text-primary hover:underline">Entrar</button>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-display-lg mb-1">
+                {mode === "login" ? "Bem-vindo de volta" : mode === "register" ? "Criar conta" : "Recuperar senha"}
+              </h2>
+              <p className="text-body-sm text-muted-foreground mb-8">
+                {mode === "login" ? "Acesse sua conta LexIA" : mode === "register" ? "Comece a transformar sua gestão jurídica" : "Enviaremos um link de recuperação"}
               </p>
-            )}
-          </div>
+
+              <form onSubmit={onSubmit} className="space-y-4">
+                {mode === "register" && (
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome completo" className="pl-10 h-12 rounded-xl bg-muted border-border" required />
+                  </div>
+                )}
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" className="pl-10 h-12 rounded-xl bg-muted border-border" required />
+                </div>
+                {mode !== "forgot" && (
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pl-10 h-12 rounded-xl bg-muted border-border" required minLength={6} />
+                  </div>
+                )}
+                <Button type="submit" variant="hero" className="w-full h-12 rounded-xl text-base" disabled={loading}>
+                  {loading ? (
+                    <div className="flex gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground animate-pulse-glow" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground animate-pulse-glow" style={{ animationDelay: "150ms" }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground animate-pulse-glow" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  ) : (
+                    <>
+                      {mode === "login" ? "Entrar" : mode === "register" ? "Criar conta" : "Enviar link"}
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </form>
+
+              <div className="mt-6 text-center space-y-2">
+                {mode === "login" && (
+                  <>
+                    <button onClick={() => setMode("forgot")} className="text-body-sm text-muted-foreground hover:text-primary transition-colors block w-full">
+                      Esqueceu a senha?
+                    </button>
+                    <p className="text-body-sm text-muted-foreground">
+                      Não tem conta?{" "}
+                      <button onClick={() => setMode("register")} className="text-primary font-semibold hover:underline">Criar conta</button>
+                    </p>
+                  </>
+                )}
+                {mode !== "login" && (
+                  <p className="text-body-sm text-muted-foreground">
+                    Já tem conta?{" "}
+                    <button onClick={() => setMode("login")} className="text-primary font-semibold hover:underline">Entrar</button>
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </div>

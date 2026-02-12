@@ -3,29 +3,25 @@ import { cva, type VariantProps } from "class-variance-authority";
 import React from "react";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors",
   {
     variants: {
       variant: {
-        default: "bg-primary/10 text-primary border border-primary/20",
-        secondary: "bg-secondary/10 text-secondary border border-secondary/20",
-        success: "bg-success/10 text-success border border-success/20",
-        warning: "bg-warning/10 text-warning border border-warning/20",
-        destructive: "bg-destructive/10 text-destructive border border-destructive/20",
-        info: "bg-info/10 text-info border border-info/20",
-        outline: "border border-border text-foreground",
-        ai: "bg-gradient-to-r from-secondary/10 to-primary/10 text-secondary border border-secondary/20",
+        default: "bg-primary/15 text-primary border border-primary/25",
+        secondary: "bg-secondary/15 text-secondary border border-secondary/25",
+        success: "bg-success/15 text-success border border-success/25",
+        warning: "bg-warning/15 text-warning border border-warning/25",
+        destructive: "bg-destructive/15 text-destructive border border-destructive/25",
+        info: "bg-info/15 text-info border border-info/25",
+        outline: "border border-border text-muted-foreground",
+        ai: "bg-gradient-to-r from-secondary/15 to-primary/15 text-primary border border-primary/20",
       },
     },
-    defaultVariants: {
-      variant: "default",
-    },
+    defaultVariants: { variant: "default" },
   }
 );
 
-export interface LexBadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+export interface LexBadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
 const LexBadge = React.forwardRef<HTMLDivElement, LexBadgeProps>(
   ({ className, variant, ...props }, ref) => (
