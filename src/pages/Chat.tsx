@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LexBadge } from "@/components/lexia/LexBadge";
@@ -12,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const Chat = () => {
   const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const [conversationId] = useState(() => crypto.randomUUID());
@@ -33,7 +35,7 @@ const Chat = () => {
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
-      const { error: insertError } = await supabase.from("chat_messages").insert({ user_id: user!.id, conversation_id: conversationId, role: "user", content });
+      const { error: insertError } = await supabase.from("chat_messages").insert({ user_id: user!.id, conversation_id: conversationId, role: "user", content, organization_id: activeOrgId } as any);
       if (insertError) throw insertError;
       await queryClient.invalidateQueries({ queryKey: ["chat-messages", conversationId] });
 
@@ -46,7 +48,7 @@ const Chat = () => {
       if (fnError) throw fnError;
 
       const aiContent = fnData?.content || "Desculpe, não consegui processar sua solicitação.";
-      const { error: aiInsertError } = await supabase.from("chat_messages").insert({ user_id: user!.id, conversation_id: conversationId, role: "assistant", content: aiContent });
+      const { error: aiInsertError } = await supabase.from("chat_messages").insert({ user_id: user!.id, conversation_id: conversationId, role: "assistant", content: aiContent, organization_id: activeOrgId } as any);
       if (aiInsertError) throw aiInsertError;
       await queryClient.invalidateQueries({ queryKey: ["chat-messages", conversationId] });
     },

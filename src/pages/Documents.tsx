@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ const formatFileSize = (bytes: number | null) => {
 
 const Documents = () => {
   const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
@@ -94,7 +96,8 @@ const Documents = () => {
     setUploading(true);
     try {
       const ext = uploadFile.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
+      const orgPath = activeOrgId || user.id;
+      const path = `${orgPath}/${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("documents").upload(path, uploadFile);
       if (upErr) throw upErr;
 
@@ -103,14 +106,15 @@ const Documents = () => {
 
       const { error: dbErr } = await supabase.from("documents").insert({
         user_id: user.id,
+        organization_id: activeOrgId,
         file_name: uploadFile.name,
-        file_url: path, // store path, not signed URL
+        file_url: path,
         file_size: uploadFile.size,
         file_type: uploadFile.type,
         category: uploadCategory,
         process_id: uploadProcessId === "none" ? null : uploadProcessId,
         notes: uploadNotes || null,
-      });
+      } as any);
       if (dbErr) throw dbErr;
 
       queryClient.invalidateQueries({ queryKey: ["documents"] });
