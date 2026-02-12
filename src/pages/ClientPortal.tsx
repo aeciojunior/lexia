@@ -10,7 +10,7 @@ import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink,
+  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink, ScrollText, CalendarDays,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -98,6 +98,20 @@ const ClientPortal = () => {
       const { data, error } = await supabase
         .from("payments" as any)
         .select("*, invoices(description, amount_cents)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // Fetch contracts (RLS: clients can view own contracts)
+  const { data: contracts = [], isLoading: loadingContracts } = useQuery({
+    queryKey: ["client-contracts", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contracts" as any)
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data as any[]) || [];
@@ -226,6 +240,7 @@ const ClientPortal = () => {
                 <TabsList>
                   <TabsTrigger value="invoices" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Faturas</TabsTrigger>
                   <TabsTrigger value="payments" className="gap-1.5"><History className="h-3.5 w-3.5" /> Pagamentos</TabsTrigger>
+                  <TabsTrigger value="contracts" className="gap-1.5"><ScrollText className="h-3.5 w-3.5" /> Contratos</TabsTrigger>
                 </TabsList>
               </div>
             </LexCardHeader>
@@ -374,6 +389,69 @@ const ClientPortal = () => {
                             </span>
                           )}
                         </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Contracts Tab */}
+            <TabsContent value="contracts">
+              {loadingContracts ? (
+                <div className="py-12 text-center">
+                  <div className="flex gap-1.5 justify-center mb-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-secondary animate-pulse-glow" style={{ animationDelay: "200ms" }} />
+                  </div>
+                </div>
+              ) : contracts.length === 0 ? (
+                <div className="py-12 text-center">
+                  <ScrollText className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                  <p className="text-body-sm text-muted-foreground">Nenhum contrato encontrado.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {contracts.map((c: any, i: number) => {
+                    const contractStatusLabels: Record<string, string> = { active: "Ativo", draft: "Rascunho", expired: "Expirado", cancelled: "Cancelado", suspended: "Suspenso" };
+                    const contractStatusVariant: Record<string, string> = { active: "success", draft: "default", expired: "warning", cancelled: "destructive", suspended: "secondary" };
+                    const contractTypeLabels: Record<string, string> = { service: "Serviço", retainer: "Honorário Fixo", hourly: "Por Hora", contingency: "Êxito", other: "Outro" };
+                    const periodicityLabels: Record<string, string> = { monthly: "Mensal", quarterly: "Trimestral", yearly: "Anual", once: "Único" };
+                    return (
+                      <motion.div
+                        key={c.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl border shrink-0 ${
+                            c.status === "active" ? "bg-success/10 border-success/20" : "bg-muted border-border"
+                          }`}>
+                            <ScrollText className={`h-5 w-5 ${c.status === "active" ? "text-success" : "text-muted-foreground"}`} />
+                          </div>
+                          <div>
+                            <p className="text-body-sm font-medium">{c.title}</p>
+                            <p className="text-caption text-muted-foreground">
+                              {contractTypeLabels[c.contract_type] || c.contract_type}
+                              {" • "}
+                              {formatCurrency(c.amount_cents)}
+                              {c.periodicity && ` / ${periodicityLabels[c.periodicity] || c.periodicity}`}
+                            </p>
+                            {(c.start_date || c.end_date) && (
+                              <p className="text-caption text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <CalendarDays className="h-3 w-3" />
+                                {c.start_date ? new Date(c.start_date).toLocaleDateString("pt-BR") : "—"}
+                                {" → "}
+                                {c.end_date ? new Date(c.end_date).toLocaleDateString("pt-BR") : "Indeterminado"}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <LexBadge variant={contractStatusVariant[c.status] as any || "default"}>
+                          {contractStatusLabels[c.status] || c.status}
+                        </LexBadge>
                       </motion.div>
                     );
                   })}
