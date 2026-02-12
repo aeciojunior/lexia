@@ -445,6 +445,60 @@ export type Database = {
           },
         ]
       }
+      court_integrations: {
+        Row: {
+          court_process_id: string | null
+          court_system: string
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          organization_id: string
+          process_id: string
+          status: string
+          sync_config: Json | null
+          updated_at: string
+        }
+        Insert: {
+          court_process_id?: string | null
+          court_system?: string
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          organization_id: string
+          process_id: string
+          status?: string
+          sync_config?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          court_process_id?: string | null
+          court_system?: string
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          organization_id?: string
+          process_id?: string
+          status?: string
+          sync_config?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "court_integrations_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deadlines: {
         Row: {
           created_at: string
@@ -504,6 +558,91 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_template_versions: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          template_id: string
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          template_id: string
+          version: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          template_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_templates: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          organization_id: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          organization_id: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          organization_id?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -578,6 +717,69 @@ export type Database = {
           },
         ]
       }
+      hearings: {
+        Row: {
+          created_at: string
+          hearing_date: string
+          hearing_type: string
+          id: string
+          location: string
+          notes: string | null
+          organization_id: string
+          process_id: string
+          responsible_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          video_link: string | null
+        }
+        Insert: {
+          created_at?: string
+          hearing_date: string
+          hearing_type?: string
+          id?: string
+          location: string
+          notes?: string | null
+          organization_id: string
+          process_id: string
+          responsible_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          video_link?: string | null
+        }
+        Update: {
+          created_at?: string
+          hearing_date?: string
+          hearing_type?: string
+          id?: string
+          location?: string
+          notes?: string | null
+          organization_id?: string
+          process_id?: string
+          responsible_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          video_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hearings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hearings_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount_cents: number
@@ -637,6 +839,71 @@ export type Database = {
           },
           {
             foreignKeyName: "invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_references: {
+        Row: {
+          category: string | null
+          content: string | null
+          court: string | null
+          created_at: string
+          decision_date: string | null
+          folder: string | null
+          id: string
+          is_favorite: boolean
+          notes: string | null
+          organization_id: string
+          reference_type: string
+          source: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          court?: string | null
+          created_at?: string
+          decision_date?: string | null
+          folder?: string | null
+          id?: string
+          is_favorite?: boolean
+          notes?: string | null
+          organization_id: string
+          reference_type?: string
+          source?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          court?: string | null
+          created_at?: string
+          decision_date?: string | null
+          folder?: string | null
+          id?: string
+          is_favorite?: boolean
+          notes?: string | null
+          organization_id?: string
+          reference_type?: string
+          source?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_references_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -827,6 +1094,124 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_chat_messages: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string | null
+          content: string
+          created_at: string
+          id: string
+          organization_id: string
+          parent_id: string | null
+          process_id: string
+          user_id: string
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          parent_id?: string | null
+          process_id: string
+          user_id: string
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          parent_id?: string | null
+          process_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_chat_messages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "process_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_chat_messages_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_movements: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          movement_date: string
+          movement_type: string
+          organization_id: string
+          origin: string
+          process_id: string
+          responsible_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          movement_date?: string
+          movement_type?: string
+          organization_id: string
+          origin?: string
+          process_id: string
+          responsible_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          movement_date?: string
+          movement_type?: string
+          organization_id?: string
+          origin?: string
+          process_id?: string
+          responsible_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_movements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_movements_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
             referencedColumns: ["id"]
           },
         ]
