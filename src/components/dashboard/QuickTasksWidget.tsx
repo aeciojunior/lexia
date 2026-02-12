@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -511,6 +512,20 @@ const QuickTasksWidget = () => {
     enabled: !!user && !!activeOrgId,
   });
 
+  // Helper to send assignment notification
+  const sendAssignmentNotification = useCallback(async (assignedTo: string, taskTitle: string) => {
+    if (!assignedTo || assignedTo === user?.id || !activeOrgId) return;
+    const assignerName = orgMembers.find(m => m.user_id === user?.id)?.full_name || "Alguém";
+    await supabase.from("notifications").insert({
+      user_id: assignedTo,
+      organization_id: activeOrgId,
+      type: "task_assigned",
+      title: "Tarefa atribuída a você",
+      message: `${assignerName} atribuiu a tarefa "${taskTitle}" a você.`,
+      resource_type: "quick_task",
+    });
+  }, [user?.id, activeOrgId, orgMembers]);
+
   const addTask = useMutation({
     mutationFn: async ({ title, priority, due_date, assigned_to }: { title: string; priority: Priority; due_date?: string | null; assigned_to?: string | null }) => {
       const maxPos = quickTasks.length > 0 ? Math.max(...quickTasks.map(t => t.position || 0)) + 1 : 0;
@@ -520,6 +535,9 @@ const QuickTasksWidget = () => {
         user_id: user!.id, organization_id: activeOrgId!,
       } as any);
       if (error) throw error;
+      if (assigned_to && assigned_to !== user!.id) {
+        await sendAssignmentNotification(assigned_to, title);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
   });
@@ -534,12 +552,18 @@ const QuickTasksWidget = () => {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string }) => {
-      // If status changed to done, also set done=true; if not done, set done=false
       const payload: any = { ...updates };
       if (updates.status === "done") payload.done = true;
       else if (updates.status) payload.done = false;
       const { error } = await supabase.from("quick_tasks" as any).update(payload).eq("id", id);
       if (error) throw error;
+      // Send notification if assigned_to changed
+      if (updates.assigned_to && updates.assigned_to !== user!.id) {
+        const task = quickTasks.find(t => t.id === id);
+        if (task && task.assigned_to !== updates.assigned_to) {
+          await sendAssignmentNotification(updates.assigned_to, task.title);
+        }
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
   });
@@ -602,11 +626,59 @@ const QuickTasksWidget = () => {
     }
   };
 
+  const todoCount = quickTasks.filter(t => t.status === "todo").length;
+  const inProgressCount = quickTasks.filter(t => t.status === "in_progress").length;
   const doneCount = quickTasks.filter(t => t.status === "done").length;
 
   const handleStatusChange = (id: string, status: TaskStatus) => {
     updateTask.mutate({ id, status });
   };
+
+  // Realtime: listen for tasks assigned to me
+  useEffect(() => {
+    if (!user?.id || !activeOrgId) return;
+    const channel = supabase
+      .channel("quick-tasks-assigned")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "quick_tasks",
+          filter: `assigned_to=eq.${user.id}`,
+        },
+        (payload) => {
+          const newRow = payload.new as any;
+          const oldRow = payload.old as any;
+          if (oldRow.assigned_to !== newRow.assigned_to && newRow.assigned_to === user.id) {
+            toast.info("Nova tarefa atribuída a você", {
+              description: newRow.title,
+            });
+            queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "quick_tasks",
+          filter: `assigned_to=eq.${user.id}`,
+        },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (newRow.user_id !== user.id) {
+            toast.info("Nova tarefa atribuída a você", {
+              description: newRow.title,
+            });
+            queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] });
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, activeOrgId, queryClient]);
 
   return (
     <LexCard hover={false}>
@@ -615,9 +687,11 @@ const QuickTasksWidget = () => {
           <ListTodo className="h-4 w-4 text-primary" /> Tarefas Rápidas
         </LexCardTitle>
         <div className="flex items-center gap-2">
-          <span className="text-caption text-muted-foreground">
-            {doneCount}/{quickTasks.length} concluídas
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5">{todoCount} a fazer</span>
+            <span className="text-[10px] text-warning bg-warning/10 rounded px-1.5 py-0.5">{inProgressCount} em prog.</span>
+            <span className="text-[10px] text-accent bg-accent/10 rounded px-1.5 py-0.5">{doneCount} feitas</span>
+          </div>
           {/* View toggle */}
           <div className="flex items-center border border-border rounded-md">
             <Button
