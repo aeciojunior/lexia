@@ -28,6 +28,8 @@ import Settings from "./pages/Settings";
 import ResetPassword from "./pages/ResetPassword";
 import Timesheet from "./pages/Timesheet";
 import Hearings from "./pages/Hearings";
+import Movements from "./pages/Movements";
+import DocumentTemplates from "./pages/DocumentTemplates";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -58,6 +60,8 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/timesheet" element={<Timesheet />} />
               <Route path="/hearings" element={<Hearings />} />
+              <Route path="/movements" element={<Movements />} />
+              <Route path="/templates" element={<DocumentTemplates />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

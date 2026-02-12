@@ -1,4 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import ProcessMovements from "@/components/process/ProcessMovements";
+import ProcessChat from "@/components/process/ProcessChat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1183,6 +1185,12 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
 
       {/* Linked Documents */}
       <LinkedDocsSection docs={linkedDocs} loading={docsLoading} processId={process.id} />
+
+      {/* Movimentações */}
+      <ProcessMovements processId={process.id} />
+
+      {/* Chat */}
+      <ProcessChat processId={process.id} />
     </div>
   );
 };
