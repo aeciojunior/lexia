@@ -1,97 +1,192 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
+import { usePermissions } from "@/hooks/usePermissions";
+import { usePlanLimits, PLAN_LABELS } from "@/hooks/usePlanLimits";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { RiskIndicator } from "@/components/lexia/LegalComponents";
-import { Scale, AlertTriangle, CheckCircle, MessageSquare, TrendingUp, ArrowRight, Sparkles } from "lucide-react";
+import {
+  Scale, AlertTriangle, CheckCircle, MessageSquare, TrendingUp, ArrowRight,
+  Sparkles, CalendarDays, FileText, Users, DollarSign, Clock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { format, differenceInDays, isPast, isToday } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+const anim = (delay: number) => ({
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  transition: { delay, duration: 0.4 },
+});
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
+  const { hasPermission, isClient } = usePermissions();
+  const { plan, limits, isPro } = usePlanLimits();
   const navigate = useNavigate();
 
-  const { data: processes = [] } = useQuery({
-    queryKey: ["processes-summary"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("processes").select("*").eq("archived", false).order("created_at", { ascending: false }).limit(5);
-      if (error) throw error;
-      return data;
-    },
-  });
-
+  // === Processes ===
   const { data: allProcesses = [] } = useQuery({
-    queryKey: ["processes-stats"],
+    queryKey: ["dash-processes", activeOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("processes").select("status, risk_level, archived");
+      const { data, error } = await supabase.from("processes").select("id, status, risk_level, archived, title, number, client_name, created_at").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!activeOrgId,
   });
 
-  const active = allProcesses.filter((p) => p.status === "active" && !p.archived).length;
-  const highRisk = allProcesses.filter((p) => (p.risk_level === "high" || p.risk_level === "critical") && !p.archived).length;
-  const closed = allProcesses.filter((p) => p.status === "closed").length;
-  const total = allProcesses.filter((p) => !p.archived).length;
+  // === Deadlines ===
+  const { data: deadlines = [] } = useQuery({
+    queryKey: ["dash-deadlines", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("deadlines").select("id, title, due_date, status, priority").neq("status", "done").order("due_date", { ascending: true }).limit(5);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // === Documents count ===
+  const { data: docCount = 0 } = useQuery({
+    queryKey: ["dash-doc-count", activeOrgId],
+    queryFn: async () => {
+      const { count, error } = await supabase.from("documents").select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // === Members count ===
+  const { data: memberCount = 0 } = useQuery({
+    queryKey: ["dash-member-count", activeOrgId],
+    queryFn: async () => {
+      const { count, error } = await supabase.from("user_organizations").select("id", { count: "exact", head: true }).eq("organization_id", activeOrgId!);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // === Financial summary (if allowed) ===
+  const canViewFinancial = hasPermission("VIEW_FINANCIAL");
+  const { data: financialSummary } = useQuery({
+    queryKey: ["dash-financial", activeOrgId],
+    queryFn: async () => {
+      const { data: invoices, error } = await supabase.from("invoices").select("amount_cents, status");
+      if (error) throw error;
+      const total = invoices?.reduce((sum, i) => sum + (i.amount_cents || 0), 0) || 0;
+      const pending = invoices?.filter(i => i.status === "pending" || i.status === "draft").reduce((sum, i) => sum + (i.amount_cents || 0), 0) || 0;
+      const paid = invoices?.filter(i => i.status === "paid").reduce((sum, i) => sum + (i.amount_cents || 0), 0) || 0;
+      return { total, pending, paid, count: invoices?.length || 0 };
+    },
+    enabled: !!activeOrgId && canViewFinancial,
+  });
+
+  // Process stats
+  const activeProcesses = allProcesses.filter(p => !p.archived);
+  const active = activeProcesses.filter(p => p.status === "active").length;
+  const highRisk = activeProcesses.filter(p => p.risk_level === "high" || p.risk_level === "critical").length;
+  const closed = allProcesses.filter(p => p.status === "closed").length;
+  const recentProcesses = activeProcesses.slice(0, 5);
+
+  // Deadline stats
+  const overdueCount = deadlines.filter(d => isPast(new Date(d.due_date)) && !isToday(new Date(d.due_date))).length;
+  const todayCount = deadlines.filter(d => isToday(new Date(d.due_date))).length;
+
+  const formatCurrency = (cents: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
   const kpis = [
-    { label: "Ativos", value: active, icon: Scale, gradient: "from-primary/20 to-primary/5", text: "text-primary", border: "border-primary/20" },
+    { label: "Processos Ativos", value: active, icon: Scale, gradient: "from-primary/20 to-primary/5", text: "text-primary", border: "border-primary/20" },
     { label: "Alto Risco", value: highRisk, icon: AlertTriangle, gradient: "from-destructive/20 to-destructive/5", text: "text-destructive", border: "border-destructive/20" },
-    { label: "Encerrados", value: closed, icon: CheckCircle, gradient: "from-success/20 to-success/5", text: "text-success", border: "border-success/20" },
-    { label: "Total", value: total, icon: TrendingUp, gradient: "from-secondary/20 to-secondary/5", text: "text-secondary", border: "border-secondary/20" },
+    { label: "Documentos", value: docCount, icon: FileText, gradient: "from-info/20 to-info/5", text: "text-info", border: "border-info/20" },
+    { label: "Membros", value: memberCount, icon: Users, gradient: "from-secondary/20 to-secondary/5", text: "text-secondary", border: "border-secondary/20" },
   ];
 
   const statusMap: Record<string, string> = { active: "Ativo", pending: "Pendente", closed: "Encerrado", suspended: "Suspenso" };
+  const priorityColors: Record<string, string> = { high: "text-destructive", medium: "text-warning", low: "text-muted-foreground", urgent: "text-destructive" };
+
+  if (isClient) {
+    navigate("/portal");
+    return null;
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <motion.div {...anim(0)}>
         <p className="text-overline text-primary mb-1">Dashboard</p>
         <h1 className="text-display-lg">
-          Olá, {user?.user_metadata?.full_name?.split(" ")[0] || "Advogado"} <span className="inline-block animate-float">👋</span>
+          Olá, {user?.user_metadata?.full_name?.split(" ")[0] || "Advogado"}{" "}
+          <span className="inline-block animate-float">👋</span>
         </h1>
-        <p className="text-body-sm text-muted-foreground mt-1">Visão geral dos seus processos e atividades</p>
+        <p className="text-body-sm text-muted-foreground mt-1">
+          Visão geral da organização • Plano{" "}
+          <span className="text-primary font-semibold">{PLAN_LABELS[plan]}</span>
+        </p>
       </motion.div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, i) => (
-          <motion.div
-            key={kpi.label}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1, duration: 0.4 }}
-          >
+          <motion.div key={kpi.label} {...anim(0.1 + i * 0.08)}>
             <div className={`rounded-xl border ${kpi.border} bg-gradient-to-br ${kpi.gradient} p-5 transition-all duration-normal hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] cursor-default group`}>
               <div className="flex items-center justify-between mb-3">
                 <kpi.icon className={`h-5 w-5 ${kpi.text} transition-transform duration-normal group-hover:scale-110`} />
                 <span className="text-overline text-muted-foreground">{kpi.label}</span>
               </div>
-              <p className={`text-display-lg ${kpi.text} transition-transform duration-normal group-hover:scale-105 origin-left`}>{kpi.value}</p>
+              <p className={`text-display-lg ${kpi.text}`}>{kpi.value}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
+      {/* Plan usage bar */}
+      {limits.maxProcesses !== Infinity && (
+        <motion.div {...anim(0.4)}>
+          <div className="flex items-center gap-4 rounded-xl border border-border bg-card/50 p-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between text-caption mb-1.5">
+                <span className="text-muted-foreground">Processos utilizados</span>
+                <span className="font-semibold">{activeProcesses.length} / {limits.maxProcesses}</span>
+              </div>
+              <Progress value={(activeProcesses.length / limits.maxProcesses) * 100} className="h-2" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between text-caption mb-1.5">
+                <span className="text-muted-foreground">Documentos utilizados</span>
+                <span className="font-semibold">{docCount} / {limits.maxDocuments}</span>
+              </div>
+              <Progress value={(docCount / limits.maxDocuments) * 100} className="h-2" />
+            </div>
+            {!isPro && (
+              <Button variant="outline" size="sm" onClick={() => navigate("/settings")} className="shrink-0">
+                Upgrade
+              </Button>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent processes */}
-        <motion.div
-          className="lg:col-span-2"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
-        >
-          <LexCard hover={false} variant="default">
+        <motion.div className="lg:col-span-2" {...anim(0.45)}>
+          <LexCard hover={false}>
             <LexCardHeader>
               <LexCardTitle>Processos Recentes</LexCardTitle>
               <Button variant="ghost" size="sm" onClick={() => navigate("/processes")} className="text-primary">
                 Ver todos <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </LexCardHeader>
-            {processes.length === 0 ? (
+            {recentProcesses.length === 0 ? (
               <div className="py-12 text-center">
                 <Scale className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-body-sm text-muted-foreground">Nenhum processo cadastrado ainda.</p>
@@ -104,18 +199,18 @@ const Dashboard = () => {
                 <table className="w-full text-body-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["Número", "Título", "Cliente", "Status", "Risco"].map((h) => (
+                      {["Número", "Título", "Cliente", "Status", "Risco"].map(h => (
                         <th key={h} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {processes.map((p, i) => (
+                    {recentProcesses.map((p, i) => (
                       <motion.tr
                         key={p.id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + i * 0.06, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ delay: 0.5 + i * 0.06, duration: 0.35 }}
                         className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
                         onClick={() => navigate("/processes")}
                       >
@@ -137,34 +232,119 @@ const Dashboard = () => {
           </LexCard>
         </motion.div>
 
-        {/* AI Chat widget */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.4 }}
-        >
-          <LexCard variant="ai" hover={false} className="flex flex-col h-full overflow-hidden">
-            {/* Ambient glow */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/10 rounded-full blur-3xl" />
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Upcoming deadlines */}
+          <motion.div {...anim(0.5)}>
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-warning" /> Prazos
+                </LexCardTitle>
+                <Button variant="ghost" size="sm" onClick={() => navigate("/deadlines")} className="text-primary">
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </LexCardHeader>
 
-            <LexCardHeader className="relative z-10">
-              <LexCardTitle className="gradient-text">LexIA Chat</LexCardTitle>
-              <LexBadge variant="ai"><span className="h-1.5 w-1.5 rounded-full bg-success mr-1.5 inline-block animate-pulse-glow" />Online</LexBadge>
-            </LexCardHeader>
-            <div className="flex-1 flex flex-col items-center justify-center py-6 text-center relative z-10">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-secondary/20 to-primary/20 border border-secondary/20 mb-4">
-                <Sparkles className="h-7 w-7 text-secondary animate-float" />
+              {overdueCount > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 mb-3">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                  <span className="text-caption text-destructive font-medium">
+                    {overdueCount} prazo{overdueCount > 1 ? "s" : ""} vencido{overdueCount > 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+
+              {deadlines.length === 0 ? (
+                <p className="text-caption text-muted-foreground text-center py-6">Sem prazos pendentes 🎉</p>
+              ) : (
+                <div className="space-y-2">
+                  {deadlines.map(d => {
+                    const due = new Date(d.due_date);
+                    const overdue = isPast(due) && !isToday(due);
+                    const today = isToday(due);
+                    const daysLeft = differenceInDays(due, new Date());
+                    return (
+                      <div
+                        key={d.id}
+                        className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors cursor-pointer hover:bg-muted/30 ${overdue ? "bg-destructive/5" : ""}`}
+                        onClick={() => navigate("/deadlines")}
+                      >
+                        <Clock className={`h-3.5 w-3.5 shrink-0 ${overdue ? "text-destructive" : today ? "text-warning" : "text-muted-foreground"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-caption font-medium truncate">{d.title}</p>
+                          <p className={`text-[10px] ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                            {overdue ? `Vencido há ${Math.abs(daysLeft)} dia(s)` : today ? "Vence hoje" : `${daysLeft} dia(s) restante(s)`}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-semibold ${priorityColors[d.priority] || "text-muted-foreground"}`}>
+                          {d.priority === "high" || d.priority === "urgent" ? "!" : ""}
+                          {format(due, "dd MMM", { locale: ptBR })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </LexCard>
+          </motion.div>
+
+          {/* Financial widget */}
+          {canViewFinancial && financialSummary && (
+            <motion.div {...anim(0.55)}>
+              <LexCard hover={false}>
+                <LexCardHeader>
+                  <LexCardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-accent" /> Financeiro
+                  </LexCardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/financial")} className="text-primary">
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </LexCardHeader>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-caption text-muted-foreground">Recebido</span>
+                    <span className="text-body-sm font-semibold text-success">{formatCurrency(financialSummary.paid)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-caption text-muted-foreground">Pendente</span>
+                    <span className="text-body-sm font-semibold text-warning">{formatCurrency(financialSummary.pending)}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between items-center">
+                    <span className="text-caption text-muted-foreground">Total ({financialSummary.count} faturas)</span>
+                    <span className="text-body-sm font-bold">{formatCurrency(financialSummary.total)}</span>
+                  </div>
+                </div>
+              </LexCard>
+            </motion.div>
+          )}
+
+          {/* AI Chat widget */}
+          <motion.div {...anim(0.6)}>
+            <LexCard variant="ai" hover={false} className="flex flex-col overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/10 rounded-full blur-3xl" />
+              <LexCardHeader className="relative z-10">
+                <LexCardTitle className="gradient-text">LexIA Chat</LexCardTitle>
+                <LexBadge variant="ai">
+                  <span className="h-1.5 w-1.5 rounded-full bg-success mr-1.5 inline-block animate-pulse-glow" />
+                  Online
+                </LexBadge>
+              </LexCardHeader>
+              <div className="flex-1 flex flex-col items-center justify-center py-6 text-center relative z-10">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-secondary/20 to-primary/20 border border-secondary/20 mb-4">
+                  <Sparkles className="h-6 w-6 text-secondary animate-float" />
+                </div>
+                <p className="text-caption text-muted-foreground mb-4 max-w-[200px]">
+                  Assistente jurídico com IA avançada
+                </p>
+                <Button variant="ai" size="sm" onClick={() => navigate("/chat")}>
+                  <MessageSquare className="h-4 w-4" /> Iniciar conversa
+                </Button>
               </div>
-              <p className="text-body-sm text-muted-foreground mb-5 max-w-[200px]">
-                Assistente jurídico com IA avançada pronto para ajudar.
-              </p>
-              <Button variant="ai" onClick={() => navigate("/chat")}>
-                <MessageSquare className="h-4 w-4" /> Iniciar conversa
-              </Button>
-            </div>
-          </LexCard>
-        </motion.div>
+            </LexCard>
+          </motion.div>
+        </div>
       </div>
     </div>
   );
