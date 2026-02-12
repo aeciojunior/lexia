@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -323,9 +323,90 @@ const CATEGORY_OPTIONS = [
   { value: "other", label: "Outro" },
 ];
 
-const LinkedDocsSection = ({ docs, loading }: { docs: any[]; loading: boolean }) => {
+const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading: boolean; processId: string }) => {
+  const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [docSearch, setDocSearch] = useState("");
   const [docCategory, setDocCategory] = useState("__all__");
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // Fetch unlinked docs for the link dialog
+  const { data: unlinkedDocs = [] } = useQuery({
+    queryKey: ["unlinked-docs-for-process", activeOrgId, linkSearch],
+    queryFn: async () => {
+      let q = supabase
+        .from("documents")
+        .select("id, file_name, file_type, file_size, created_at, category")
+        .is("process_id", null)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (linkSearch) q = q.ilike("file_name", `%${linkSearch}%`);
+      const { data } = await q;
+      return (data as any[]) || [];
+    },
+    enabled: showLinkDialog,
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      const { error } = await supabase.from("documents").update({ process_id: processId } as any).eq("id", docId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["process-linked-docs", processId] });
+      queryClient.invalidateQueries({ queryKey: ["unlinked-docs-for-process"] });
+      toast.success("Documento vinculado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      const { error } = await supabase.from("documents").update({ process_id: null } as any).eq("id", docId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["process-linked-docs", processId] });
+      toast.success("Documento desvinculado.");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const handleUpload = async (file: File) => {
+    if (!user) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const orgPath = activeOrgId || user.id;
+      const path = `${orgPath}/${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file);
+      if (upErr) throw upErr;
+
+      const { error: dbErr } = await supabase.from("documents").insert({
+        user_id: user.id,
+        organization_id: activeOrgId,
+        file_name: file.name,
+        file_url: path,
+        file_size: file.size,
+        file_type: file.type,
+        category: "other",
+        process_id: processId,
+      } as any);
+      if (dbErr) throw dbErr;
+
+      queryClient.invalidateQueries({ queryKey: ["process-linked-docs", processId] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      toast.success("Documento enviado e vinculado!");
+    } catch (err: any) {
+      toast.error("Erro ao enviar: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     return docs.filter((doc: any) => {
@@ -342,39 +423,71 @@ const LinkedDocsSection = ({ docs, loading }: { docs: any[]; loading: boolean })
           <FileText className="h-4 w-4 text-primary" />
           <span className="text-overline text-muted-foreground">Documentos vinculados</span>
         </div>
-        {docs.length > 0 && (
-          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
-            {filtered.length}/{docs.length} documento{docs.length !== 1 ? "s" : ""}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {docs.length > 0 && (
+            <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+              {filtered.length}/{docs.length}
+            </span>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Vincular documento existente" onClick={() => setShowLinkDialog(true)}>
+            <Link2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            title="Enviar novo documento"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-3.5 w-3.5" />
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleUpload(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
       </div>
+
       {loading ? (
         <p className="text-caption text-muted-foreground text-center py-4">Carregando documentos...</p>
-      ) : docs.length === 0 ? (
-        <p className="text-caption text-muted-foreground text-center py-4">Nenhum documento vinculado a este processo.</p>
+      ) : docs.length === 0 && !uploading ? (
+        <div className="text-center py-4">
+          <p className="text-caption text-muted-foreground mb-2">Nenhum documento vinculado.</p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setShowLinkDialog(true)}>
+              <Link2 className="h-3 w-3 mr-1" /> Vincular existente
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-3 w-3 mr-1" /> Enviar novo
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
-          <div className="flex gap-2 mb-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <Input
-                placeholder="Buscar documento..."
-                value={docSearch}
-                onChange={(e) => setDocSearch(e.target.value)}
-                className="h-7 text-xs pl-7"
-              />
+          {docs.length > 3 && (
+            <div className="flex gap-2 mb-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                <Input placeholder="Buscar documento..." value={docSearch} onChange={(e) => setDocSearch(e.target.value)} className="h-7 text-xs pl-7" />
+              </div>
+              <Select value={docCategory} onValueChange={setDocCategory}>
+                <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={docCategory} onValueChange={setDocCategory}>
-              <SelectTrigger className="h-7 text-xs w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORY_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          )}
+          {uploading && <p className="text-caption text-primary text-center py-2 animate-pulse">Enviando documento...</p>}
           {filtered.length === 0 ? (
             <p className="text-caption text-muted-foreground text-center py-3">Nenhum documento encontrado com os filtros aplicados.</p>
           ) : (
@@ -398,6 +511,15 @@ const LinkedDocsSection = ({ docs, loading }: { docs: any[]; loading: boolean })
                         <Download className="h-3 w-3" />
                       </Button>
                     </a>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0"
+                      title="Desvincular"
+                      onClick={() => unlinkMutation.mutate(doc.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 );
               })}
@@ -405,6 +527,44 @@ const LinkedDocsSection = ({ docs, loading }: { docs: any[]; loading: boolean })
           )}
         </>
       )}
+
+      {/* Link existing doc dialog */}
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader><DialogTitle className="text-display-sm">Vincular Documento</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar documentos não vinculados..."
+                value={linkSearch}
+                onChange={(e) => setLinkSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            {unlinkedDocs.length === 0 ? (
+              <p className="text-caption text-muted-foreground text-center py-6">Nenhum documento sem vínculo encontrado.</p>
+            ) : (
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {unlinkedDocs.map((doc: any) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => linkMutation.mutate(doc.id)}
+                  >
+                    <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="flex-1 text-caption truncate">{doc.file_name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
+                      {CATEGORY_OPTIONS.find((c) => c.value === doc.category)?.label || doc.category}
+                    </Badge>
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -520,7 +680,7 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
       </div>
 
       {/* Linked Documents */}
-      <LinkedDocsSection docs={linkedDocs} loading={docsLoading} />
+      <LinkedDocsSection docs={linkedDocs} loading={docsLoading} processId={process.id} />
     </div>
   );
 };
