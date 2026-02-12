@@ -140,16 +140,21 @@ const Organization = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete invite
+  // Revoke invite
   const deleteInviteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("organization_invites" as any).delete().eq("id", id);
+    mutationFn: async (invite: any) => {
+      const { data, error } = await supabase.functions.invoke("org-invites", {
+        body: { action: "revoke-invite", invite_id: invite.id, organization_id: activeOrgId },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-invites"] });
-      toast.success("Convite cancelado!");
+      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
+      toast.success("Convite revogado!");
     },
+    onError: (e: any) => toast.error(e.message),
   });
 
   // Update member role
@@ -392,7 +397,7 @@ const Organization = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <LexBadge variant="warning"><Clock className="h-3 w-3" /> Pendente</LexBadge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteInviteMutation.mutate(inv.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteInviteMutation.mutate(inv)}>
                       <XCircle className="h-4 w-4" />
                     </Button>
                   </div>
@@ -442,12 +447,15 @@ const Organization = () => {
               <Select value={inviteRole} onValueChange={setInviteRole}>
                 <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrador</SelectItem>
+                  {currentUserRole === "owner" && <SelectItem value="admin">Administrador</SelectItem>}
                   <SelectItem value="user">Usuário</SelectItem>
                   <SelectItem value="intern">Estagiário</SelectItem>
                   <SelectItem value="client">Cliente</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-caption text-muted-foreground">
+                {currentUserRole === "admin" ? "Admins não podem convidar Administradores ou Proprietários." : "Proprietários podem convidar qualquer papel exceto Proprietário."}
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancelar</Button>
