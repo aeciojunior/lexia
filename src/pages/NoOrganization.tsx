@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LexLogo } from "@/components/lexia/LexLogo";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Mail, ArrowRight, Plus, LogOut } from "lucide-react";
+import { Building2, Mail, ArrowRight, Plus, LogOut, Camera, Loader2 } from "lucide-react";
 
 type View = "choice" | "create-org";
 
@@ -18,6 +19,18 @@ const NoOrganization = () => {
   const [orgName, setOrgName] = useState("");
   const [taxId, setTaxId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Selecione uma imagem"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Máximo 2MB"); return; }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
 
   const handleCreateOrg = async () => {
     if (!orgName.trim()) {
@@ -33,6 +46,17 @@ const NoOrganization = () => {
         .select("id")
         .single();
       if (orgError) throw orgError;
+
+      // Upload logo if selected
+      if (logoFile) {
+        const ext = logoFile.name.split(".").pop();
+        const path = `${org.id}/logo.${ext}`;
+        const { error: uploadError } = await supabase.storage.from("org-logos").upload(path, logoFile, { upsert: true });
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from("org-logos").getPublicUrl(path);
+          await supabase.from("organizations").update({ logo_url: urlData.publicUrl } as any).eq("id", org.id);
+        }
+      }
 
       // Link user as owner
       const { error: linkError } = await supabase
@@ -148,6 +172,30 @@ const NoOrganization = () => {
               </p>
 
               <div className="space-y-4">
+                {/* Logo picker */}
+                <div className="flex items-center gap-4">
+                  <div className="relative group">
+                    <Avatar className="h-16 w-16">
+                      {logoPreview && <AvatarImage src={logoPreview} alt="Logo" />}
+                      <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+                        {orgName ? orgName.slice(0, 2).toUpperCase() : "OG"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Camera className="h-5 w-5 text-white" />
+                    </button>
+                    <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
+                  </div>
+                  <div>
+                    <p className="text-body-sm font-medium">Logo (opcional)</p>
+                    <p className="text-caption text-muted-foreground">Clique para selecionar. Máx 2MB.</p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-label text-muted-foreground mb-1.5 block">Nome do escritório *</label>
                   <Input
