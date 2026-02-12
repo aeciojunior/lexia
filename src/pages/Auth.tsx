@@ -204,11 +204,15 @@ const Auth = () => {
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
     setLoading(false);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("E-mail de recuperação enviado!");
+    // Always show the same message regardless of whether email exists (RF-007.1)
+    if (error && error.message.toLowerCase().includes("rate limit")) {
+      toast.error("Muitas tentativas. Aguarde alguns minutos.");
+    } else {
+      toast.success("Se este e-mail estiver cadastrado, enviaremos instruções para redefinir sua senha.");
       setMode("login");
     }
   };
