@@ -1,6 +1,7 @@
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
+import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
   LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2,
@@ -9,15 +10,25 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import type { Permission } from "@/hooks/usePermissions";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  url: string;
+  icon: any;
+  accent?: boolean;
+  /** At least one of these permissions required to show */
+  permissions?: Permission[];
+}
+
+const navItems: NavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Processos", url: "/processes", icon: Scale },
-  { title: "Prazos", url: "/deadlines", icon: CalendarDays },
-  { title: "Documentos", url: "/documents", icon: FileText },
-  { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true },
-  { title: "Organização", url: "/organization", icon: Building2 },
-  { title: "Admin", url: "/admin", icon: Shield },
+  { title: "Processos", url: "/processes", icon: Scale, permissions: ["VIEW_PROCESSES"] },
+  { title: "Prazos", url: "/deadlines", icon: CalendarDays, permissions: ["VIEW_TASKS"] },
+  { title: "Documentos", url: "/documents", icon: FileText, permissions: ["VIEW_DOCUMENTS"] },
+  { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
+  { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS"] },
+  { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Perfil", url: "/profile", icon: UserCircle },
 ];
 
@@ -25,6 +36,7 @@ export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { signOut, user } = useAuth();
   const { activeOrgId, organizations, switchOrganization } = useOrganization();
+  const { role, hasAnyPermission } = usePermissions();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -32,6 +44,11 @@ export const AppSidebar = () => {
     await signOut();
     navigate("/auth");
   };
+
+  const visibleItems = navItems.filter((item) => {
+    if (!item.permissions) return true;
+    return hasAnyPermission(...item.permissions);
+  });
 
   return (
     <aside
@@ -58,7 +75,7 @@ export const AppSidebar = () => {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {!collapsed && <p className="text-overline text-muted-foreground px-3 mb-3">Menu</p>}
-        {navItems.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.url}
             to={item.url}
@@ -100,7 +117,7 @@ export const AppSidebar = () => {
         {!collapsed && user && (
           <div className="px-3 py-2">
             <p className="text-xs font-semibold text-sidebar-foreground truncate">{user.email}</p>
-            <p className="text-overline text-muted-foreground mt-0.5">Advogado</p>
+            <p className="text-overline text-muted-foreground mt-0.5">{ROLE_LABELS[role] || role}</p>
           </div>
         )}
         <button
