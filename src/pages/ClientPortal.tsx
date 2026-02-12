@@ -167,6 +167,29 @@ const ClientPortal = () => {
         accepted_terms: true,
       });
       if (insertError) throw insertError;
+
+      // Get the inserted signature id to send email
+      const { data: insertedSig } = await (supabase.from("contract_signatures" as any) as any)
+        .select("id")
+        .eq("contract_id", signContractId)
+        .eq("user_id", user.id)
+        .order("signed_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      // Fire-and-forget email notification
+      if (insertedSig?.id) {
+        const { data: { session } } = await supabase.auth.getSession();
+        fetch(`https://dnpakncqtzjdtkwcjpsw.supabase.co/functions/v1/send-signed-contract`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucGFrbmNxdHpqZHRrd2NqcHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTYzMjcsImV4cCI6MjA4NjQ3MjMyN30.BYLKOhlr-ekFWDQStd5ieSlUuhgypxRvgpO6L7gLc6U",
+          },
+          body: JSON.stringify({ signature_id: insertedSig.id }),
+        }).catch(() => {}); // fire-and-forget
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-signatures"] });

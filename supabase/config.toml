@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.notify-client-invoice]
 verify_jwt = false
+
+[functions.send-signed-contract]
+verify_jwt = false

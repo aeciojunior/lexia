@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Shield, Users, Scale, Search, TrendingUp, UserPlus, Trash2, ChevronLeft, ChevronRight,
+  Shield, Users, Scale, Search, TrendingUp, UserPlus, Trash2, ChevronLeft, ChevronRight, PenTool, FileText, CheckCircle, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -73,6 +73,27 @@ const Admin = () => {
       const { data, error } = await supabase.from("processes").select("status, risk_level, user_id, archived");
       if (error) throw error;
       return data;
+    },
+    enabled: isAdmin === true,
+  });
+
+  // Fetch contracts and signatures
+  const { data: allContracts = [] } = useQuery({
+    queryKey: ["admin-contracts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contracts").select("id, title, status, amount_cents, client_id, clients(full_name)");
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAdmin === true,
+  });
+
+  const { data: allSignatures = [] } = useQuery({
+    queryKey: ["admin-all-signatures"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("contract_signatures" as any) as any).select("id, contract_id, signed_at");
+      if (error) throw error;
+      return (data as any[]) || [];
     },
     enabled: isAdmin === true,
   });
@@ -142,6 +163,11 @@ const Admin = () => {
     { label: "Alto Risco", value: highRiskProcesses, icon: Shield, text: "text-destructive", border: "border-destructive/20", gradient: "from-destructive/20 to-destructive/5" },
   ];
 
+  const signedContractIds = new Set(allSignatures.map((s: any) => s.contract_id));
+  const signedContracts = allContracts.filter((c: any) => signedContractIds.has(c.id));
+  const pendingContracts = allContracts.filter((c: any) => !signedContractIds.has(c.id) && c.status === "active");
+  const signedPercent = allContracts.length > 0 ? Math.round((signedContracts.length / allContracts.length) * 100) : 0;
+
   const paginatedProfiles = profiles.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(profiles.length / PAGE_SIZE);
 
@@ -168,7 +194,67 @@ const Admin = () => {
         ))}
       </div>
 
-      {/* Users table */}
+      {/* Contract Signatures Dashboard */}
+      {allContracts.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2"><PenTool className="h-5 w-5 text-primary" /> Assinaturas de Contratos</LexCardTitle>
+            </LexCardHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+              <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
+                <FileText className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
+                <p className="text-display-sm">{allContracts.length}</p>
+                <p className="text-caption text-muted-foreground">Total</p>
+              </div>
+              <div className="rounded-xl border border-success/20 bg-success/5 p-4 text-center">
+                <CheckCircle className="h-5 w-5 text-success mx-auto mb-2" />
+                <p className="text-display-sm text-success">{signedContracts.length}</p>
+                <p className="text-caption text-muted-foreground">Assinados</p>
+              </div>
+              <div className="rounded-xl border border-warning/20 bg-warning/5 p-4 text-center">
+                <Clock className="h-5 w-5 text-warning mx-auto mb-2" />
+                <p className="text-display-sm text-warning">{pendingContracts.length}</p>
+                <p className="text-caption text-muted-foreground">Pendentes</p>
+              </div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
+                <TrendingUp className="h-5 w-5 text-primary mx-auto mb-2" />
+                <p className="text-display-sm text-primary">{signedPercent}%</p>
+                <p className="text-caption text-muted-foreground">Taxa de Assinatura</p>
+              </div>
+            </div>
+
+            {/* Recent signatures list */}
+            {allSignatures.length > 0 && (
+              <div>
+                <p className="text-overline text-muted-foreground mb-3">Últimas Assinaturas</p>
+                <div className="space-y-2">
+                  {allSignatures.slice(0, 5).map((sig: any) => {
+                    const contract = allContracts.find((c: any) => c.id === sig.contract_id);
+                    return (
+                      <div key={sig.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/40">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-success/10 flex items-center justify-center">
+                            <CheckCircle className="h-4 w-4 text-success" />
+                          </div>
+                          <div>
+                            <p className="text-body-sm font-medium">{contract?.title || "Contrato"}</p>
+                            <p className="text-caption text-muted-foreground">{(contract as any)?.clients?.full_name || "—"}</p>
+                          </div>
+                        </div>
+                        <p className="text-caption text-muted-foreground">
+                          {new Date(sig.signed_at).toLocaleDateString("pt-BR")}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </LexCard>
+        </motion.div>
+      )}
+
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
         <LexCard hover={false}>
           <LexCardHeader>
