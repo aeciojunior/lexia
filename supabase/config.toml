@@ -2,3 +2,6 @@ project_id = "dnpakncqtzjdtkwcjpsw"
 
 [functions.lexia-chat]
 verify_jwt = false
+
+[functions.deadline-notifications]
+verify_jwt = false
