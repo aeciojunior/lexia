@@ -2,6 +2,7 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
+import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
   LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings,
@@ -9,7 +10,6 @@ import {
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import type { Permission } from "@/hooks/usePermissions";
 
 interface NavItem {
@@ -37,10 +37,9 @@ const navItems: NavItem[] = [
 export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { signOut, user } = useAuth();
-  const { activeOrgId, organizations, switchOrganization } = useOrganization();
+  const { activeOrgId, organizations } = useOrganization();
   const { role, hasAnyPermission, isClient } = usePermissions();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const handleSignOut = async () => {
     await signOut();
@@ -102,26 +101,8 @@ export const AppSidebar = () => {
 
       {/* User & Logout */}
       <div className="p-3 border-t border-sidebar-border space-y-2">
-        {/* Org selector */}
-        {!collapsed && organizations.length > 0 && (
-          <div className="px-3 py-2">
-            <p className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1"><Building2 className="h-3 w-3" /> Organização</p>
-            <select
-              value={activeOrgId || ""}
-              onChange={async (e) => {
-                await switchOrganization(e.target.value);
-                queryClient.invalidateQueries();
-              }}
-              className="w-full text-xs bg-sidebar-accent text-sidebar-foreground rounded-lg px-2 py-1.5 border border-sidebar-border"
-            >
-              {organizations.map((o: any) => (
-                <option key={o.organization_id} value={o.organization_id}>
-                  {o.organizations?.name || "Organização"}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* Org switcher */}
+        <OrgSwitcher collapsed={collapsed} />
         {!collapsed && user && (
           <div className="px-3 py-2">
             <p className="text-xs font-semibold text-sidebar-foreground truncate">{user.email}</p>
