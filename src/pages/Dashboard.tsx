@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +10,7 @@ import { LexBadge } from "@/components/lexia/LexBadge";
 import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import {
   Scale, AlertTriangle, MessageSquare, ArrowRight,
-  Sparkles, CalendarDays, FileText, Users, DollarSign, Clock, Activity, CheckCircle,
+  Sparkles, CalendarDays, FileText, Users, DollarSign, Clock, Activity, CheckCircle, Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -18,6 +19,8 @@ import { motion } from "framer-motion";
 import { format, differenceInDays, isPast, isToday, subMonths, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const anim = (delay: number) => ({
   initial: { opacity: 0, y: 16 },
@@ -32,6 +35,7 @@ const Dashboard = () => {
   const { plan, limits, isPro } = usePlanLimits();
   const navigate = useNavigate();
   const canViewAudit = isAdmin || isOwner;
+  const [chartPeriod, setChartPeriod] = useState<number>(6);
 
   // === Processes ===
   const { data: allProcesses = [] } = useQuery({
@@ -94,9 +98,9 @@ const Dashboard = () => {
 
   // === Invoices with dates for chart ===
   const { data: invoicesForChart = [] } = useQuery({
-    queryKey: ["dash-invoices-chart", activeOrgId],
+    queryKey: ["dash-invoices-chart", activeOrgId, chartPeriod],
     queryFn: async () => {
-      const since = subMonths(new Date(), 5).toISOString();
+      const since = subMonths(new Date(), chartPeriod - 1).toISOString();
       const { data, error } = await supabase.from("invoices").select("amount_cents, status, created_at").gte("created_at", since);
       if (error) throw error;
       return data || [];
@@ -115,6 +119,17 @@ const Dashboard = () => {
     enabled: !!activeOrgId && canViewAudit,
   });
 
+  // === Recent notifications ===
+  const { data: recentNotifications = [] } = useQuery({
+    queryKey: ["dash-notifications", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("notifications").select("id, title, message, type, read, created_at").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(6);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
   // Process stats
   const activeProcesses = allProcesses.filter(p => !p.archived);
   const active = activeProcesses.filter(p => p.status === "active").length;
@@ -129,9 +144,9 @@ const Dashboard = () => {
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
-  // === Chart data: last 6 months ===
-  const chartMonths = Array.from({ length: 6 }, (_, i) => {
-    const d = subMonths(new Date(), 5 - i);
+  // === Chart data: dynamic period ===
+  const chartMonths = Array.from({ length: chartPeriod }, (_, i) => {
+    const d = subMonths(new Date(), chartPeriod - 1 - i);
     return { date: startOfMonth(d), label: format(d, "MMM", { locale: ptBR }) };
   });
 
@@ -418,6 +433,11 @@ const Dashboard = () => {
               <LexCardTitle className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-primary" /> Processos por mês
               </LexCardTitle>
+              <ToggleGroup type="single" value={String(chartPeriod)} onValueChange={v => v && setChartPeriod(Number(v))} size="sm">
+                {[3, 6, 12].map(n => (
+                  <ToggleGroupItem key={n} value={String(n)} className="text-xs px-2.5 h-7">{n}m</ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </LexCardHeader>
             <div className="h-52 -mx-2">
               <ResponsiveContainer width="100%" height="100%">
@@ -444,6 +464,11 @@ const Dashboard = () => {
                 <LexCardTitle className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-accent" /> Faturamento mensal
                 </LexCardTitle>
+                <ToggleGroup type="single" value={String(chartPeriod)} onValueChange={v => v && setChartPeriod(Number(v))} size="sm">
+                  {[3, 6, 12].map(n => (
+                    <ToggleGroupItem key={n} value={String(n)} className="text-xs px-2.5 h-7">{n}m</ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               </LexCardHeader>
               <div className="h-52 -mx-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -476,33 +501,83 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Audit logs widget */}
-      {canViewAudit && auditLogs.length > 0 && (
-        <motion.div {...anim(0.75)}>
+      {/* Recent notifications widget */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div {...anim(0.73)}>
           <LexCard hover={false}>
             <LexCardHeader>
               <LexCardTitle className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-secondary" /> Atividades Recentes
+                <Bell className="h-4 w-4 text-primary" /> Notificações Recentes
               </LexCardTitle>
             </LexCardHeader>
-            <div className="space-y-1 max-h-64 overflow-y-auto">
-              {auditLogs.map((log: any) => (
-                <div key={log.id} className="flex items-center gap-3 p-2.5 rounded-lg text-caption hover:bg-muted/30 transition-colors">
-                  <CheckCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium">{auditActionLabels[log.action] || log.action}</span>
-                    {log.metadata?.email && <span className="text-muted-foreground"> — {log.metadata.email}</span>}
-                    {log.resource_type && <span className="text-muted-foreground"> ({log.resource_type})</span>}
-                  </div>
-                  <span className="text-muted-foreground shrink-0">
-                    {format(new Date(log.created_at), "dd MMM HH:mm", { locale: ptBR })}
-                  </span>
+            {recentNotifications.length === 0 ? (
+              <div className="py-8 text-center">
+                <Bell className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                <p className="text-caption text-muted-foreground">Nenhuma notificação recente</p>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-56">
+                <div className="space-y-1">
+                  {recentNotifications.map((n: any) => {
+                    const icon = n.type?.includes("deadline") ? CalendarDays : FileText;
+                    const Icon = icon;
+                    const timeAgo = (() => {
+                      const diffMs = Date.now() - new Date(n.created_at).getTime();
+                      const mins = Math.floor(diffMs / 60000);
+                      if (mins < 1) return "agora";
+                      if (mins < 60) return `${mins}min`;
+                      const hrs = Math.floor(mins / 60);
+                      if (hrs < 24) return `${hrs}h`;
+                      return `${Math.floor(hrs / 24)}d`;
+                    })();
+                    return (
+                      <div key={n.id} className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors ${!n.read ? "bg-primary/5" : "hover:bg-muted/30"}`}>
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted border border-border">
+                          <Icon className={`h-3.5 w-3.5 ${n.type?.includes("deadline") ? "text-warning" : "text-primary"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-caption font-medium truncate ${!n.read ? "text-foreground" : "text-muted-foreground"}`}>{n.title}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{n.message}</p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{timeAgo}</span>
+                        {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              </ScrollArea>
+            )}
           </LexCard>
         </motion.div>
-      )}
+
+        {/* Audit logs widget */}
+        {canViewAudit && auditLogs.length > 0 && (
+          <motion.div {...anim(0.75)}>
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-secondary" /> Atividades Recentes
+                </LexCardTitle>
+              </LexCardHeader>
+              <div className="space-y-1 max-h-56 overflow-y-auto">
+                {auditLogs.map((log: any) => (
+                  <div key={log.id} className="flex items-center gap-3 p-2.5 rounded-lg text-caption hover:bg-muted/30 transition-colors">
+                    <CheckCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{auditActionLabels[log.action] || log.action}</span>
+                      {log.metadata?.email && <span className="text-muted-foreground"> — {log.metadata.email}</span>}
+                      {log.resource_type && <span className="text-muted-foreground"> ({log.resource_type})</span>}
+                    </div>
+                    <span className="text-muted-foreground shrink-0">
+                      {format(new Date(log.created_at), "dd MMM HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </LexCard>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };
