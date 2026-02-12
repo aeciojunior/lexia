@@ -55,6 +55,18 @@ Deno.serve(async (req) => {
     let totalSent = 0;
 
     for (const [userId, userDeadlines] of Object.entries(byUser)) {
+      // Check if user has email notifications enabled
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("email_notifications, full_name")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (profileData?.email_notifications === false) {
+        console.log(`Skipping user ${userId} — email notifications disabled`);
+        continue;
+      }
+
       // Get user email from auth
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
       if (userError || !userData?.user?.email) {
@@ -63,7 +75,7 @@ Deno.serve(async (req) => {
       }
 
       const email = userData.user.email;
-      const userName = userData.user.user_metadata?.full_name || "Usuário";
+      const userName = profileData?.full_name || userData.user.user_metadata?.full_name || "Usuário";
 
       // Build email content
       const deadlineRows = userDeadlines
