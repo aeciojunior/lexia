@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X, CalendarClock, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -569,6 +569,238 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
   );
 };
 
+/* ─── Linked Deadlines ─── */
+const DEADLINE_STATUS_MAP: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "outline" }> = {
+  pending: { label: "Pendente", variant: "warning" },
+  completed: { label: "Concluído", variant: "success" },
+  overdue: { label: "Vencido", variant: "destructive" },
+};
+
+const LinkedDeadlinesSection = ({ deadlines, loading, processId }: { deadlines: any[]; loading: boolean; processId: string }) => {
+  const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
+  const queryClient = useQueryClient();
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newPriority, setNewPriority] = useState("medium");
+  const [newDescription, setNewDescription] = useState("");
+
+  const { data: unlinkedDeadlines = [] } = useQuery({
+    queryKey: ["unlinked-deadlines-for-process", activeOrgId, linkSearch],
+    queryFn: async () => {
+      let q = supabase
+        .from("deadlines")
+        .select("id, title, due_date, priority, status")
+        .is("process_id", null)
+        .order("due_date", { ascending: true })
+        .limit(20);
+      if (linkSearch) q = q.ilike("title", `%${linkSearch}%`);
+      const { data } = await q;
+      return (data as any[]) || [];
+    },
+    enabled: showLinkDialog,
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: async (deadlineId: string) => {
+      const { error } = await supabase.from("deadlines").update({ process_id: processId } as any).eq("id", deadlineId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["process-linked-deadlines", processId] });
+      queryClient.invalidateQueries({ queryKey: ["unlinked-deadlines-for-process"] });
+      toast.success("Prazo vinculado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: async (deadlineId: string) => {
+      const { error } = await supabase.from("deadlines").update({ process_id: null } as any).eq("id", deadlineId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["process-linked-deadlines", processId] });
+      toast.success("Prazo desvinculado.");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !newTitle.trim() || !newDueDate) throw new Error("Preencha título e data.");
+      const { error } = await supabase.from("deadlines").insert({
+        user_id: user.id,
+        organization_id: activeOrgId,
+        title: newTitle.trim(),
+        due_date: newDueDate,
+        priority: newPriority,
+        description: newDescription || null,
+        process_id: processId,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["process-linked-deadlines", processId] });
+      queryClient.invalidateQueries({ queryKey: ["deadlines"] });
+      setShowCreateDialog(false);
+      setNewTitle("");
+      setNewDueDate("");
+      setNewPriority("medium");
+      setNewDescription("");
+      toast.success("Prazo criado e vinculado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const isOverdue = (dueDate: string, status: string) => {
+    if (status === "completed") return false;
+    return new Date(dueDate + "T23:59:59") < new Date();
+  };
+
+  return (
+    <div className="border-t border-border pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 text-primary" />
+          <span className="text-overline text-muted-foreground">Prazos vinculados</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {deadlines.length > 0 && (
+            <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+              {deadlines.length} prazo{deadlines.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Vincular prazo existente" onClick={() => setShowLinkDialog(true)}>
+            <Link2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" title="Criar novo prazo" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-caption text-muted-foreground text-center py-4">Carregando prazos...</p>
+      ) : deadlines.length === 0 ? (
+        <div className="text-center py-4">
+          <p className="text-caption text-muted-foreground mb-2">Nenhum prazo vinculado.</p>
+          <div className="flex gap-2 justify-center">
+            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setShowLinkDialog(true)}>
+              <Link2 className="h-3 w-3 mr-1" /> Vincular existente
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setShowCreateDialog(true)}>
+              <Plus className="h-3 w-3 mr-1" /> Criar novo
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {deadlines.map((dl: any) => {
+            const overdue = isOverdue(dl.due_date, dl.status);
+            const statusInfo = DEADLINE_STATUS_MAP[overdue ? "overdue" : dl.status] || DEADLINE_STATUS_MAP.pending;
+            return (
+              <div key={dl.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                {overdue ? (
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                ) : dl.status === "completed" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
+                ) : (
+                  <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
+                )}
+                <span className={`flex-1 text-caption truncate ${dl.status === "completed" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                  {dl.title}
+                </span>
+                <div className={`h-2 w-2 rounded-full shrink-0 ${PRIORITY_DOT[dl.priority] || PRIORITY_DOT.medium}`} title={dl.priority} />
+                <span className={`text-[10px] shrink-0 ${overdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {new Date(dl.due_date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                </span>
+                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 shrink-0 ${overdue ? "border-destructive text-destructive" : ""}`}>
+                  {statusInfo.label}
+                </Badge>
+                <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0" title="Desvincular" onClick={() => unlinkMutation.mutate(dl.id)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Link existing deadline dialog */}
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader><DialogTitle className="text-display-sm">Vincular Prazo</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="Buscar prazos não vinculados..." value={linkSearch} onChange={(e) => setLinkSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+            </div>
+            {unlinkedDeadlines.length === 0 ? (
+              <p className="text-caption text-muted-foreground text-center py-6">Nenhum prazo sem vínculo encontrado.</p>
+            ) : (
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {unlinkedDeadlines.map((dl: any) => (
+                  <div key={dl.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => linkMutation.mutate(dl.id)}>
+                    <CalendarClock className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="flex-1 text-caption truncate">{dl.title}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {new Date(dl.due_date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                    </span>
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create new deadline dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader><DialogTitle className="text-display-sm">Novo Prazo</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1">Título *</label>
+              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Ex: Audiência inicial" className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1">Data de vencimento *</label>
+              <Input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1">Prioridade</label>
+              <Select value={newPriority} onValueChange={setNewPriority}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Baixa</SelectItem>
+                  <SelectItem value="medium">Média</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="urgent">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1">Descrição</label>
+              <Input value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Descrição opcional..." className="h-9 text-sm" />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setShowCreateDialog(false)}>Cancelar</Button>
+              <Button size="sm" onClick={() => createMutation.mutate()} disabled={!newTitle.trim() || !newDueDate || createMutation.isPending}>
+                {createMutation.isPending ? "Criando..." : "Criar Prazo"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 /* ─── Process Details with Linked Tasks ─── */
 const TASK_STATUS_ICON: Record<string, React.ReactNode> = {
   todo: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
@@ -601,6 +833,20 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
         .select("id, file_name, file_type, file_size, file_url, created_at, category")
         .eq("process_id", process.id)
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!process.id,
+  });
+
+  const { data: linkedDeadlines = [], isLoading: deadlinesLoading } = useQuery({
+    queryKey: ["process-linked-deadlines", process.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("deadlines")
+        .select("id, title, due_date, priority, status, description")
+        .eq("process_id", process.id)
+        .order("due_date", { ascending: true });
       if (error) throw error;
       return (data as any[]) || [];
     },
@@ -678,6 +924,9 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
           </div>
         )}
       </div>
+
+      {/* Linked Deadlines */}
+      <LinkedDeadlinesSection deadlines={linkedDeadlines} loading={deadlinesLoading} processId={process.id} />
 
       {/* Linked Documents */}
       <LinkedDocsSection docs={linkedDocs} loading={docsLoading} processId={process.id} />
