@@ -12,8 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon } from "lucide-react";
-import { format, isPast, isToday, differenceInDays } from "date-fns";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus } from "lucide-react";
+import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +45,13 @@ interface TaskItem {
   priority: Priority;
   position: number;
   due_date: string | null;
+  user_id: string;
+  assigned_to: string | null;
+}
+
+interface OrgMember {
+  user_id: string;
+  full_name: string | null;
 }
 
 const DueDateLabel = ({ dueDate }: { dueDate: string | null }) => {
@@ -50,8 +59,6 @@ const DueDateLabel = ({ dueDate }: { dueDate: string | null }) => {
   const date = new Date(dueDate + "T00:00:00");
   const overdue = isPast(date) && !isToday(date);
   const today = isToday(date);
-  const days = differenceInDays(date, new Date());
-
   return (
     <span className={cn(
       "text-[10px] shrink-0",
@@ -63,14 +70,33 @@ const DueDateLabel = ({ dueDate }: { dueDate: string | null }) => {
   );
 };
 
+const MemberAvatar = ({ member, size = "xs" }: { member: OrgMember | undefined; size?: "xs" | "sm" }) => {
+  if (!member) return null;
+  const initials = (member.full_name || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Avatar className={size === "xs" ? "h-5 w-5" : "h-6 w-6"}>
+            <AvatarFallback className="text-[8px] bg-secondary/20 text-secondary">{initials}</AvatarFallback>
+          </Avatar>
+        </TooltipTrigger>
+        <TooltipContent><p>{member.full_name || "Sem nome"}</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 const SortableTask = ({
-  task, onToggle, onDelete, onPriorityChange, onDueDateChange,
+  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign,
 }: {
   task: TaskItem;
+  members: OrgMember[];
   onToggle: (id: string, done: boolean) => void;
   onDelete: (id: string) => void;
   onPriorityChange: (id: string, priority: Priority) => void;
   onDueDateChange: (id: string, date: string | null) => void;
+  onAssign: (id: string, userId: string | null) => void;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = {
@@ -80,6 +106,7 @@ const SortableTask = ({
     opacity: isDragging ? 0.8 : undefined,
   };
   const prio = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
+  const assignedMember = members.find(m => m.user_id === task.assigned_to);
 
   return (
     <div
@@ -91,11 +118,7 @@ const SortableTask = ({
         isDragging && "bg-muted/40 shadow-lg",
       )}
     >
-      <button
-        className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground touch-none shrink-0"
-        {...attributes}
-        {...listeners}
-      >
+      <button className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground touch-none shrink-0" {...attributes} {...listeners}>
         <GripVertical className="h-3.5 w-3.5" />
       </button>
 
@@ -106,6 +129,27 @@ const SortableTask = ({
       </span>
 
       <DueDateLabel dueDate={task.due_date} />
+
+      {/* Assigned member avatar */}
+      {assignedMember && <MemberAvatar member={assignedMember} />}
+
+      {/* Assign popover */}
+      <Select
+        value={task.assigned_to || "__none__"}
+        onValueChange={(v) => onAssign(task.id, v === "__none__" ? null : v)}
+      >
+        <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent shadow-none [&>svg]:hidden shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <UserPlus className="h-3 w-3 text-muted-foreground" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none__">Sem atribuição</SelectItem>
+          {members.map(m => (
+            <SelectItem key={m.user_id} value={m.user_id}>
+              {m.full_name || "Sem nome"}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Due date picker */}
       <Popover>
@@ -150,8 +194,7 @@ const SortableTask = ({
       </Select>
 
       <Button
-        variant="ghost"
-        size="icon"
+        variant="ghost" size="icon"
         className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
         onClick={() => onDelete(task.id)}
       >
@@ -168,6 +211,7 @@ const QuickTasksWidget = () => {
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
   const [newDueDate, setNewDueDate] = useState<Date | undefined>();
+  const [newAssignee, setNewAssignee] = useState<string>("__none__");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
 
   const sensors = useSensors(
@@ -175,14 +219,35 @@ const QuickTasksWidget = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Fetch org members for assignment
+  const { data: orgMembers = [] } = useQuery({
+    queryKey: ["org-members-for-tasks", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_organizations")
+        .select("user_id")
+        .eq("organization_id", activeOrgId!);
+      if (error) throw error;
+      const userIds = (data || []).map((d: any) => d.user_id);
+      if (userIds.length === 0) return [];
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", userIds);
+      if (pErr) throw pErr;
+      return (profiles as OrgMember[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
   const { data: quickTasks = [] } = useQuery({
     queryKey: ["dash-quick-tasks", user?.id, activeOrgId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quick_tasks" as any)
         .select("*")
-        .eq("user_id", user!.id)
         .eq("organization_id", activeOrgId!)
+        .or(`user_id.eq.${user!.id},assigned_to.eq.${user!.id}`)
         .order("position", { ascending: true })
         .order("created_at", { ascending: false })
         .limit(30);
@@ -193,10 +258,11 @@ const QuickTasksWidget = () => {
   });
 
   const addTask = useMutation({
-    mutationFn: async ({ title, priority, due_date }: { title: string; priority: Priority; due_date?: string | null }) => {
+    mutationFn: async ({ title, priority, due_date, assigned_to }: { title: string; priority: Priority; due_date?: string | null; assigned_to?: string | null }) => {
       const maxPos = quickTasks.length > 0 ? Math.max(...quickTasks.map(t => t.position || 0)) + 1 : 0;
       const { error } = await supabase.from("quick_tasks" as any).insert({
         title, priority, position: maxPos, due_date: due_date || null,
+        assigned_to: assigned_to || null,
         user_id: user!.id, organization_id: activeOrgId!,
       } as any);
       if (error) throw error;
@@ -213,7 +279,7 @@ const QuickTasksWidget = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null }) => {
       const { error } = await supabase.from("quick_tasks" as any).update(updates as any).eq("id", id);
       if (error) throw error;
     },
@@ -231,11 +297,10 @@ const QuickTasksWidget = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = filteredTasks.findIndex(t => t.id === active.id);
-    const newIndex = filteredTasks.findIndex(t => t.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(quickTasks, quickTasks.findIndex(t => t.id === active.id), quickTasks.findIndex(t => t.id === over.id));
+    const oldIdx = quickTasks.findIndex(t => t.id === active.id);
+    const newIdx = quickTasks.findIndex(t => t.id === over.id);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(quickTasks, oldIdx, newIdx);
     queryClient.setQueryData(["dash-quick-tasks", user?.id, activeOrgId], reordered);
     reordered.forEach((task, i) => {
       if (task.position !== i) updateTask.mutate({ id: task.id, position: i });
@@ -261,7 +326,7 @@ const QuickTasksWidget = () => {
 
       {/* Priority filter */}
       <div className="mb-3">
-        <ToggleGroup type="single" value={priorityFilter} onValueChange={v => v && setPriorityFilter(v as PriorityFilter)} size="sm" className="justify-start">
+        <ToggleGroup type="single" value={priorityFilter} onValueChange={v => v && setPriorityFilter(v as PriorityFilter)} size="sm" className="justify-start flex-wrap">
           <ToggleGroupItem value="all" className="text-xs px-2.5 h-7">Todas</ToggleGroupItem>
           {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => (
             <ToggleGroupItem key={key} value={key} className="text-xs px-2.5 h-7 gap-1">
@@ -274,7 +339,7 @@ const QuickTasksWidget = () => {
 
       {/* Add task form */}
       <form
-        className="flex gap-2 mb-4"
+        className="flex gap-2 mb-3"
         onSubmit={e => {
           e.preventDefault();
           if (!newTask.trim()) return;
@@ -282,9 +347,11 @@ const QuickTasksWidget = () => {
             title: newTask.trim(),
             priority: newPriority,
             due_date: newDueDate ? format(newDueDate, "yyyy-MM-dd") : null,
+            assigned_to: newAssignee === "__none__" ? null : newAssignee,
           });
           setNewTask("");
           setNewDueDate(undefined);
+          setNewAssignee("__none__");
         }}
       >
         <Input
@@ -294,7 +361,20 @@ const QuickTasksWidget = () => {
           className="h-9 text-sm flex-1"
         />
 
-        {/* Due date for new task */}
+        {/* Assign member */}
+        <Select value={newAssignee} onValueChange={setNewAssignee}>
+          <SelectTrigger className={cn("h-9 w-9 p-0 border-border bg-transparent shadow-none flex items-center justify-center [&>svg]:hidden shrink-0", newAssignee !== "__none__" && "border-secondary/40 text-secondary")}>
+            <UserPlus className="h-3.5 w-3.5" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Sem atribuição</SelectItem>
+            {orgMembers.map(m => (
+              <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || "Sem nome"}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Due date */}
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="outline" size="icon" className={cn("h-9 w-9 shrink-0", newDueDate && "text-primary border-primary/40")}>
@@ -302,16 +382,11 @@ const QuickTasksWidget = () => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="single"
-              selected={newDueDate}
-              onSelect={setNewDueDate}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
+            <Calendar mode="single" selected={newDueDate} onSelect={setNewDueDate} initialFocus className={cn("p-3 pointer-events-auto")} />
           </PopoverContent>
         </Popover>
 
+        {/* Priority */}
         <Select value={newPriority} onValueChange={v => setNewPriority(v as Priority)}>
           <SelectTrigger className="h-9 w-9 p-0 border-border bg-transparent shadow-none flex items-center justify-center [&>svg]:hidden shrink-0">
             <Flag className={`h-3.5 w-3.5 ${PRIORITY_CONFIG[newPriority].color}`} />
@@ -333,13 +408,23 @@ const QuickTasksWidget = () => {
         </Button>
       </form>
 
-      {newDueDate && (
-        <div className="flex items-center gap-1.5 mb-3 -mt-2">
-          <span className="text-[10px] text-muted-foreground">Vencimento:</span>
-          <span className="text-[10px] text-primary font-medium">{format(newDueDate, "dd MMM yyyy", { locale: ptBR })}</span>
-          <Button type="button" variant="ghost" size="icon" className="h-4 w-4" onClick={() => setNewDueDate(undefined)}>
-            <Trash2 className="h-2.5 w-2.5 text-muted-foreground" />
-          </Button>
+      {/* Metadata preview for new task */}
+      {(newDueDate || newAssignee !== "__none__") && (
+        <div className="flex items-center gap-3 mb-3 -mt-1 text-[10px] text-muted-foreground">
+          {newDueDate && (
+            <span className="flex items-center gap-1">
+              <CalendarIcon className="h-2.5 w-2.5" />
+              {format(newDueDate, "dd MMM yyyy", { locale: ptBR })}
+              <button type="button" className="text-destructive/60 hover:text-destructive" onClick={() => setNewDueDate(undefined)}>✕</button>
+            </span>
+          )}
+          {newAssignee !== "__none__" && (
+            <span className="flex items-center gap-1">
+              <UserPlus className="h-2.5 w-2.5" />
+              {orgMembers.find(m => m.user_id === newAssignee)?.full_name || "Membro"}
+              <button type="button" className="text-destructive/60 hover:text-destructive" onClick={() => setNewAssignee("__none__")}>✕</button>
+            </span>
+          )}
         </div>
       )}
 
@@ -359,10 +444,12 @@ const QuickTasksWidget = () => {
                   <SortableTask
                     key={task.id}
                     task={task}
+                    members={orgMembers}
                     onToggle={(id, done) => toggleTask.mutate({ id, done })}
                     onDelete={(id) => deleteTask.mutate(id)}
                     onPriorityChange={(id, priority) => updateTask.mutate({ id, priority })}
                     onDueDateChange={(id, due_date) => updateTask.mutate({ id, due_date })}
+                    onAssign={(id, assigned_to) => updateTask.mutate({ id, assigned_to })}
                   />
                 ))}
               </div>
