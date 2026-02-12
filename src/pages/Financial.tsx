@@ -19,7 +19,7 @@ import { motion } from "framer-motion";
 import { format, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore, subQuarters, subYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
 
 const statusColors: Record<string, string> = {
   draft: "default", pending: "warning", paid: "success", overdue: "destructive",
@@ -172,6 +172,30 @@ const Financial = () => {
     }).sort((a, b) => b.value - a.value).slice(0, 8);
     return result;
   }, [invoices, orgClients]);
+
+  // Default rate evolution by month (last 12 months)
+  const defaultRateByMonth = useMemo(() => {
+    const months: { name: string; inadimplencia: number; vencido: number; faturado: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = subMonths(new Date(), i);
+      const start = startOfMonth(d);
+      const end = endOfMonth(d);
+      const monthInvoices = invoices.filter((inv: any) => {
+        const created = new Date(inv.created_at);
+        return created >= start && created <= end;
+      });
+      const totalBilled = monthInvoices.reduce((s: number, inv: any) => s + (inv.amount_cents || 0), 0);
+      const totalOverdue = monthInvoices.filter((inv: any) => inv.status === "overdue").reduce((s: number, inv: any) => s + (inv.amount_cents || 0), 0);
+      const rate = totalBilled > 0 ? (totalOverdue / totalBilled) * 100 : 0;
+      months.push({
+        name: format(d, "MMM yy", { locale: ptBR }),
+        inadimplencia: parseFloat(rate.toFixed(1)),
+        vencido: totalOverdue / 100,
+        faturado: totalBilled / 100,
+      });
+    }
+    return months;
+  }, [invoices]);
 
   const CHART_COLORS = [
     "hsl(192, 95%, 55%)", "hsl(270, 80%, 62%)", "hsl(160, 85%, 45%)", 
