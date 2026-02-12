@@ -144,6 +144,63 @@ export type Database = {
           },
         ]
       }
+      automation_logs: {
+        Row: {
+          automation_id: string
+          created_at: string
+          details: Json | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          items_matched: number
+          items_processed: number
+          organization_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          items_matched?: number
+          items_processed?: number
+          organization_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          items_matched?: number
+          items_processed?: number
+          organization_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_logs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automations: {
         Row: {
           config: Json | null
