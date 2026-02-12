@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette, Pencil, Check, ArrowUpDown, AlertTriangle, Briefcase,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette, Pencil, Check, ArrowUpDown, AlertTriangle, Briefcase, Users,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -472,6 +472,7 @@ interface TaskItem {
   status: TaskStatus;
   tags: string[];
   process_id: string | null;
+  client_id: string | null;
 }
 
 interface OrgMember {
@@ -617,7 +618,7 @@ const TaskComments = ({ taskId, members }: { taskId: string; members: OrgMember[
 
 /* ─── Sortable Task (list view) ─── */
 const SortableTask = ({
-  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription, onTagsChange, onProcessChange, predefinedTags = [], processes = [],
+  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription, onTagsChange, onProcessChange, onClientChange, predefinedTags = [], processes = [], clients = [],
 }: {
   task: TaskItem;
   members: OrgMember[];
@@ -631,8 +632,10 @@ const SortableTask = ({
   onUpdateDescription: (id: string, description: string | null) => void;
   onTagsChange: (id: string, tags: string[]) => void;
   onProcessChange: (id: string, processId: string | null) => void;
+  onClientChange: (id: string, clientId: string | null) => void;
   predefinedTags?: PredefTag[];
   processes?: { id: string; title: string; number: string }[];
+  clients?: { id: string; full_name: string }[];
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
@@ -745,6 +748,19 @@ const SortableTask = ({
             <SelectItem value="__none__">Sem processo</SelectItem>
             {processes.map(p => (
               <SelectItem key={p.id} value={p.id}>{p.number ? `${p.number} — ${p.title}` : p.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Client link */}
+        <Select value={task.client_id || "__none__"} onValueChange={(v) => onClientChange(task.id, v === "__none__" ? null : v)}>
+          <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent shadow-none [&>svg]:hidden shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Users className={cn("h-3 w-3", task.client_id ? "text-secondary" : "text-muted-foreground")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Sem cliente</SelectItem>
+            {clients.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1090,6 +1106,7 @@ const QuickTasksWidget = () => {
   const [newDueDate, setNewDueDate] = useState<Date | undefined>();
   const [newAssignee, setNewAssignee] = useState<string>("__none__");
   const [newProcess, setNewProcess] = useState<string>("__none__");
+  const [newClient, setNewClient] = useState<string>("__none__");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [memberFilter, setMemberFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
@@ -1136,6 +1153,22 @@ const QuickTasksWidget = () => {
       return (data as any[] as TaskItem[]) || [];
     },
     enabled: !!user && !!activeOrgId,
+  });
+
+  // Fetch clients for this org
+  const { data: orgClients = [] } = useQuery({
+    queryKey: ["org-clients-for-tasks", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, full_name")
+        .eq("organization_id", activeOrgId!)
+        .eq("status", "active")
+        .order("full_name");
+      if (error) throw error;
+      return (data || []) as { id: string; full_name: string }[];
+    },
+    enabled: !!activeOrgId,
   });
 
   // Fetch processes for this org
@@ -1196,11 +1229,11 @@ const QuickTasksWidget = () => {
   };
 
   const addTask = useMutation({
-    mutationFn: async ({ title, priority, due_date, assigned_to, process_id }: { title: string; priority: Priority; due_date?: string | null; assigned_to?: string | null; process_id?: string | null }) => {
+    mutationFn: async ({ title, priority, due_date, assigned_to, process_id, client_id }: { title: string; priority: Priority; due_date?: string | null; assigned_to?: string | null; process_id?: string | null; client_id?: string | null }) => {
       const maxPos = quickTasks.length > 0 ? Math.max(...quickTasks.map(t => t.position || 0)) + 1 : 0;
       const { data: inserted, error } = await (supabase.from("quick_tasks" as any).insert({
         title, priority, position: maxPos, due_date: due_date || null,
-        assigned_to: assigned_to || null, process_id: process_id || null, status: "todo",
+        assigned_to: assigned_to || null, process_id: process_id || null, client_id: client_id || null, status: "todo",
         user_id: user!.id, organization_id: activeOrgId!,
       } as any).select("id").single() as any);
       if (error) throw error;
@@ -1222,7 +1255,7 @@ const QuickTasksWidget = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string; title?: string; description?: string | null; tags?: string[]; process_id?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string; title?: string; description?: string | null; tags?: string[]; process_id?: string | null; client_id?: string | null }) => {
       const payload: any = { ...updates };
       if (updates.status === "done") payload.done = true;
       else if (updates.status) payload.done = false;
@@ -1521,11 +1554,13 @@ const QuickTasksWidget = () => {
             due_date: newDueDate ? format(newDueDate, "yyyy-MM-dd") : null,
             assigned_to: newAssignee === "__none__" ? null : newAssignee,
             process_id: newProcess === "__none__" ? null : newProcess,
+            client_id: newClient === "__none__" ? null : newClient,
           });
           setNewTask("");
           setNewDueDate(undefined);
           setNewAssignee("__none__");
           setNewProcess("__none__");
+          setNewClient("__none__");
         }}
       >
         <Input placeholder="Nova tarefa..." value={newTask} onChange={e => setNewTask(e.target.value)} className="h-9 text-sm flex-1" />
@@ -1566,6 +1601,19 @@ const QuickTasksWidget = () => {
           </SelectContent>
         </Select>
 
+        {/* Client selector */}
+        <Select value={newClient} onValueChange={setNewClient}>
+          <SelectTrigger className={cn("h-9 w-9 p-0 border-border bg-transparent shadow-none flex items-center justify-center [&>svg]:hidden shrink-0", newClient !== "__none__" && "border-secondary/40 text-secondary")}>
+            <Users className="h-3.5 w-3.5" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Sem cliente</SelectItem>
+            {orgClients.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={newPriority} onValueChange={v => setNewPriority(v as Priority)}>
           <SelectTrigger className="h-9 w-9 p-0 border-border bg-transparent shadow-none flex items-center justify-center [&>svg]:hidden shrink-0">
             <Flag className={`h-3.5 w-3.5 ${PRIORITY_CONFIG[newPriority].color}`} />
@@ -1588,7 +1636,7 @@ const QuickTasksWidget = () => {
       </form>
 
       {/* Metadata preview */}
-      {(newDueDate || newAssignee !== "__none__" || newProcess !== "__none__") && (
+      {(newDueDate || newAssignee !== "__none__" || newProcess !== "__none__" || newClient !== "__none__") && (
         <div className="flex items-center gap-3 mb-3 -mt-1 text-[10px] text-muted-foreground">
           {newDueDate && (
             <span className="flex items-center gap-1">
@@ -1609,6 +1657,13 @@ const QuickTasksWidget = () => {
               <Briefcase className="h-2.5 w-2.5" />
               {orgProcesses.find(p => p.id === newProcess)?.title || "Processo"}
               <button type="button" className="text-destructive/60 hover:text-destructive" onClick={() => setNewProcess("__none__")}>✕</button>
+            </span>
+          )}
+          {newClient !== "__none__" && (
+            <span className="flex items-center gap-1">
+              <Users className="h-2.5 w-2.5" />
+              {orgClients.find(c => c.id === newClient)?.full_name || "Cliente"}
+              <button type="button" className="text-destructive/60 hover:text-destructive" onClick={() => setNewClient("__none__")}>✕</button>
             </span>
           )}
         </div>
@@ -1643,8 +1698,10 @@ const QuickTasksWidget = () => {
                       onUpdateDescription={(id, description) => updateTask.mutate({ id, description })}
                       onTagsChange={(id, tags) => updateTask.mutate({ id, tags })}
                       onProcessChange={(id, process_id) => updateTask.mutate({ id, process_id })}
+                      onClientChange={(id, client_id) => updateTask.mutate({ id, client_id })}
                       predefinedTags={predefinedTags}
                       processes={orgProcesses}
+                      clients={orgClients}
                     />
                   ))}
                 </div>

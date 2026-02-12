@@ -83,6 +83,22 @@ const Processes = () => {
     enabled: !!activeOrgId,
   });
 
+  // Fetch clients for linking
+  const { data: orgClients = [] } = useQuery({
+    queryKey: ["org-clients-for-processes", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, full_name, document_number")
+        .eq("organization_id", activeOrgId!)
+        .eq("status", "active")
+        .order("full_name");
+      if (error) throw error;
+      return (data || []) as { id: string; full_name: string; document_number: string | null }[];
+    },
+    enabled: !!activeOrgId,
+  });
+
   const getMemberName = (userId: string) => {
     const member = orgMembers.find((m: any) => m.user_id === userId);
     return (member?.profiles as any)?.full_name || "Membro";
@@ -514,6 +530,18 @@ const Processes = () => {
               <div><label className="text-overline text-muted-foreground block mb-1.5">Vara/Tribunal</label><Input className="bg-muted border-border rounded-xl" value={form.court} onChange={(e) => setForm({ ...form, court: e.target.value })} /></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Juiz</label><Input className="bg-muted border-border rounded-xl" value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} /></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Tags (separadas por vírgula)</label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente..." /></div>
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Vincular Cliente</label>
+              <Select value={(form as any).client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v } as any)}>
+                <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {orgClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.full_name}{c.document_number ? ` (${c.document_number})` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
