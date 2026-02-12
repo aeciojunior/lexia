@@ -34,11 +34,22 @@ export const useOrganization = () => {
 
   const switchOrganization = async (orgId: string) => {
     if (!user) return;
+    const oldOrgId = activeOrgId;
     const { error } = await supabase
       .from("profiles")
       .update({ active_organization_id: orgId } as any)
       .eq("user_id", user.id);
     if (error) throw error;
+
+    // Register audit log for org switch
+    await supabase.from("audit_logs").insert({
+      action: "change_active_organization",
+      user_id: user.id,
+      organization_id: orgId,
+      resource_type: "organization",
+      resource_id: orgId,
+      metadata: { old_organization_id: oldOrgId, new_organization_id: orgId },
+    } as any);
   };
 
   return {

@@ -216,6 +216,62 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          description: string | null
+          due_date: string | null
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          paid_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -315,6 +371,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          plan: string
           tax_id: string | null
           updated_at: string
         }
@@ -322,6 +379,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          plan?: string
           tax_id?: string | null
           updated_at?: string
         }
@@ -329,10 +387,74 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          plan?: string
           tax_id?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          external_id: string | null
+          id: string
+          invoice_id: string | null
+          metadata: Json | null
+          method: string
+          organization_id: string
+          paid_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          external_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          method?: string
+          organization_id: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          external_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          metadata?: Json | null
+          method?: string
+          organization_id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processes: {
         Row: {
