@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -20,9 +21,9 @@ const statusMap: Record<string, string> = { active: "Ativo", pending: "Pendente"
 const typeMap: Record<string, string> = { civil: "Cível", criminal: "Criminal", labor: "Trabalhista", tax: "Tributário", admin: "Administrativo" };
 
 interface ProcessForm {
-  number: string; title: string; client_name: string; type: string; status: string; risk_level: string; court: string; judge: string; notes: string; description: string; tags: string;
+  number: string; title: string; client_name: string; type: string; status: string; risk_level: string; court: string; judge: string; notes: string; description: string; tags: string; responsible_id: string;
 }
-const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "civil", status: "active", risk_level: "low", court: "", judge: "", notes: "", description: "", tags: "" };
+const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "civil", status: "active", risk_level: "low", court: "", judge: "", notes: "", description: "", tags: "", responsible_id: "none" };
 
 const Processes = () => {
   const { user } = useAuth();
@@ -36,6 +37,26 @@ const Processes = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProcessForm>(emptyForm);
   const [selectedProcess, setSelectedProcess] = useState<any>(null);
+
+  // Fetch org members for responsible selector
+  const { data: orgMembers = [] } = useQuery({
+    queryKey: ["org-members-for-processes", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_organizations" as any)
+        .select("user_id, role, profiles:user_id(full_name)")
+        .eq("organization_id", activeOrgId!)
+        .eq("status", "active");
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  const getMemberName = (userId: string) => {
+    const member = orgMembers.find((m: any) => m.user_id === userId);
+    return (member?.profiles as any)?.full_name || "Membro";
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["processes", search, statusFilter, page],
@@ -76,6 +97,7 @@ const Processes = () => {
         notes: formData.notes,
         description: formData.description,
         tags: tagsArray,
+        responsible_id: formData.responsible_id === "none" ? null : formData.responsible_id,
       };
 
       if (editingId) {
@@ -117,6 +139,7 @@ const Processes = () => {
       number: p.number, title: p.title, client_name: p.client_name, type: p.type, status: p.status,
       risk_level: p.risk_level || "low", court: p.court || "", judge: p.judge || "", notes: p.notes || "",
       description: p.description || "", tags: (p.tags || []).join(", "),
+      responsible_id: p.responsible_id || "none",
     });
     setDialogOpen(true);
   };
@@ -245,6 +268,25 @@ const Processes = () => {
               <div><label className="text-overline text-muted-foreground block mb-1.5">Vara/Tribunal</label><Input className="bg-muted border-border rounded-xl" value={form.court} onChange={(e) => setForm({ ...form, court: e.target.value })} /></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Juiz</label><Input className="bg-muted border-border rounded-xl" value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} /></div>
             </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Responsável Principal</label>
+              <Select value={form.responsible_id} onValueChange={(v) => setForm({ ...form, responsible_id: v })}>
+                <SelectTrigger className="bg-muted border-border rounded-xl">
+                  <SelectValue placeholder="Selecionar responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {orgMembers.map((m: any) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                        {(m.profiles as any)?.full_name || "Membro"} <span className="text-muted-foreground text-xs">({m.role})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div><label className="text-overline text-muted-foreground block mb-1.5">Tags (separadas por vírgula)</label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente, recurso..." /></div>
             <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
             <DialogFooter>
@@ -268,6 +310,14 @@ const Processes = () => {
                 <div><span className="text-overline text-muted-foreground block mb-0.5">Tipo</span>{typeMap[selectedProcess.type] || selectedProcess.type}</div>
                 <div><span className="text-overline text-muted-foreground block mb-0.5">Status</span><LexBadge variant={selectedProcess.status === "active" ? "success" : "warning"}>{statusMap[selectedProcess.status]}</LexBadge></div>
                 <div><span className="text-overline text-muted-foreground block mb-0.5">Risco</span><RiskIndicator level={selectedProcess.risk_level || "low"} /></div>
+                {selectedProcess.responsible_id && (
+                  <div><span className="text-overline text-muted-foreground block mb-0.5">Responsável</span>
+                    <div className="flex items-center gap-1.5">
+                      <Avatar className="h-5 w-5"><AvatarFallback className="text-[10px]">{getMemberName(selectedProcess.responsible_id).charAt(0)}</AvatarFallback></Avatar>
+                      <span>{getMemberName(selectedProcess.responsible_id)}</span>
+                    </div>
+                  </div>
+                )}
                 {selectedProcess.court && <div><span className="text-overline text-muted-foreground block mb-0.5">Vara/Tribunal</span>{selectedProcess.court}</div>}
                 {selectedProcess.judge && <div><span className="text-overline text-muted-foreground block mb-0.5">Juiz</span>{selectedProcess.judge}</div>}
               </div>
