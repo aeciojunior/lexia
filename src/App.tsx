@@ -14,6 +14,8 @@ import Profile from "./pages/Profile";
 import Documents from "./pages/Documents";
 import Deadlines from "./pages/Deadlines";
 import Admin from "./pages/Admin";
+import Organization from "./pages/Organization";
+import InviteAccept from "./pages/InviteAccept";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
@@ -36,7 +38,9 @@ const App = () => (
               <Route path="/documents" element={<Documents />} />
               <Route path="/deadlines" element={<Deadlines />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/organization" element={<Organization />} />
             </Route>
+            <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/design-system" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

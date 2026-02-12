@@ -16,6 +16,7 @@ const navItems = [
   { title: "Prazos", url: "/deadlines", icon: CalendarDays },
   { title: "Documentos", url: "/documents", icon: FileText },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true },
+  { title: "Organização", url: "/organization", icon: Building2 },
   { title: "Admin", url: "/admin", icon: Shield },
   { title: "Perfil", url: "/profile", icon: UserCircle },
 ];
