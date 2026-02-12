@@ -311,6 +311,21 @@ const Processes = () => {
         </Select>
       </motion.div>
 
+      {/* Active dashboard filter indicator */}
+      {dashboardFilter && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1 rounded-lg text-xs">
+            {dashboardFilter === "pendingTasks" && "Tarefas pendentes"}
+            {dashboardFilter === "overdueDeadlines" && "Prazos vencidos"}
+            {dashboardFilter === "totalDocs" && "Com documentos"}
+            <button onClick={() => { setDashboardFilter(null); setPage(0); }} className="ml-1 hover:text-destructive transition-colors">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+          <span className="text-xs text-muted-foreground">Filtro do dashboard ativo</span>
+        </motion.div>
+      )}
+
       {/* Table */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <LexCard hover={false}>
@@ -437,45 +452,45 @@ const Processes = () => {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg bg-card border-border">
+        <DialogContent className="max-w-3xl bg-card border-border">
           <DialogHeader><DialogTitle className="text-display-sm">{editingId ? "Editar Processo" : "Novo Processo"}</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div><label className="text-overline text-muted-foreground block mb-1.5">Número</label><Input className="bg-muted border-border rounded-xl" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="0000000-00.0000.0.00.0000" required /></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Cliente</label><Input className="bg-muted border-border rounded-xl" value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} required /></div>
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Título</label><Input className="bg-muted border-border rounded-xl" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
             </div>
-            <div><label className="text-overline text-muted-foreground block mb-1.5">Título</label><Input className="bg-muted border-border rounded-xl" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
-            <div><label className="text-overline text-muted-foreground block mb-1.5">Descrição</label><Textarea className="bg-muted border-border rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do processo..." /></div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Descrição</label><Textarea className="bg-muted border-border rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do processo..." /></div>
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
               <div><label className="text-overline text-muted-foreground block mb-1.5">Tipo</label><Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(typeMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Status</label><Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(statusMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Risco</label><Select value={form.risk_level} onValueChange={(v) => setForm({ ...form, risk_level: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Baixo</SelectItem><SelectItem value="medium">Médio</SelectItem><SelectItem value="high">Alto</SelectItem><SelectItem value="critical">Crítico</SelectItem></SelectContent></Select></div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Responsável</label>
+                <Select value={form.responsible_id} onValueChange={(v) => setForm({ ...form, responsible_id: v })}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {orgMembers.map((m: any) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                          {(m.profiles as any)?.full_name || "Membro"} <span className="text-muted-foreground text-xs">({m.role})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div><label className="text-overline text-muted-foreground block mb-1.5">Vara/Tribunal</label><Input className="bg-muted border-border rounded-xl" value={form.court} onChange={(e) => setForm({ ...form, court: e.target.value })} /></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Juiz</label><Input className="bg-muted border-border rounded-xl" value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} /></div>
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Tags (separadas por vírgula)</label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente..." /></div>
             </div>
-            <div>
-              <label className="text-overline text-muted-foreground block mb-1.5">Responsável Principal</label>
-              <Select value={form.responsible_id} onValueChange={(v) => setForm({ ...form, responsible_id: v })}>
-                <SelectTrigger className="bg-muted border-border rounded-xl">
-                  <SelectValue placeholder="Selecionar responsável" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {orgMembers.map((m: any) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                        {(m.profiles as any)?.full_name || "Membro"} <span className="text-muted-foreground text-xs">({m.role})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div><label className="text-overline text-muted-foreground block mb-1.5">Tags (separadas por vírgula)</label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente, recurso..." /></div>
-            <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar"}</Button>
