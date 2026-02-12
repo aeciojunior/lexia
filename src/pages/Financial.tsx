@@ -63,6 +63,7 @@ const Financial = () => {
   const [contractPage, setContractPage] = useState(0);
   const [paymentPage, setPaymentPage] = useState(0);
   const [dashboardPeriod, setDashboardPeriod] = useState<"month" | "quarter" | "year" | "all">("all");
+  const [profitPeriod, setProfitPeriod] = useState<"month" | "quarter" | "year" | "all">("all");
 
   const canViewFinancial = hasPermission("VIEW_FINANCIAL");
   const canManageFinancial = hasPermission("MANAGE_FINANCIAL");
@@ -293,10 +294,18 @@ const Financial = () => {
 
   // Profitability by client: cross time_entries with invoices
   const profitabilityData = useMemo(() => {
+    const now = new Date();
+    let periodStart: Date | null = null;
+    if (profitPeriod === "month") periodStart = startOfMonth(now);
+    else if (profitPeriod === "quarter") periodStart = startOfMonth(subMonths(now, 2));
+    else if (profitPeriod === "year") periodStart = startOfMonth(subMonths(now, 11));
+
+    const inPeriod = (dateStr: string) => !periodStart || new Date(dateStr) >= periodStart;
+
     const clientMap = new Map<string, { name: string; hoursMinutes: number; hoursCost: number; invoiced: number; paid: number }>();
 
     // Aggregate time entries by client
-    timeEntries.forEach((te: any) => {
+    timeEntries.filter((te: any) => inPeriod(te.date)).forEach((te: any) => {
       const clientId = te.client_id || "__no_client__";
       const existing = clientMap.get(clientId) || { name: "", hoursMinutes: 0, hoursCost: 0, invoiced: 0, paid: 0 };
       existing.hoursMinutes += te.duration_minutes || 0;
@@ -307,7 +316,7 @@ const Financial = () => {
     });
 
     // Aggregate invoices by client
-    invoices.forEach((inv: any) => {
+    invoices.filter((inv: any) => inPeriod(inv.created_at)).forEach((inv: any) => {
       const clientId = inv.client_id || "__no_client__";
       const existing = clientMap.get(clientId) || { name: "", hoursMinutes: 0, hoursCost: 0, invoiced: 0, paid: 0 };
       existing.invoiced += (inv.amount_cents || 0) / 100;
@@ -336,7 +345,7 @@ const Financial = () => {
         ratePerHour: c.hoursMinutes > 0 ? parseFloat((c.paid / (c.hoursMinutes / 60)).toFixed(2)) : null,
       }))
       .sort((a, b) => b.paid - a.paid);
-  }, [timeEntries, invoices, orgClients]);
+  }, [timeEntries, invoices, orgClients, profitPeriod]);
 
 
 
@@ -1306,6 +1315,18 @@ const Financial = () => {
                 <TrendingUp className="h-4 w-4 text-primary" />
                 Rentabilidade por Cliente
               </LexCardTitle>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <Select value={profitPeriod} onValueChange={(v: any) => setProfitPeriod(v)}>
+                  <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo o período</SelectItem>
+                    <SelectItem value="month">Este mês</SelectItem>
+                    <SelectItem value="quarter">Trimestre</SelectItem>
+                    <SelectItem value="year">Último ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </LexCardHeader>
             {profitabilityData.length === 0 ? (
               <div className="py-12 text-center">
