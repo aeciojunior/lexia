@@ -65,6 +65,7 @@ const Processes = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProcessForm>(emptyForm);
   const [selectedProcess, setSelectedProcess] = useState<any>(null);
+  const [dashboardFilter, setDashboardFilter] = useState<string | null>(null);
 
   // Fetch org members for responsible selector
   const { data: orgMembers = [] } = useQuery({
@@ -87,11 +88,22 @@ const Processes = () => {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["processes", search, statusFilter, page],
+    queryKey: ["processes", search, statusFilter, page, dashboardFilter],
     queryFn: async () => {
-      let q = supabase.from("processes").select("*", { count: "exact" }).eq("archived", false).order("created_at", { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      let q = supabase.from("processes").select("*", { count: "exact" }).eq("archived", false).order("created_at", { ascending: false });
       if (statusFilter !== "all") q = q.eq("status", statusFilter);
       if (search) q = q.or(`title.ilike.%${search}%,number.ilike.%${search}%,client_name.ilike.%${search}%`);
+
+      // Apply dashboard filter by process IDs
+      if (dashboardFilter && stats) {
+        const filterIds = stats.filterIds?.[dashboardFilter] || [];
+        if (filterIds.length === 0) {
+          return { items: [], count: 0 };
+        }
+        q = q.in("id", filterIds);
+      }
+
+      q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, error, count } = await q;
       if (error) throw error;
       return { items: data || [], count: count || 0 };
@@ -109,14 +121,25 @@ const Processes = () => {
         supabase.from("documents").select("id, process_id").not("process_id", "is", null),
       ]);
       const now = new Date();
+      const allTasks = tasks.data || [];
       const allDeadlines = deadlines.data || [];
-      const pendingTasks = (tasks.data || []).filter((t: any) => t.status !== "done").length;
-      const overdueDeadlines = allDeadlines.filter((d: any) => d.status !== "completed" && new Date(d.due_date + "T23:59:59") < now).length;
+      const allDocs = docs.data || [];
+      const pendingTaskItems = allTasks.filter((t: any) => t.status !== "done");
+      const overdueDeadlineItems = allDeadlines.filter((d: any) => d.status !== "completed" && new Date(d.due_date + "T23:59:59") < now);
+
+      // Collect unique process IDs per filter
+      const filterIds: Record<string, string[]> = {
+        pendingTasks: [...new Set(pendingTaskItems.map((t: any) => t.process_id as string))],
+        overdueDeadlines: [...new Set(overdueDeadlineItems.map((d: any) => d.process_id as string))],
+        totalDocs: [...new Set(allDocs.map((d: any) => d.process_id as string))],
+      };
+
       return {
         totalProcesses: procs.count || 0,
-        pendingTasks,
-        overdueDeadlines,
-        totalDocs: (docs.data || []).length,
+        pendingTasks: pendingTaskItems.length,
+        overdueDeadlines: overdueDeadlineItems.length,
+        totalDocs: allDocs.length,
+        filterIds,
       };
     },
     enabled: !!activeOrgId,
@@ -247,21 +270,29 @@ const Processes = () => {
       {stats && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Processos ativos", value: stats.totalProcesses, icon: Scale, color: "text-primary" },
-            { label: "Tarefas pendentes", value: stats.pendingTasks, icon: ListTodo, color: stats.pendingTasks > 0 ? "text-warning" : "text-muted-foreground" },
-            { label: "Prazos vencidos", value: stats.overdueDeadlines, icon: AlertTriangle, color: stats.overdueDeadlines > 0 ? "text-destructive" : "text-muted-foreground" },
-            { label: "Documentos vinculados", value: stats.totalDocs, icon: FileText, color: "text-muted-foreground" },
-          ].map((card) => (
-            <div key={card.label} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-muted ${card.color}`}>
-                <card.icon className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-display-sm leading-none"><AnimatedNumber value={card.value} /></p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{card.label}</p>
-              </div>
-            </div>
-          ))}
+            { label: "Processos ativos", value: stats.totalProcesses, icon: Scale, color: "text-primary", filterKey: null },
+            { label: "Tarefas pendentes", value: stats.pendingTasks, icon: ListTodo, color: stats.pendingTasks > 0 ? "text-warning" : "text-muted-foreground", filterKey: "pendingTasks" },
+            { label: "Prazos vencidos", value: stats.overdueDeadlines, icon: AlertTriangle, color: stats.overdueDeadlines > 0 ? "text-destructive" : "text-muted-foreground", filterKey: "overdueDeadlines" },
+            { label: "Documentos vinculados", value: stats.totalDocs, icon: FileText, color: "text-muted-foreground", filterKey: "totalDocs" },
+          ].map((card) => {
+            const isActive = dashboardFilter === card.filterKey;
+            return (
+              <button
+                key={card.label}
+                onClick={() => { setDashboardFilter(isActive ? null : card.filterKey); setPage(0); }}
+                className={`flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all ${isActive ? "border-primary bg-primary/5 ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/30 hover:bg-muted/40"} ${card.filterKey === null ? "cursor-default" : "cursor-pointer"}`}
+                disabled={card.filterKey === null}
+              >
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-muted ${card.color}`}>
+                  <card.icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-display-sm leading-none"><AnimatedNumber value={card.value} /></p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{card.label}{isActive ? " ✕" : ""}</p>
+                </div>
+              </button>
+            );
+          })}
         </motion.div>
       )}
 
