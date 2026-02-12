@@ -57,6 +57,7 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
 interface TaskItem {
   id: string;
   title: string;
+  description: string | null;
   done: boolean;
   priority: Priority;
   position: number;
@@ -209,7 +210,7 @@ const TaskComments = ({ taskId, members }: { taskId: string; members: OrgMember[
 
 /* ─── Sortable Task (list view) ─── */
 const SortableTask = ({
-  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange,
+  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription,
 }: {
   task: TaskItem;
   members: OrgMember[];
@@ -219,9 +220,15 @@ const SortableTask = ({
   onDueDateChange: (id: string, date: string | null) => void;
   onAssign: (id: string, userId: string | null) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
+  onUpdateTitle: (id: string, title: string) => void;
+  onUpdateDescription: (id: string, description: string | null) => void;
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [showDescription, setShowDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState(task.description || "");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -252,9 +259,30 @@ const SortableTask = ({
           }}
         />
 
-        <span className={cn("flex-1 text-caption min-w-0 truncate", task.status === "done" ? "line-through text-muted-foreground" : "text-foreground")}>
-          {task.title}
-        </span>
+        {isEditingTitle ? (
+          <Input
+            autoFocus
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            onBlur={() => {
+              setIsEditingTitle(false);
+              if (editTitle.trim() && editTitle.trim() !== task.title) onUpdateTitle(task.id, editTitle.trim());
+              else setEditTitle(task.title);
+            }}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.currentTarget.blur(); }
+              if (e.key === "Escape") { setEditTitle(task.title); setIsEditingTitle(false); }
+            }}
+            className="h-6 text-caption flex-1 min-w-0 px-1 py-0"
+          />
+        ) : (
+          <span
+            className={cn("flex-1 text-caption min-w-0 truncate cursor-text", task.status === "done" ? "line-through text-muted-foreground" : "text-foreground")}
+            onClick={() => { setIsEditingTitle(true); setEditTitle(task.title); }}
+          >
+            {task.title}
+          </span>
+        )}
 
         <DueDateLabel dueDate={task.due_date} />
         {assignedMember && <MemberAvatar member={assignedMember} />}
@@ -272,6 +300,16 @@ const SortableTask = ({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Description toggle */}
+        <Button
+          variant="ghost" size="icon"
+          className={cn("h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity", task.description && "opacity-60")}
+          onClick={() => setShowDescription(!showDescription)}
+          title="Descrição"
+        >
+          <ChevronDown className={cn("h-3 w-3 transition-transform", showDescription && "rotate-180")} />
+        </Button>
 
         {/* Subtasks toggle */}
         <Button
@@ -353,6 +391,23 @@ const SortableTask = ({
         </Button>
       </div>
 
+      {/* Description */}
+      {showDescription && (
+        <div className="pl-8 pr-2 pb-2">
+          <Textarea
+            placeholder="Adicionar descrição..."
+            value={editDescription}
+            onChange={e => setEditDescription(e.target.value)}
+            onBlur={() => {
+              const val = editDescription.trim() || null;
+              if (val !== (task.description || null)) onUpdateDescription(task.id, val);
+            }}
+            className="text-[11px] min-h-[48px] resize-none"
+            rows={2}
+          />
+        </div>
+      )}
+
       {showSubtasks && <TaskSubtasks taskId={task.id} />}
       {showComments && <TaskComments taskId={task.id} members={members} />}
     </div>
@@ -361,16 +416,22 @@ const SortableTask = ({
 
 /* ─── Draggable Kanban Card ─── */
 const DraggableKanbanCard = ({
-  task, members, onDelete, onStatusChange, isDragOverlay = false,
+  task, members, onDelete, onStatusChange, onUpdateTitle, onUpdateDescription, isDragOverlay = false,
 }: {
   task: TaskItem;
   members: OrgMember[];
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
+  onUpdateTitle?: (id: string, title: string) => void;
+  onUpdateDescription?: (id: string, description: string | null) => void;
   isDragOverlay?: boolean;
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [showDescription, setShowDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState(task.description || "");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: "kanban-card", status: task.status },
@@ -392,9 +453,33 @@ const DraggableKanbanCard = ({
     >
       <div className="flex items-start gap-2">
         <div className={`h-2 w-2 rounded-full mt-1 shrink-0 ${prio.dot}`} />
-        <span className={cn("flex-1 text-caption leading-snug", task.status === "done" && "line-through text-muted-foreground")}>
-          {task.title}
-        </span>
+        {isEditingTitle ? (
+          <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+            <Input
+              autoFocus
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              onBlur={() => {
+                setIsEditingTitle(false);
+                if (editTitle.trim() && editTitle.trim() !== task.title) onUpdateTitle?.(task.id, editTitle.trim());
+                else setEditTitle(task.title);
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") { setEditTitle(task.title); setIsEditingTitle(false); }
+              }}
+              className="h-5 text-caption flex-1 min-w-0 px-1 py-0"
+            />
+          </div>
+        ) : (
+          <span
+            className={cn("flex-1 text-caption leading-snug cursor-text", task.status === "done" && "line-through text-muted-foreground")}
+            onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); setEditTitle(task.title); }}
+            onPointerDown={e => { if (!isDragOverlay) e.stopPropagation(); }}
+          >
+            {task.title}
+          </span>
+        )}
         <Button
           variant="ghost" size="icon"
           className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
@@ -403,6 +488,16 @@ const DraggableKanbanCard = ({
           <Trash2 className="h-2.5 w-2.5" />
         </Button>
       </div>
+
+      {task.description && !showDescription && (
+        <p
+          className="text-[10px] text-muted-foreground truncate pl-4 cursor-pointer"
+          onClick={(e) => { e.stopPropagation(); setShowDescription(true); }}
+          onPointerDown={e => e.stopPropagation()}
+        >
+          {task.description}
+        </p>
+      )}
 
       <div className="flex items-center gap-1.5 flex-wrap">
         <DueDateLabel dueDate={task.due_date} />
@@ -418,12 +513,37 @@ const DraggableKanbanCard = ({
 
         <Button
           variant="ghost" size="icon"
+          className={cn("h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary", task.description && "text-muted-foreground")}
+          onClick={(e) => { e.stopPropagation(); setShowDescription(!showDescription); }}
+          onPointerDown={e => e.stopPropagation()}
+        >
+          <ChevronDown className={cn("h-2.5 w-2.5 transition-transform", showDescription && "rotate-180")} />
+        </Button>
+
+        <Button
+          variant="ghost" size="icon"
           className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary ml-auto"
           onClick={(e) => { e.stopPropagation(); setShowComments(!showComments); }}
         >
           <MessageSquare className="h-2.5 w-2.5" />
         </Button>
       </div>
+
+      {showDescription && (
+        <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+          <Textarea
+            placeholder="Adicionar descrição..."
+            value={editDescription}
+            onChange={e => setEditDescription(e.target.value)}
+            onBlur={() => {
+              const val = editDescription.trim() || null;
+              if (val !== (task.description || null)) onUpdateDescription?.(task.id, val);
+            }}
+            className="text-[11px] min-h-[40px] resize-none"
+            rows={2}
+          />
+        </div>
+      )}
 
       {showSubtasks && (
         <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
@@ -442,13 +562,15 @@ const DraggableKanbanCard = ({
 
 /* ─── Droppable Kanban Column ─── */
 const DroppableKanbanColumn = ({
-  status, tasks, members, onDelete, onStatusChange, isOver,
+  status, tasks, members, onDelete, onStatusChange, onUpdateTitle, onUpdateDescription, isOver,
 }: {
   status: TaskStatus;
   tasks: TaskItem[];
   members: OrgMember[];
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
+  onUpdateTitle: (id: string, title: string) => void;
+  onUpdateDescription: (id: string, description: string | null) => void;
   isOver?: boolean;
 }) => {
   const { setNodeRef } = useDroppable({ id: status });
@@ -474,6 +596,8 @@ const DroppableKanbanColumn = ({
                   members={members}
                   onDelete={onDelete}
                   onStatusChange={onStatusChange}
+                  onUpdateTitle={onUpdateTitle}
+                  onUpdateDescription={onUpdateDescription}
                 />
               ))
             )}
@@ -579,7 +703,7 @@ const QuickTasksWidget = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string; title?: string; description?: string | null }) => {
       const payload: any = { ...updates };
       if (updates.status === "done") payload.done = true;
       else if (updates.status) payload.done = false;
@@ -883,6 +1007,8 @@ const QuickTasksWidget = () => {
                       onDueDateChange={(id, due_date) => updateTask.mutate({ id, due_date })}
                       onAssign={(id, assigned_to) => updateTask.mutate({ id, assigned_to })}
                       onStatusChange={handleStatusChange}
+                      onUpdateTitle={(id, title) => updateTask.mutate({ id, title })}
+                      onUpdateDescription={(id, description) => updateTask.mutate({ id, description })}
                     />
                   ))}
                 </div>
@@ -909,6 +1035,8 @@ const QuickTasksWidget = () => {
                 members={orgMembers}
                 onDelete={(id) => deleteTask.mutate(id)}
                 onStatusChange={handleStatusChange}
+                onUpdateTitle={(id, title) => updateTask.mutate({ id, title })}
+                onUpdateDescription={(id, description) => updateTask.mutate({ id, description })}
               />
             ))}
           </div>

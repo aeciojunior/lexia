@@ -775,6 +775,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           created_at: string
+          description: string | null
           done: boolean
           due_date: string | null
           id: string
@@ -789,6 +790,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           created_at?: string
+          description?: string | null
           done?: boolean
           due_date?: string | null
           id?: string
@@ -803,6 +805,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           created_at?: string
+          description?: string | null
           done?: boolean
           due_date?: string | null
           id?: string
