@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ const emptyForm: DeadlineForm = { title: "", description: "", due_date: "", due_
 
 const Deadlines = () => {
   const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -69,7 +71,8 @@ const Deadlines = () => {
         priority: formData.priority,
         process_id: formData.process_id === "none" ? null : formData.process_id,
         user_id: user!.id,
-      };
+        organization_id: activeOrgId,
+      } as any;
       if (editingId) {
         const { error } = await supabase.from("deadlines").update(payload).eq("id", editingId);
         if (error) throw error;

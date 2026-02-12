@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { RiskIndicator } from "@/components/lexia/LegalComponents";
@@ -25,6 +26,7 @@ const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "
 
 const Processes = () => {
   const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -53,7 +55,7 @@ const Processes = () => {
         const { error } = await supabase.from("processes").update(formData).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("processes").insert({ ...formData, user_id: user!.id });
+        const { error } = await supabase.from("processes").insert({ ...formData, user_id: user!.id, organization_id: activeOrgId } as any);
         if (error) throw error;
       }
     },
