@@ -610,13 +610,16 @@ export type Database = {
           client_name: string
           court: string | null
           created_at: string
+          description: string | null
           id: string
           judge: string | null
           notes: string | null
           number: string
           organization_id: string | null
+          responsible_id: string | null
           risk_level: string | null
           status: string
+          tags: string[] | null
           title: string
           type: string
           updated_at: string
@@ -627,13 +630,16 @@ export type Database = {
           client_name: string
           court?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           judge?: string | null
           notes?: string | null
           number: string
           organization_id?: string | null
+          responsible_id?: string | null
           risk_level?: string | null
           status?: string
+          tags?: string[] | null
           title: string
           type?: string
           updated_at?: string
@@ -644,13 +650,16 @@ export type Database = {
           client_name?: string
           court?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           judge?: string | null
           notes?: string | null
           number?: string
           organization_id?: string | null
+          responsible_id?: string | null
           risk_level?: string | null
           status?: string
+          tags?: string[] | null
           title?: string
           type?: string
           updated_at?: string
@@ -847,6 +856,7 @@ export type Database = {
           organization_id: string
           position: number
           priority: string
+          process_id: string | null
           status: string
           tags: string[] | null
           title: string
@@ -863,6 +873,7 @@ export type Database = {
           organization_id: string
           position?: number
           priority?: string
+          process_id?: string | null
           status?: string
           tags?: string[] | null
           title: string
@@ -879,13 +890,22 @@ export type Database = {
           organization_id?: string
           position?: number
           priority?: string
+          process_id?: string | null
           status?: string
           tags?: string[] | null
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quick_tasks_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_organizations: {
         Row: {

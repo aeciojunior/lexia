@@ -20,9 +20,9 @@ const statusMap: Record<string, string> = { active: "Ativo", pending: "Pendente"
 const typeMap: Record<string, string> = { civil: "Cível", criminal: "Criminal", labor: "Trabalhista", tax: "Tributário", admin: "Administrativo" };
 
 interface ProcessForm {
-  number: string; title: string; client_name: string; type: string; status: string; risk_level: string; court: string; judge: string; notes: string;
+  number: string; title: string; client_name: string; type: string; status: string; risk_level: string; court: string; judge: string; notes: string; description: string; tags: string;
 }
-const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "civil", status: "active", risk_level: "low", court: "", judge: "", notes: "" };
+const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "civil", status: "active", risk_level: "low", court: "", judge: "", notes: "", description: "", tags: "" };
 
 const Processes = () => {
   const { user } = useAuth();
@@ -49,14 +49,43 @@ const Processes = () => {
     },
   });
 
+  const logAudit = async (action: string, resourceId: string, metadata: Record<string, any> = {}) => {
+    if (!user) return;
+    await supabase.from("audit_logs").insert({
+      action,
+      user_id: user.id,
+      organization_id: activeOrgId,
+      resource_type: "process",
+      resource_id: resourceId,
+      metadata,
+    } as any);
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (formData: ProcessForm) => {
+      const tagsArray = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
+      const payload = {
+        number: formData.number,
+        title: formData.title,
+        client_name: formData.client_name,
+        type: formData.type,
+        status: formData.status,
+        risk_level: formData.risk_level,
+        court: formData.court,
+        judge: formData.judge,
+        notes: formData.notes,
+        description: formData.description,
+        tags: tagsArray,
+      };
+
       if (editingId) {
-        const { error } = await supabase.from("processes").update(formData).eq("id", editingId);
+        const { error } = await supabase.from("processes").update(payload as any).eq("id", editingId);
         if (error) throw error;
+        await logAudit("process_updated", editingId, { fields_changed: Object.keys(payload) });
       } else {
-        const { error } = await supabase.from("processes").insert({ ...formData, user_id: user!.id, organization_id: activeOrgId } as any);
+        const { data: inserted, error } = await supabase.from("processes").insert({ ...payload, user_id: user!.id, organization_id: activeOrgId } as any).select("id").single();
         if (error) throw error;
+        await logAudit("process_created", inserted.id, { title: formData.title, number: formData.number });
       }
     },
     onSuccess: () => {
@@ -73,6 +102,7 @@ const Processes = () => {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("processes").update({ archived: true }).eq("id", id);
       if (error) throw error;
+      await logAudit("process_archived", id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["processes"] });
@@ -83,7 +113,11 @@ const Processes = () => {
 
   const openEdit = (p: any) => {
     setEditingId(p.id);
-    setForm({ number: p.number, title: p.title, client_name: p.client_name, type: p.type, status: p.status, risk_level: p.risk_level || "low", court: p.court || "", judge: p.judge || "", notes: p.notes || "" });
+    setForm({
+      number: p.number, title: p.title, client_name: p.client_name, type: p.type, status: p.status,
+      risk_level: p.risk_level || "low", court: p.court || "", judge: p.judge || "", notes: p.notes || "",
+      description: p.description || "", tags: (p.tags || []).join(", "),
+    });
     setDialogOpen(true);
   };
 
@@ -201,6 +235,7 @@ const Processes = () => {
               <div><label className="text-overline text-muted-foreground block mb-1.5">Cliente</label><Input className="bg-muted border-border rounded-xl" value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} required /></div>
             </div>
             <div><label className="text-overline text-muted-foreground block mb-1.5">Título</label><Input className="bg-muted border-border rounded-xl" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
+            <div><label className="text-overline text-muted-foreground block mb-1.5">Descrição</label><Textarea className="bg-muted border-border rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do processo..." /></div>
             <div className="grid grid-cols-3 gap-4">
               <div><label className="text-overline text-muted-foreground block mb-1.5">Tipo</label><Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(typeMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Status</label><Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(statusMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
@@ -210,7 +245,8 @@ const Processes = () => {
               <div><label className="text-overline text-muted-foreground block mb-1.5">Vara/Tribunal</label><Input className="bg-muted border-border rounded-xl" value={form.court} onChange={(e) => setForm({ ...form, court: e.target.value })} /></div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Juiz</label><Input className="bg-muted border-border rounded-xl" value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} /></div>
             </div>
-            <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
+            <div><label className="text-overline text-muted-foreground block mb-1.5">Tags (separadas por vírgula)</label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente, recurso..." /></div>
+            <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar"}</Button>
@@ -235,6 +271,14 @@ const Processes = () => {
                 {selectedProcess.court && <div><span className="text-overline text-muted-foreground block mb-0.5">Vara/Tribunal</span>{selectedProcess.court}</div>}
                 {selectedProcess.judge && <div><span className="text-overline text-muted-foreground block mb-0.5">Juiz</span>{selectedProcess.judge}</div>}
               </div>
+              {selectedProcess.description && <div><span className="text-overline text-muted-foreground block mb-1">Descrição</span><p className="text-body-sm rounded-xl bg-muted p-3">{selectedProcess.description}</p></div>}
+              {selectedProcess.tags?.length > 0 && (
+                <div><span className="text-overline text-muted-foreground block mb-1">Tags</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProcess.tags.map((tag: string) => <LexBadge key={tag} variant="outline">{tag}</LexBadge>)}
+                  </div>
+                </div>
+              )}
               {selectedProcess.notes && <div><span className="text-overline text-muted-foreground block mb-1">Observações</span><p className="text-body-sm rounded-xl bg-muted p-3">{selectedProcess.notes}</p></div>}
             </div>
           )}
