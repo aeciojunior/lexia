@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +18,31 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+
+const useCountUp = (end: number, duration = 800) => {
+  const [value, setValue] = useState(0);
+  const prevEnd = useRef(0);
+  useEffect(() => {
+    if (end === prevEnd.current) return;
+    const start = prevEnd.current;
+    prevEnd.current = end;
+    if (end === 0) { setValue(0); return; }
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(start + (end - start) * eased));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [end, duration]);
+  return value;
+};
+
+const AnimatedNumber = ({ value }: { value: number }) => {
+  const display = useCountUp(value);
+  return <>{display}</>;
+};
 
 const PAGE_SIZE = 10;
 const statusMap: Record<string, string> = { active: "Ativo", pending: "Pendente", closed: "Encerrado", suspended: "Suspenso" };
@@ -232,7 +257,7 @@ const Processes = () => {
                 <card.icon className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-display-sm leading-none">{card.value}</p>
+                <p className="text-display-sm leading-none"><AnimatedNumber value={card.value} /></p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{card.label}</p>
               </div>
             </div>
