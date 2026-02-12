@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -325,6 +325,102 @@ const Financial = () => {
   const paginatedPayments = filteredPayments.slice(paymentPage * ITEMS_PER_PAGE, (paymentPage + 1) * ITEMS_PER_PAGE);
   const paymentTotalPages = Math.max(1, Math.ceil(filteredPayments.length / ITEMS_PER_PAGE));
 
+  // Monthly summary with comparison
+  const monthlySummary = useMemo(() => {
+    const now = new Date();
+    const curStart = startOfMonth(now);
+    const curEnd = endOfMonth(now);
+    const prevStart = startOfMonth(subMonths(now, 1));
+    const prevEnd = endOfMonth(subMonths(now, 1));
+
+    const inRange = (dateStr: string, start: Date, end: Date) => {
+      const d = new Date(dateStr);
+      return d >= start && d <= end;
+    };
+
+    const curInvoices = invoices.filter((i: any) => inRange(i.created_at, curStart, curEnd));
+    const prevInvoices = invoices.filter((i: any) => inRange(i.created_at, prevStart, prevEnd));
+
+    const curPaidTotal = curInvoices.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+    const prevPaidTotal = prevInvoices.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+
+    const curPendingTotal = curInvoices.filter((i: any) => i.status === "pending").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+    const prevPendingTotal = prevInvoices.filter((i: any) => i.status === "pending").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+
+    const curOverdueTotal = curInvoices.filter((i: any) => i.status === "overdue").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+    const prevOverdueTotal = prevInvoices.filter((i: any) => i.status === "overdue").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+
+    const curNewCount = curInvoices.length;
+    const prevNewCount = prevInvoices.length;
+
+    const delta = (cur: number, prev: number) => prev === 0 ? (cur > 0 ? 100 : 0) : ((cur - prev) / prev) * 100;
+
+    return {
+      curMonth: format(now, "MMMM yyyy", { locale: ptBR }),
+      prevMonth: format(subMonths(now, 1), "MMMM yyyy", { locale: ptBR }),
+      items: [
+        { label: "Receita", cur: curPaidTotal, prev: prevPaidTotal, delta: delta(curPaidTotal, prevPaidTotal) },
+        { label: "Pendente", cur: curPendingTotal, prev: prevPendingTotal, delta: delta(curPendingTotal, prevPendingTotal) },
+        { label: "Vencido", cur: curOverdueTotal, prev: prevOverdueTotal, delta: delta(curOverdueTotal, prevOverdueTotal) },
+        { label: "Novas faturas", cur: curNewCount, prev: prevNewCount, delta: delta(curNewCount, prevNewCount), isCount: true },
+      ],
+    };
+  }, [invoices]);
+
+  // CSV export helpers
+  const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
+    const bom = "\uFEFF";
+    const csv = bom + [headers.join(";"), ...rows.map(r => r.map(c => `"${(c || "").replace(/"/g, '""')}"`).join(";"))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filename} exportado!`);
+  };
+
+  const exportInvoicesCSV = () => {
+    const headers = ["Descrição", "Cliente", "Valor (R$)", "Status", "Vencimento", "Criado em"];
+    const rows = filteredInvoices.map((inv: any) => [
+      inv.description || "",
+      orgClients.find(c => c.id === inv.client_id)?.full_name || "",
+      (inv.amount_cents / 100).toFixed(2).replace(".", ","),
+      statusLabels[inv.status] || inv.status,
+      inv.due_date || "",
+      format(new Date(inv.created_at), "dd/MM/yyyy"),
+    ]);
+    downloadCSV("faturas.csv", headers, rows);
+  };
+
+  const exportContractsCSV = () => {
+    const headers = ["Título", "Cliente", "Tipo", "Valor (R$)", "Periodicidade", "Status", "Início", "Fim"];
+    const rows = filteredContracts.map((c: any) => [
+      c.title,
+      orgClients.find(cl => cl.id === c.client_id)?.full_name || "",
+      contractTypeLabels[c.contract_type] || c.contract_type,
+      (c.amount_cents / 100).toFixed(2).replace(".", ","),
+      periodicityLabels[c.periodicity] || c.periodicity,
+      statusLabels[c.status] || c.status,
+      c.start_date || "",
+      c.end_date || "",
+    ]);
+    downloadCSV("contratos.csv", headers, rows);
+  };
+
+  const exportPaymentsCSV = () => {
+    const headers = ["Valor (R$)", "Método", "Status", "Data", "ID Externo"];
+    const rows = filteredPayments.map((p: any) => [
+      (p.amount_cents / 100).toFixed(2).replace(".", ","),
+      methodLabels[p.method] || p.method,
+      statusLabels[p.status] || p.status,
+      format(new Date(p.created_at), "dd/MM/yyyy"),
+      p.external_id || "",
+    ]);
+    downloadCSV("pagamentos.csv", headers, rows);
+  };
+
   if (!canViewFinancial) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -377,7 +473,49 @@ const Financial = () => {
         ))}
       </div>
 
-      {/* Search + Create */}
+      {/* Monthly Summary with Comparison */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <LexCard hover={false}>
+          <LexCardHeader>
+            <LexCardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Resumo Mensal — <span className="capitalize">{monthlySummary.curMonth}</span>
+            </LexCardTitle>
+            <span className="text-caption text-muted-foreground">vs <span className="capitalize">{monthlySummary.prevMonth}</span></span>
+          </LexCardHeader>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {monthlySummary.items.map((item) => {
+              const isPositive = item.label === "Vencido" ? item.delta < 0 : item.delta > 0;
+              const isNeutral = item.delta === 0;
+              return (
+                <div key={item.label} className="rounded-lg border border-border bg-muted/30 p-4">
+                  <p className="text-overline text-muted-foreground mb-1">{item.label}</p>
+                  <p className="text-display-sm">
+                    {item.isCount ? item.cur : formatCurrency(item.cur)}
+                  </p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {isNeutral ? (
+                      <Minus className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : isPositive ? (
+                      <ArrowUpRight className="h-3.5 w-3.5 text-success" />
+                    ) : (
+                      <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                    <span className={`text-caption font-medium ${isNeutral ? "text-muted-foreground" : isPositive ? "text-success" : "text-destructive"}`}>
+                      {Math.abs(item.delta).toFixed(0)}%
+                    </span>
+                    <span className="text-caption text-muted-foreground ml-1">
+                      {item.isCount ? `(${item.prev})` : `(${formatCurrency(item.prev)})`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </LexCard>
+      </motion.div>
+
+      {/* Search + Create + Export */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -389,6 +527,17 @@ const Financial = () => {
             <Button variant="secondary" onClick={() => setContractDialogOpen(true)}><Plus className="h-4 w-4" /> Novo Contrato</Button>
           </>
         )}
+        <div className="flex items-center gap-1 ml-auto">
+          <Button variant="outline" size="sm" onClick={exportInvoicesCSV} disabled={filteredInvoices.length === 0}>
+            <Download className="h-3.5 w-3.5" /> Faturas CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportContractsCSV} disabled={filteredContracts.length === 0}>
+            <Download className="h-3.5 w-3.5" /> Contratos CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPaymentsCSV} disabled={filteredPayments.length === 0}>
+            <Download className="h-3.5 w-3.5" /> Pagamentos CSV
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="invoices">
