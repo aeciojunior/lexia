@@ -8,7 +8,7 @@ import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 const roleMap: Record<string, string> = { owner: "Proprietário", admin: "Administrador", user: "Usuário", intern: "Estagiário", client: "Cliente" };
 const roleBadgeVariant: Record<string, string> = { owner: "destructive", admin: "warning", user: "default", intern: "info", client: "outline" };
@@ -25,6 +26,7 @@ const Organization = () => {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [orgName, setOrgName] = useState("");
   const [orgTaxId, setOrgTaxId] = useState("");
@@ -37,6 +39,8 @@ const Organization = () => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch org details
@@ -107,15 +111,36 @@ const Organization = () => {
   // Update org name/taxId
   const updateOrgMutation = useMutation({
     mutationFn: async () => {
+      // Detect changed fields for audit
+      const changedFields: string[] = [];
+      if (org?.name !== orgName) changedFields.push("name");
+      if ((org?.tax_id || "") !== orgTaxId) changedFields.push("tax_id");
+
       const { error } = await supabase
         .from("organizations")
         .update({ name: orgName, tax_id: orgTaxId || null } as any)
         .eq("id", activeOrgId!);
       if (error) throw error;
+
+      // RF-014.4: Audit log for org updates
+      if (changedFields.length > 0) {
+        await supabase.from("audit_logs").insert({
+          action: "organization_updated",
+          user_id: user!.id,
+          organization_id: activeOrgId,
+          resource_type: "organization",
+          resource_id: activeOrgId,
+          metadata: {
+            fields_changed: changedFields,
+            user_agent: navigator.userAgent,
+          },
+        } as any);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-details"] });
       queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
       toast.success("Organização atualizada!");
     },
     onError: (e: any) => toast.error(e.message),
@@ -227,6 +252,26 @@ const Organization = () => {
       setRemoveDialogOpen(false);
       setMemberToRemove(null);
       toast.success("Membro removido com sucesso!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // RF-014.3: Delete organization (Owner only)
+  const deleteOrgMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("manage-member", {
+        body: { action: "delete-organization", organization_id: activeOrgId, confirm_name: deleteConfirmName },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["active-org"] });
+      setDeleteDialogOpen(false);
+      setDeleteConfirmName("");
+      toast.success("Organização excluída com sucesso.");
+      navigate("/no-organization");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -375,9 +420,16 @@ const Organization = () => {
               <Input className="bg-muted border-border rounded-xl max-w-md" value={orgTaxId} onChange={(e) => setOrgTaxId(e.target.value)} placeholder="00.000.000/0000-00" disabled={!isOwnerOrAdmin} />
             </div>
             {isOwnerOrAdmin && (
-              <Button onClick={() => updateOrgMutation.mutate()} disabled={updateOrgMutation.isPending}>
-                <Save className="h-4 w-4" /> {updateOrgMutation.isPending ? "Salvando..." : "Salvar"}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button onClick={() => updateOrgMutation.mutate()} disabled={updateOrgMutation.isPending}>
+                  <Save className="h-4 w-4" /> {updateOrgMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+                {currentUserRole === "owner" && (
+                  <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                    <Trash2 className="h-4 w-4" /> Excluir Organização
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </LexCard>
@@ -587,6 +639,46 @@ const Organization = () => {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* RF-014.3: Delete Organization Dialog (double confirmation) */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmName(""); }}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-display-sm text-destructive">Excluir Organização</DialogTitle>
+            <DialogDescription className="text-body-sm text-muted-foreground">
+              Esta ação é <strong>irreversível</strong>. Todos os membros perderão acesso e os dados da organização serão removidos permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <p className="text-caption text-destructive font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" /> Atenção: esta ação não pode ser desfeita!
+              </p>
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">
+                Digite <strong>"{org?.name}"</strong> para confirmar
+              </label>
+              <Input
+                className="bg-muted border-border rounded-xl"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder="Nome da organização"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteOrgMutation.mutate()}
+                disabled={deleteOrgMutation.isPending || deleteConfirmName !== org?.name}
+              >
+                {deleteOrgMutation.isPending ? "Excluindo..." : "Excluir permanentemente"}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
