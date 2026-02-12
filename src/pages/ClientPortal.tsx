@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -121,6 +122,74 @@ const ClientPortal = () => {
 
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+
+  const downloadContractPdf = (contract: any, typeLabels: Record<string, string>, periodLabels: Record<string, string>, statusLabels: Record<string, string>) => {
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const w = pdf.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Header
+    pdf.setFillColor(26, 26, 46);
+    pdf.rect(0, 0, w, 35, "F");
+    pdf.setTextColor(224, 224, 255);
+    pdf.setFontSize(18);
+    pdf.text("Contrato", 15, 22);
+    pdf.setFontSize(10);
+    pdf.text(contract.title, 15, 30);
+    y = 45;
+
+    pdf.setTextColor(50, 50, 50);
+    const addField = (label: string, value: string) => {
+      if (y > 270) { pdf.addPage(); y = 20; }
+      pdf.setFontSize(9);
+      pdf.setTextColor(130, 130, 130);
+      pdf.text(label, 15, y);
+      pdf.setFontSize(11);
+      pdf.setTextColor(50, 50, 50);
+      pdf.text(value || "—", 15, y + 5);
+      y += 14;
+    };
+
+    addField("Título", contract.title);
+    addField("Tipo", typeLabels[contract.contract_type] || contract.contract_type);
+    addField("Status", statusLabels[contract.status] || contract.status);
+    addField("Valor", formatCurrency(contract.amount_cents) + (contract.periodicity ? ` / ${periodLabels[contract.periodicity] || contract.periodicity}` : ""));
+    addField("Início", contract.start_date ? new Date(contract.start_date).toLocaleDateString("pt-BR") : "Não definido");
+    addField("Término", contract.end_date ? new Date(contract.end_date).toLocaleDateString("pt-BR") : "Indeterminado");
+
+    if (contract.description) {
+      addField("Descrição", "");
+      y -= 9;
+      pdf.setFontSize(10);
+      const lines = pdf.splitTextToSize(contract.description, w - 30);
+      lines.forEach((line: string) => {
+        if (y > 275) { pdf.addPage(); y = 20; }
+        pdf.text(line, 15, y);
+        y += 5;
+      });
+      y += 5;
+    }
+
+    if (contract.terms) {
+      addField("Termos e Condições", "");
+      y -= 9;
+      pdf.setFontSize(10);
+      const lines = pdf.splitTextToSize(contract.terms, w - 30);
+      lines.forEach((line: string) => {
+        if (y > 275) { pdf.addPage(); y = 20; }
+        pdf.text(line, 15, y);
+        y += 5;
+      });
+    }
+
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(160, 160, 160);
+    pdf.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} — Lexia`, 15, 285);
+
+    pdf.save(`contrato-${contract.title.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+    toast.success("PDF do contrato baixado!");
+  };
 
   const downloadFile = async (doc: any) => {
     const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.file_url, 60);
@@ -449,9 +518,19 @@ const ClientPortal = () => {
                             )}
                           </div>
                         </div>
-                        <LexBadge variant={contractStatusVariant[c.status] as any || "default"}>
-                          {contractStatusLabels[c.status] || c.status}
-                        </LexBadge>
+                        <div className="flex items-center gap-2">
+                          <LexBadge variant={contractStatusVariant[c.status] as any || "default"}>
+                            {contractStatusLabels[c.status] || c.status}
+                          </LexBadge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5"
+                            onClick={(e) => { e.stopPropagation(); downloadContractPdf(c, contractTypeLabels, periodicityLabels, contractStatusLabels); }}
+                          >
+                            <Download className="h-3.5 w-3.5" /> PDF
+                          </Button>
+                        </div>
                       </motion.div>
                     );
                   })}
