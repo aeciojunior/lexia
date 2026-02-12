@@ -181,6 +181,25 @@ const Organization = () => {
     },
   });
 
+  const handleLogoRemove = async () => {
+    if (!activeOrgId) return;
+    setUploadingLogo(true);
+    try {
+      const { data: files } = await supabase.storage.from("org-logos").list(activeOrgId);
+      if (files && files.length > 0) {
+        await supabase.storage.from("org-logos").remove(files.map(f => `${activeOrgId}/${f.name}`));
+      }
+      const { error } = await supabase.from("organizations").update({ logo_url: null } as any).eq("id", activeOrgId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["org-details"] });
+      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
+      toast.success("Logo removido!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -274,6 +293,15 @@ const Organization = () => {
                 <p className="text-caption text-muted-foreground">
                   {isOwnerOrAdmin ? "Clique no avatar para alterar o logo" : "Logo da organização"}
                 </p>
+                {isOwnerOrAdmin && org?.logo_url && (
+                  <button
+                    onClick={handleLogoRemove}
+                    disabled={uploadingLogo}
+                    className="text-caption text-destructive hover:underline mt-1"
+                  >
+                    Remover logo
+                  </button>
+                )}
               </div>
             </div>
 
