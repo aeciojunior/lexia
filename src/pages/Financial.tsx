@@ -101,6 +101,21 @@ const Financial = () => {
     enabled: !!activeOrgId && canViewFinancial,
   });
 
+  // Fetch time entries for profitability
+  const { data: timeEntries = [] } = useQuery({
+    queryKey: ["time-entries-financial", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("time_entries" as any)
+        .select("*")
+        .eq("organization_id", activeOrgId!)
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId && canViewFinancial,
+  });
+
   // Fetch clients
   const { data: orgClients = [] } = useQuery({
     queryKey: ["org-clients-financial", activeOrgId],
@@ -276,7 +291,54 @@ const Financial = () => {
 
   const reportsRef = useRef<HTMLDivElement>(null);
 
-  
+  // Profitability by client: cross time_entries with invoices
+  const profitabilityData = useMemo(() => {
+    const clientMap = new Map<string, { name: string; hoursMinutes: number; hoursCost: number; invoiced: number; paid: number }>();
+
+    // Aggregate time entries by client
+    timeEntries.forEach((te: any) => {
+      const clientId = te.client_id || "__no_client__";
+      const existing = clientMap.get(clientId) || { name: "", hoursMinutes: 0, hoursCost: 0, invoiced: 0, paid: 0 };
+      existing.hoursMinutes += te.duration_minutes || 0;
+      if (te.billable) {
+        existing.hoursCost += ((te.duration_minutes || 0) / 60) * ((te.hourly_rate_cents || 0) / 100);
+      }
+      clientMap.set(clientId, existing);
+    });
+
+    // Aggregate invoices by client
+    invoices.forEach((inv: any) => {
+      const clientId = inv.client_id || "__no_client__";
+      const existing = clientMap.get(clientId) || { name: "", hoursMinutes: 0, hoursCost: 0, invoiced: 0, paid: 0 };
+      existing.invoiced += (inv.amount_cents || 0) / 100;
+      if (inv.status === "paid") {
+        existing.paid += (inv.amount_cents || 0) / 100;
+      }
+      clientMap.set(clientId, existing);
+    });
+
+    // Set names
+    clientMap.forEach((val, key) => {
+      if (key === "__no_client__") {
+        val.name = "Sem cliente";
+      } else {
+        const client = orgClients.find(c => c.id === key);
+        val.name = client?.full_name || "Cliente removido";
+      }
+    });
+
+    return Array.from(clientMap.values())
+      .filter(c => c.hoursMinutes > 0 || c.invoiced > 0)
+      .map(c => ({
+        ...c,
+        hours: parseFloat((c.hoursMinutes / 60).toFixed(1)),
+        margin: c.paid > 0 && c.hoursCost > 0 ? parseFloat(((c.paid - c.hoursCost) / c.paid * 100).toFixed(1)) : null,
+        ratePerHour: c.hoursMinutes > 0 ? parseFloat((c.paid / (c.hoursMinutes / 60)).toFixed(2)) : null,
+      }))
+      .sort((a, b) => b.paid - a.paid);
+  }, [timeEntries, invoices, orgClients]);
+
+
 
   const CHART_COLORS = [
     "hsl(192, 95%, 55%)", "hsl(270, 80%, 62%)", "hsl(160, 85%, 45%)", 
@@ -1035,6 +1097,7 @@ const Financial = () => {
           <TabsTrigger value="invoices">Faturas ({invoices.length})</TabsTrigger>
           <TabsTrigger value="payments">Pagamentos ({payments.length})</TabsTrigger>
           <TabsTrigger value="contracts">Contratos ({contracts.length})</TabsTrigger>
+          <TabsTrigger value="profitability"><Users className="h-3.5 w-3.5 mr-1" /> Rentabilidade</TabsTrigger>
           <TabsTrigger value="reports"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Relatórios</TabsTrigger>
         </TabsList>
 
@@ -1232,6 +1295,109 @@ const Financial = () => {
                   </div>
                 )}
               </div>
+            )}
+          </LexCard>
+        </TabsContent>
+        {/* Profitability Tab */}
+        <TabsContent value="profitability" className="mt-4 space-y-6">
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Rentabilidade por Cliente
+              </LexCardTitle>
+            </LexCardHeader>
+            {profitabilityData.length === 0 ? (
+              <div className="py-12 text-center">
+                <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-body-sm text-muted-foreground">Sem dados suficientes. Registre horas e faturas vinculadas a clientes.</p>
+              </div>
+            ) : (
+              <>
+                {/* Chart */}
+                <div className="h-72 mb-6">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={profitabilityData.slice(0, 10)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(228, 12%, 18%)" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
+                      <YAxis yAxisId="left" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} tickFormatter={(v) => `R$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} tickFormatter={(v) => `${v}h`} />
+                      <RechartsTooltip
+                        contentStyle={{ backgroundColor: "hsl(228, 16%, 12%)", border: "1px solid hsl(228, 12%, 18%)", borderRadius: 8, color: "hsl(210, 20%, 95%)" }}
+                        formatter={(value: number, name: string) => {
+                          if (name === "hours") return [`${value}h`, "Horas Trabalhadas"];
+                          return [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, name === "paid" ? "Recebido" : "Faturado"];
+                        }}
+                      />
+                      <Legend formatter={(v) => v === "paid" ? "Recebido" : v === "invoiced" ? "Faturado" : "Horas"} />
+                      <Bar yAxisId="left" dataKey="paid" fill="hsl(160, 85%, 45%)" radius={[4, 4, 0, 0]} name="paid" />
+                      <Bar yAxisId="left" dataKey="invoiced" fill="hsl(192, 95%, 55%)" radius={[4, 4, 0, 0]} name="invoiced" opacity={0.5} />
+                      <Line yAxisId="right" type="monotone" dataKey="hours" stroke="hsl(40, 95%, 55%)" strokeWidth={2} name="hours" dot={{ r: 4 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-body-sm">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground text-left">
+                        <th className="pb-3 font-medium">Cliente</th>
+                        <th className="pb-3 font-medium text-right">Horas</th>
+                        <th className="pb-3 font-medium text-right">Custo (horas)</th>
+                        <th className="pb-3 font-medium text-right">Faturado</th>
+                        <th className="pb-3 font-medium text-right">Recebido</th>
+                        <th className="pb-3 font-medium text-right">R$/hora efetivo</th>
+                        <th className="pb-3 font-medium text-right">Margem</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {profitabilityData.map((row) => (
+                        <tr key={row.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                          <td className="py-3 font-medium">{row.name}</td>
+                          <td className="py-3 text-right font-mono">{row.hours}h</td>
+                          <td className="py-3 text-right font-mono text-muted-foreground">
+                            R$ {row.hoursCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 text-right font-mono">
+                            R$ {row.invoiced.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 text-right font-mono text-primary">
+                            R$ {row.paid.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 text-right font-mono">
+                            {row.ratePerHour !== null ? `R$ ${row.ratePerHour.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                          </td>
+                          <td className="py-3 text-right">
+                            {row.margin !== null ? (
+                              <LexBadge variant={row.margin >= 50 ? "success" : row.margin >= 20 ? "warning" : "destructive"}>
+                                {row.margin}%
+                              </LexBadge>
+                            ) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-border font-semibold">
+                        <td className="py-3">Total</td>
+                        <td className="py-3 text-right font-mono">{profitabilityData.reduce((s, r) => s + r.hours, 0).toFixed(1)}h</td>
+                        <td className="py-3 text-right font-mono text-muted-foreground">
+                          R$ {profitabilityData.reduce((s, r) => s + r.hoursCost, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 text-right font-mono">
+                          R$ {profitabilityData.reduce((s, r) => s + r.invoiced, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 text-right font-mono text-primary">
+                          R$ {profitabilityData.reduce((s, r) => s + r.paid, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 text-right">—</td>
+                        <td className="py-3 text-right">—</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
             )}
           </LexCard>
         </TabsContent>
