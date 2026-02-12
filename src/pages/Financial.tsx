@@ -107,12 +107,12 @@ const Financial = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, full_name")
+        .select("id, full_name, business_area")
         .eq("organization_id", activeOrgId!)
         .eq("status", "active")
         .order("full_name");
       if (error) throw error;
-      return (data || []) as { id: string; full_name: string }[];
+      return (data || []) as { id: string; full_name: string; business_area: string | null }[];
     },
     enabled: !!activeOrgId && canViewFinancial,
   });
@@ -199,7 +199,34 @@ const Financial = () => {
     return months;
   }, [invoices]);
 
-  // Projected cash flow (next 6 months)
+  // Revenue by contract type / service category
+  const revenueByServiceType = useMemo(() => {
+    const typeMap = new Map<string, number>();
+    // From contracts (paid invoices linked to contracts, or contract amounts)
+    contracts
+      .filter((c: any) => c.status === "active" || c.status === "completed")
+      .forEach((c: any) => {
+        const label = contractTypeLabels[c.contract_type] || c.contract_type || "Outro";
+        typeMap.set(label, (typeMap.get(label) || 0) + (c.amount_cents || 0));
+      });
+    // From invoices without contracts, group by client business_area
+    invoices
+      .filter((inv: any) => inv.status === "paid")
+      .forEach((inv: any) => {
+        const linkedContract = contracts.find((c: any) => inv.client_id && c.client_id === inv.client_id);
+        if (!linkedContract) {
+          const client = orgClients.find(cl => cl.id === inv.client_id);
+          const area = client?.business_area || "Avulso";
+          typeMap.set(area, (typeMap.get(area) || 0) + (inv.amount_cents || 0));
+        }
+      });
+    return Array.from(typeMap.entries())
+      .map(([name, value]) => ({ name, value: value / 100 }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [invoices, contracts, orgClients]);
+
+
   const cashFlowProjection = useMemo(() => {
     const now = new Date();
     const months: { name: string; entradas: number; saidas: number; saldo: number }[] = [];
@@ -1238,6 +1265,37 @@ const Financial = () => {
               )}
             </LexCard>
           </div>
+
+          {/* Revenue by Service Type / Contract Category */}
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Composição de Receitas por Categoria</LexCardTitle>
+            </LexCardHeader>
+            {revenueByServiceType.length > 0 && revenueByServiceType.some(r => r.value > 0) ? (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={revenueByServiceType} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(228, 12%, 18%)" />
+                    <XAxis type="number" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} tickFormatter={(v) => `R$${v.toLocaleString("pt-BR")}`} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} width={120} />
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: "hsl(228, 16%, 12%)", border: "1px solid hsl(228, 12%, 18%)", borderRadius: 8, color: "hsl(210, 20%, 95%)" }}
+                      formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Receita"]}
+                    />
+                    <Bar dataKey="value" fill="hsl(270, 80%, 62%)" radius={[0, 4, 4, 0]} barSize={24}>
+                      {revenueByServiceType.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-72 flex items-center justify-center">
+                <p className="text-body-sm text-muted-foreground">Nenhuma receita por categoria registrada.</p>
+              </div>
+            )}
+          </LexCard>
 
           {/* Default Rate Evolution */}
           <LexCard hover={false}>
