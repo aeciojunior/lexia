@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,10 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Shield, Users, Scale, Search, TrendingUp, UserPlus, Trash2, ChevronLeft, ChevronRight, PenTool, FileText, CheckCircle, Clock,
+  Shield, Users, Scale, Search, TrendingUp, UserPlus, Trash2, ChevronLeft, ChevronRight, PenTool, FileText, CheckCircle, Clock, Download, CalendarIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { format, subMonths, isAfter, isBefore, startOfMonth, endOfMonth, eachMonthOfInterval, startOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 import { ROLE_LABELS, ROLE_BADGE_VARIANT, type OrgRole } from "@/hooks/usePermissions";
 
@@ -30,6 +36,8 @@ const Admin = () => {
   const [roleDialog, setRoleDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [newRole, setNewRole] = useState("user");
+  const [sigDateFrom, setSigDateFrom] = useState<Date | undefined>(subMonths(new Date(), 6));
+  const [sigDateTo, setSigDateTo] = useState<Date | undefined>(new Date());
 
   // Check if current user is admin
   const { data: isAdmin, isLoading: checkingAdmin } = useQuery({
@@ -123,6 +131,30 @@ const Admin = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Filtered signatures by date range (before early returns to respect hooks rules)
+  const filteredSignatures = useMemo(() => {
+    return allSignatures.filter((s: any) => {
+      const d = new Date(s.signed_at);
+      if (sigDateFrom && isBefore(d, startOfDay(sigDateFrom))) return false;
+      if (sigDateTo && isAfter(d, endOfMonth(sigDateTo))) return false;
+      return true;
+    });
+  }, [allSignatures, sigDateFrom, sigDateTo]);
+
+  const chartData = useMemo(() => {
+    const from = sigDateFrom || subMonths(new Date(), 6);
+    const to = sigDateTo || new Date();
+    const months = eachMonthOfInterval({ start: startOfMonth(from), end: endOfMonth(to) });
+    return months.map((month) => {
+      const monthEnd = endOfMonth(month);
+      const count = allSignatures.filter((s: any) => {
+        const d = new Date(s.signed_at);
+        return d >= month && d <= monthEnd;
+      }).length;
+      return { month: format(month, "MMM yy", { locale: ptBR }), assinaturas: count };
+    });
+  }, [allSignatures, sigDateFrom, sigDateTo]);
+
   if (checkingAdmin) {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[60vh]">
@@ -164,9 +196,32 @@ const Admin = () => {
   ];
 
   const signedContractIds = new Set(allSignatures.map((s: any) => s.contract_id));
-  const signedContracts = allContracts.filter((c: any) => signedContractIds.has(c.id));
-  const pendingContracts = allContracts.filter((c: any) => !signedContractIds.has(c.id) && c.status === "active");
-  const signedPercent = allContracts.length > 0 ? Math.round((signedContracts.length / allContracts.length) * 100) : 0;
+  const filteredSignedIds = new Set(filteredSignatures.map((s: any) => s.contract_id));
+  const filteredSignedContracts = allContracts.filter((c: any) => filteredSignedIds.has(c.id));
+  const filteredPendingContracts = allContracts.filter((c: any) => !signedContractIds.has(c.id) && c.status === "active");
+  const filteredSignedPercent = allContracts.length > 0 ? Math.round((filteredSignedContracts.length / allContracts.length) * 100) : 0;
+
+  // CSV export
+  const exportSignaturesCsv = () => {
+    const rows = filteredSignatures.map((sig: any) => {
+      const contract = allContracts.find((c: any) => c.id === sig.contract_id);
+      return {
+        contrato: contract?.title || "—",
+        cliente: (contract as any)?.clients?.full_name || "—",
+        assinado_em: new Date(sig.signed_at).toLocaleString("pt-BR"),
+      };
+    });
+    const header = "Contrato,Cliente,Assinado Em\n";
+    const csv = header + rows.map((r) => `"${r.contrato}","${r.cliente}","${r.assinado_em}"`).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `assinaturas_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exportado!");
+  };
 
   const paginatedProfiles = profiles.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(profiles.length / PAGE_SIZE);
@@ -199,8 +254,40 @@ const Admin = () => {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <LexCard hover={false}>
             <LexCardHeader>
-              <LexCardTitle className="flex items-center gap-2"><PenTool className="h-5 w-5 text-primary" /> Assinaturas de Contratos</LexCardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+                <LexCardTitle className="flex items-center gap-2"><PenTool className="h-5 w-5 text-primary" /> Assinaturas de Contratos</LexCardTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Date From */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className={cn("h-9 rounded-lg text-xs gap-1.5", !sigDateFrom && "text-muted-foreground")}>
+                        <CalendarIcon className="h-3.5 w-3.5" />
+                        {sigDateFrom ? format(sigDateFrom, "dd/MM/yy") : "De"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar mode="single" selected={sigDateFrom} onSelect={setSigDateFrom} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                  {/* Date To */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className={cn("h-9 rounded-lg text-xs gap-1.5", !sigDateTo && "text-muted-foreground")}>
+                        <CalendarIcon className="h-3.5 w-3.5" />
+                        {sigDateTo ? format(sigDateTo, "dd/MM/yy") : "Até"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar mode="single" selected={sigDateTo} onSelect={setSigDateTo} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="outline" size="sm" className="h-9 rounded-lg text-xs gap-1.5" onClick={exportSignaturesCsv} disabled={filteredSignatures.length === 0}>
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </Button>
+                </div>
+              </div>
             </LexCardHeader>
+
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
               <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
                 <FileText className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
@@ -209,27 +296,48 @@ const Admin = () => {
               </div>
               <div className="rounded-xl border border-success/20 bg-success/5 p-4 text-center">
                 <CheckCircle className="h-5 w-5 text-success mx-auto mb-2" />
-                <p className="text-display-sm text-success">{signedContracts.length}</p>
+                <p className="text-display-sm text-success">{filteredSignedContracts.length}</p>
                 <p className="text-caption text-muted-foreground">Assinados</p>
               </div>
               <div className="rounded-xl border border-warning/20 bg-warning/5 p-4 text-center">
                 <Clock className="h-5 w-5 text-warning mx-auto mb-2" />
-                <p className="text-display-sm text-warning">{pendingContracts.length}</p>
+                <p className="text-display-sm text-warning">{filteredPendingContracts.length}</p>
                 <p className="text-caption text-muted-foreground">Pendentes</p>
               </div>
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
                 <TrendingUp className="h-5 w-5 text-primary mx-auto mb-2" />
-                <p className="text-display-sm text-primary">{signedPercent}%</p>
+                <p className="text-display-sm text-primary">{filteredSignedPercent}%</p>
                 <p className="text-caption text-muted-foreground">Taxa de Assinatura</p>
               </div>
             </div>
 
+            {/* Signatures Line Chart */}
+            {chartData.length > 1 && (
+              <div className="mb-6">
+                <p className="text-overline text-muted-foreground mb-3">Evolução de Assinaturas</p>
+                <div className="h-[220px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.75rem", fontSize: 12 }}
+                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                      />
+                      <Line type="monotone" dataKey="assinaturas" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ r: 4, fill: "hsl(var(--primary))" }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
             {/* Recent signatures list */}
-            {allSignatures.length > 0 && (
+            {filteredSignatures.length > 0 && (
               <div>
                 <p className="text-overline text-muted-foreground mb-3">Últimas Assinaturas</p>
                 <div className="space-y-2">
-                  {allSignatures.slice(0, 5).map((sig: any) => {
+                  {filteredSignatures.slice(0, 5).map((sig: any) => {
                     const contract = allContracts.find((c: any) => c.id === sig.contract_id);
                     return (
                       <div key={sig.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/40">
