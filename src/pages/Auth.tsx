@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,17 +69,48 @@ const PasswordStrength = ({ password }: { password: string }) => {
   );
 };
 
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // progressive lockout in seconds
+
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const failedAttempts = useRef(0);
+  const lockoutLevel = useRef(0);
+  const lockoutTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
 
   const passwordValid = useMemo(() => {
     return PASSWORD_CHECKS.every((c) => c.test(password));
   }, [password]);
+
+  const startLockout = useCallback(() => {
+    const duration = LOCKOUT_DURATIONS[Math.min(lockoutLevel.current, LOCKOUT_DURATIONS.length - 1)];
+    const until = Date.now() + duration * 1000;
+    setLockoutUntil(until);
+    setLockoutSeconds(duration);
+    lockoutLevel.current++;
+
+    if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+    lockoutTimer.current = setInterval(() => {
+      const remaining = Math.ceil((until - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLockoutSeconds(0);
+        failedAttempts.current = 0;
+        if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+      } else {
+        setLockoutSeconds(remaining);
+      }
+    }, 1000);
+  }, []);
+
+  const isLockedOut = lockoutUntil !== null && Date.now() < lockoutUntil;
 
   const mapAuthError = (message: string): string => {
     const msg = message.toLowerCase();
@@ -98,13 +129,32 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isLockedOut) {
+      toast.error(`Conta temporariamente bloqueada. Aguarde ${lockoutSeconds}s.`);
+      return;
+    }
+
     setLoading(true);
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+
     if (error) {
-      toast.error(mapAuthError(error.message));
+      failedAttempts.current++;
+      const remaining = MAX_ATTEMPTS - failedAttempts.current;
+
+      if (failedAttempts.current >= MAX_ATTEMPTS) {
+        startLockout();
+        toast.error(`Muitas tentativas falhas. Bloqueado por ${LOCKOUT_DURATIONS[Math.min(lockoutLevel.current - 1, LOCKOUT_DURATIONS.length - 1)]}s.`);
+      } else {
+        toast.error(`${mapAuthError(error.message)} (${remaining} tentativa${remaining !== 1 ? "s" : ""} restante${remaining !== 1 ? "s" : ""})`);
+      }
       return;
     }
+
+    // Reset on success
+    failedAttempts.current = 0;
+    lockoutLevel.current = 0;
 
     // Audit log for login
     if (data.user) {
@@ -306,11 +356,22 @@ const Auth = () => {
                     </div>
                   )}
 
+                  {mode === "login" && isLockedOut && (
+                    <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-3 text-center">
+                      <p className="text-body-sm text-destructive font-medium">
+                        Bloqueado por {lockoutSeconds}s
+                      </p>
+                      <p className="text-caption text-muted-foreground mt-1">
+                        Muitas tentativas falhas. Aguarde para tentar novamente.
+                      </p>
+                    </div>
+                  )}
+
                   <Button
                     type="submit"
                     variant="hero"
                     className="w-full h-12 rounded-xl text-base"
-                    disabled={loading || (mode === "register" && !passwordValid && password.length > 0)}
+                    disabled={loading || (mode === "login" && isLockedOut) || (mode === "register" && !passwordValid && password.length > 0)}
                   >
                     {loading ? (
                       <div className="flex gap-1">
@@ -320,8 +381,8 @@ const Auth = () => {
                       </div>
                     ) : (
                       <>
-                        {mode === "login" ? "Entrar" : mode === "register" ? "Criar conta" : "Enviar link"}
-                        <ArrowRight className="h-4 w-4" />
+                        {mode === "login" ? (isLockedOut ? `Aguarde ${lockoutSeconds}s` : "Entrar") : mode === "register" ? "Criar conta" : "Enviar link"}
+                        {!isLockedOut && <ArrowRight className="h-4 w-4" />}
                       </>
                     )}
                   </Button>
