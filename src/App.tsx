@@ -32,6 +32,7 @@ import Movements from "./pages/Movements";
 import DocumentTemplates from "./pages/DocumentTemplates";
 import LegalReferences from "./pages/LegalReferences";
 import CourtIntegrations from "./pages/CourtIntegrations";
+import Automations from "./pages/Automations";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/templates" element={<DocumentTemplates />} />
               <Route path="/legal-references" element={<LegalReferences />} />
               <Route path="/court-integrations" element={<CourtIntegrations />} />
+              <Route path="/automations" element={<Automations />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

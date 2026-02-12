@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,7 @@ import {
   Sparkles, CalendarDays, FileText, Users, DollarSign, Clock, Activity, CheckCircle, Bell,
   Download, GitCommitHorizontal,
 } from "lucide-react";
+import { ReportExportButton } from "@/components/dashboard/ReportExportButton";
 import QuickTasksWidget from "@/components/dashboard/QuickTasksWidget";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -51,6 +52,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const canViewAudit = isAdmin || isOwner;
   const [chartPeriod, setChartPeriod] = useState<number>(6);
+
+  // Chart refs for PDF export
+  const chartRefProcessStatus = useRef<HTMLDivElement>(null);
+  const chartRefMovements = useRef<HTMLDivElement>(null);
+  const chartRefDeadlines = useRef<HTMLDivElement>(null);
+  const chartRefRevenue = useRef<HTMLDivElement>(null);
+  const chartRefProcessMonth = useRef<HTMLDivElement>(null);
 
   // === Processes ===
   const { data: allProcesses = [] } = useQuery({
@@ -293,14 +301,37 @@ const Dashboard = () => {
       {/* Header */}
       <motion.div {...anim(0)}>
         <p className="text-overline text-primary mb-1">Dashboard</p>
-        <h1 className="text-display-lg">
-          Olá, {user?.user_metadata?.full_name?.split(" ")[0] || "Advogado"}{" "}
-          <span className="inline-block animate-float">👋</span>
-        </h1>
-        <p className="text-body-sm text-muted-foreground mt-1">
-          Visão geral da organização • Plano{" "}
-          <span className="text-primary font-semibold">{PLAN_LABELS[plan]}</span>
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-display-lg">
+              Olá, {user?.user_metadata?.full_name?.split(" ")[0] || "Advogado"}{" "}
+              <span className="inline-block animate-float">👋</span>
+            </h1>
+            <p className="text-body-sm text-muted-foreground mt-1">
+              Visão geral da organização • Plano{" "}
+              <span className="text-primary font-semibold">{PLAN_LABELS[plan]}</span>
+            </p>
+          </div>
+          <ReportExportButton
+            kpis={kpis.map(k => ({ label: k.label, value: k.value }))}
+            processStatusData={processStatusData}
+            movementsChartData={movementsChartData}
+            deadlineStatusData={deadlineStatusData}
+            revenueChartData={revenueChartData}
+            overdueCount={overdueCount}
+            totalProcesses={allProcesses.length}
+            totalDeadlines={allDeadlines.length}
+            financialSummary={canViewFinancial ? financialSummary : undefined}
+            cashFlowData={[]}
+            chartRefs={{
+              processStatus: chartRefProcessStatus,
+              movements: chartRefMovements,
+              deadlines: chartRefDeadlines,
+              revenue: chartRefRevenue,
+              processMonth: chartRefProcessMonth,
+            }}
+          />
+        </div>
       </motion.div>
 
       {/* KPIs */}
@@ -536,7 +567,7 @@ const Dashboard = () => {
                 </ToggleGroup>
               </div>
             </LexCardHeader>
-            <div className="h-52 -mx-2">
+            <div className="h-52 -mx-2" ref={chartRefProcessMonth}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={processChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(228 12% 18%)" />
@@ -572,7 +603,7 @@ const Dashboard = () => {
                   </ToggleGroup>
                 </div>
               </LexCardHeader>
-              <div className="h-52 -mx-2">
+              <div className="h-52 -mx-2" ref={chartRefRevenue}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={revenueChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                     <defs>
@@ -619,7 +650,7 @@ const Dashboard = () => {
                 <p className="text-caption text-muted-foreground">Sem dados</p>
               </div>
             ) : (
-              <div className="h-52">
+              <div className="h-52" ref={chartRefProcessStatus}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -661,7 +692,7 @@ const Dashboard = () => {
                 <Download className="h-3.5 w-3.5" />
               </Button>
             </LexCardHeader>
-            <div className="h-52 -mx-2">
+            <div className="h-52 -mx-2" ref={chartRefMovements}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={movementsChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(228 12% 18%)" />
@@ -693,7 +724,7 @@ const Dashboard = () => {
               </div>
             ) : (
               <>
-                <div className="h-44">
+                <div className="h-44" ref={chartRefDeadlines}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
