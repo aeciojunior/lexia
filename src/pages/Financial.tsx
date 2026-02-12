@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,11 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText } from "lucide-react";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users } from "lucide-react";
 import { motion } from "framer-motion";
-import { format } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 
 const statusColors: Record<string, string> = {
   draft: "default", pending: "warning", paid: "success", overdue: "destructive",
@@ -46,8 +47,8 @@ const Financial = () => {
   const [search, setSearch] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
-  const [newInvoice, setNewInvoice] = useState({ description: "", amount: "", due_date: "", status: "draft" });
-  const [newContract, setNewContract] = useState({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "" });
+  const [newInvoice, setNewInvoice] = useState({ description: "", amount: "", due_date: "", status: "draft", client_id: "none" });
+  const [newContract, setNewContract] = useState({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "", client_id: "none" });
 
   const canViewFinancial = hasPermission("VIEW_FINANCIAL");
   const canManageFinancial = hasPermission("MANAGE_FINANCIAL");
@@ -86,6 +87,22 @@ const Financial = () => {
     enabled: !!activeOrgId && canViewFinancial,
   });
 
+  // Fetch clients
+  const { data: orgClients = [] } = useQuery({
+    queryKey: ["org-clients-financial", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, full_name")
+        .eq("organization_id", activeOrgId!)
+        .eq("status", "active")
+        .order("full_name");
+      if (error) throw error;
+      return (data || []) as { id: string; full_name: string }[];
+    },
+    enabled: !!activeOrgId && canViewFinancial,
+  });
+
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
@@ -93,6 +110,100 @@ const Financial = () => {
   const totalPaid = invoices.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
   const totalOverdue = invoices.filter((i: any) => i.status === "overdue").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
   const totalContracts = contracts.reduce((s: number, c: any) => s + (c.amount_cents || 0), 0);
+
+  const kpis = [
+    { label: "Pendente", value: formatCurrency(totalPending), icon: FileText, variant: "warning" },
+    { label: "Recebido", value: formatCurrency(totalPaid), icon: TrendingUp, variant: "success" },
+    { label: "Vencido", value: formatCurrency(totalOverdue), icon: DollarSign, variant: "destructive" },
+    { label: "Contratos", value: `${contracts.length} (${formatCurrency(totalContracts)})`, icon: ScrollText, variant: "primary" },
+  ];
+
+  const filteredInvoices = invoices.filter((i: any) => !search || i.description?.toLowerCase().includes(search.toLowerCase()));
+  const filteredPayments = payments.filter((p: any) => !search || p.external_id?.toLowerCase().includes(search.toLowerCase()));
+
+  // Revenue by month chart data
+  const revenueByMonth = useMemo(() => {
+    const months: { name: string; receita: number; month: Date }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = subMonths(new Date(), i);
+      const start = startOfMonth(d);
+      const end = endOfMonth(d);
+      const total = invoices
+        .filter((inv: any) => inv.status === "paid" && new Date(inv.created_at) >= start && new Date(inv.created_at) <= end)
+        .reduce((s: number, inv: any) => s + (inv.amount_cents || 0), 0);
+      months.push({ name: format(d, "MMM yy", { locale: ptBR }), receita: total / 100, month: d });
+    }
+    return months;
+  }, [invoices]);
+
+  // Revenue by client chart data
+  const revenueByClient = useMemo(() => {
+    const map = new Map<string, number>();
+    invoices
+      .filter((inv: any) => inv.status === "paid")
+      .forEach((inv: any) => {
+        const clientId = inv.client_id || "__no_client__";
+        map.set(clientId, (map.get(clientId) || 0) + (inv.amount_cents || 0));
+      });
+    const result = Array.from(map.entries()).map(([clientId, total]) => {
+      const client = orgClients.find(c => c.id === clientId);
+      return { name: client?.full_name || "Sem cliente", value: total / 100 };
+    }).sort((a, b) => b.value - a.value).slice(0, 8);
+    return result;
+  }, [invoices, orgClients]);
+
+  const CHART_COLORS = [
+    "hsl(192, 95%, 55%)", "hsl(270, 80%, 62%)", "hsl(160, 85%, 45%)", 
+    "hsl(40, 95%, 55%)", "hsl(0, 85%, 55%)", "hsl(210, 80%, 60%)",
+    "hsl(320, 70%, 55%)", "hsl(130, 60%, 50%)",
+  ];
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const amountCents = Math.round(parseFloat(newInvoice.amount.replace(",", ".")) * 100);
+      if (isNaN(amountCents) || amountCents <= 0) throw new Error("Valor inválido");
+      const { error } = await supabase.from("invoices" as any).insert({
+        organization_id: activeOrgId, user_id: user!.id,
+        description: newInvoice.description, amount_cents: amountCents,
+        due_date: newInvoice.due_date || null, status: newInvoice.status,
+        client_id: newInvoice.client_id === "none" ? null : newInvoice.client_id,
+      });
+      if (error) throw error;
+      await supabase.from("audit_logs").insert({ action: "billing_generated", user_id: user!.id, organization_id: activeOrgId, resource_type: "invoice", metadata: { amount_cents: amountCents } } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      setCreateDialogOpen(false);
+      setNewInvoice({ description: "", amount: "", due_date: "", status: "draft", client_id: "none" });
+      toast.success("Fatura criada com sucesso!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const createContractMutation = useMutation({
+    mutationFn: async () => {
+      const amountCents = Math.round(parseFloat(newContract.amount.replace(",", ".")) * 100);
+      if (isNaN(amountCents) || amountCents < 0) throw new Error("Valor inválido");
+      const { error } = await supabase.from("contracts" as any).insert({
+        organization_id: activeOrgId, user_id: user!.id,
+        title: newContract.title, description: newContract.description || null,
+        contract_type: newContract.contract_type, amount_cents: amountCents,
+        periodicity: newContract.periodicity,
+        start_date: newContract.start_date || null, end_date: newContract.end_date || null,
+        status: newContract.status, terms: newContract.terms || null,
+        client_id: newContract.client_id === "none" ? null : newContract.client_id,
+      });
+      if (error) throw error;
+      await supabase.from("audit_logs").insert({ action: "contract_created", user_id: user!.id, organization_id: activeOrgId, resource_type: "contract", metadata: { title: newContract.title, amount_cents: amountCents } } as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      setContractDialogOpen(false);
+      setNewContract({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "", client_id: "none" });
+      toast.success("Contrato criado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   if (!canViewFinancial) {
     return (
@@ -122,61 +233,6 @@ const Financial = () => {
       </div>
     );
   }
-
-  const kpis = [
-    { label: "Pendente", value: formatCurrency(totalPending), icon: FileText, variant: "warning" },
-    { label: "Recebido", value: formatCurrency(totalPaid), icon: TrendingUp, variant: "success" },
-    { label: "Vencido", value: formatCurrency(totalOverdue), icon: DollarSign, variant: "destructive" },
-    { label: "Contratos", value: `${contracts.length} (${formatCurrency(totalContracts)})`, icon: ScrollText, variant: "primary" },
-  ];
-
-  const filteredInvoices = invoices.filter((i: any) => !search || i.description?.toLowerCase().includes(search.toLowerCase()));
-  const filteredPayments = payments.filter((p: any) => !search || p.external_id?.toLowerCase().includes(search.toLowerCase()));
-
-  const createInvoiceMutation = useMutation({
-    mutationFn: async () => {
-      const amountCents = Math.round(parseFloat(newInvoice.amount.replace(",", ".")) * 100);
-      if (isNaN(amountCents) || amountCents <= 0) throw new Error("Valor inválido");
-      const { error } = await supabase.from("invoices" as any).insert({
-        organization_id: activeOrgId, user_id: user!.id,
-        description: newInvoice.description, amount_cents: amountCents,
-        due_date: newInvoice.due_date || null, status: newInvoice.status,
-      });
-      if (error) throw error;
-      await supabase.from("audit_logs").insert({ action: "billing_generated", user_id: user!.id, organization_id: activeOrgId, resource_type: "invoice", metadata: { amount_cents: amountCents } } as any);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      setCreateDialogOpen(false);
-      setNewInvoice({ description: "", amount: "", due_date: "", status: "draft" });
-      toast.success("Fatura criada com sucesso!");
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const createContractMutation = useMutation({
-    mutationFn: async () => {
-      const amountCents = Math.round(parseFloat(newContract.amount.replace(",", ".")) * 100);
-      if (isNaN(amountCents) || amountCents < 0) throw new Error("Valor inválido");
-      const { error } = await supabase.from("contracts" as any).insert({
-        organization_id: activeOrgId, user_id: user!.id,
-        title: newContract.title, description: newContract.description || null,
-        contract_type: newContract.contract_type, amount_cents: amountCents,
-        periodicity: newContract.periodicity,
-        start_date: newContract.start_date || null, end_date: newContract.end_date || null,
-        status: newContract.status, terms: newContract.terms || null,
-      });
-      if (error) throw error;
-      await supabase.from("audit_logs").insert({ action: "contract_created", user_id: user!.id, organization_id: activeOrgId, resource_type: "contract", metadata: { title: newContract.title, amount_cents: amountCents } } as any);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contracts"] });
-      setContractDialogOpen(false);
-      setNewContract({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "" });
-      toast.success("Contrato criado!");
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
 
   return (
     <div className="p-6 lg:p-8 space-y-8">
@@ -220,6 +276,7 @@ const Financial = () => {
           <TabsTrigger value="invoices">Faturas ({invoices.length})</TabsTrigger>
           <TabsTrigger value="payments">Pagamentos ({payments.length})</TabsTrigger>
           <TabsTrigger value="contracts">Contratos ({contracts.length})</TabsTrigger>
+          <TabsTrigger value="reports"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Relatórios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices" className="mt-4">
@@ -355,6 +412,76 @@ const Financial = () => {
             )}
           </LexCard>
         </TabsContent>
+        {/* Reports Tab */}
+        <TabsContent value="reports" className="mt-4 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue by Month */}
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Receita por Período</LexCardTitle>
+              </LexCardHeader>
+              {revenueByMonth.some(m => m.receita > 0) ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueByMonth}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(228, 12%, 18%)" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} />
+                      <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} tickFormatter={(v) => `R$${v.toLocaleString("pt-BR")}`} />
+                      <RechartsTooltip
+                        contentStyle={{ backgroundColor: "hsl(228, 16%, 12%)", border: "1px solid hsl(228, 12%, 18%)", borderRadius: 8, color: "hsl(210, 20%, 95%)" }}
+                        formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Receita"]}
+                      />
+                      <Bar dataKey="receita" fill="hsl(192, 95%, 55%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center">
+                  <p className="text-body-sm text-muted-foreground">Nenhuma receita registrada.</p>
+                </div>
+              )}
+            </LexCard>
+
+            {/* Revenue by Client */}
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2"><Users className="h-4 w-4 text-secondary" /> Receita por Cliente</LexCardTitle>
+              </LexCardHeader>
+              {revenueByClient.length > 0 && revenueByClient.some(c => c.value > 0) ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={revenueByClient}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={90}
+                        dataKey="value"
+                        nameKey="name"
+                        label={({ name, percent }) => `${name.slice(0, 12)}${name.length > 12 ? "…" : ""} (${(percent * 100).toFixed(0)}%)`}
+                        labelLine={false}
+                      >
+                        {revenueByClient.map((_, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        contentStyle={{ backgroundColor: "hsl(228, 16%, 12%)", border: "1px solid hsl(228, 12%, 18%)", borderRadius: 8, color: "hsl(210, 20%, 95%)" }}
+                        formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Receita"]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, color: "hsl(220, 10%, 55%)" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center">
+                  <p className="text-body-sm text-muted-foreground">Nenhuma receita por cliente.</p>
+                </div>
+              )}
+            </LexCard>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Create Invoice Dialog */}
@@ -373,6 +500,16 @@ const Financial = () => {
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Vencimento</label>
               <Input className="bg-muted border-border rounded-xl" type="date" value={newInvoice.due_date} onChange={(e) => setNewInvoice({ ...newInvoice, due_date: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Cliente</label>
+              <Select value={newInvoice.client_id} onValueChange={(v) => setNewInvoice({ ...newInvoice, client_id: v })}>
+                <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {orgClients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Status</label>
@@ -406,6 +543,16 @@ const Financial = () => {
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Descrição</label>
               <Textarea className="bg-muted border-border rounded-xl" value={newContract.description} onChange={(e) => setNewContract({ ...newContract, description: e.target.value })} rows={2} />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Cliente</label>
+              <Select value={newContract.client_id} onValueChange={(v) => setNewContract({ ...newContract, client_id: v })}>
+                <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {orgClients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
