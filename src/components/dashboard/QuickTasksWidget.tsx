@@ -19,8 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import TaskProgressChart from "./TaskProgressChart";
 import TaskSubtasks from "./TaskSubtasks";
@@ -66,13 +67,46 @@ const TAG_COLORS: { bg: string; text: string; border: string }[] = [
   { bg: "bg-pink-500/15", text: "text-pink-700 dark:text-pink-300", border: "border-pink-500/30" },
 ];
 
+const PRESET_HEX_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444",
+  "#06b6d4", "#f97316", "#ec4899", "#14b8a6", "#6366f1",
+  "#84cc16", "#e11d48",
+];
+
 const getTagColor = (tag: string) => {
   let hash = 0;
   for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
 };
 
-const TagBadge = ({ tag, onRemove }: { tag: string; onRemove?: () => void }) => {
+interface PredefTag {
+  id: string;
+  name: string;
+  color: string;
+  organization_id: string;
+  created_by: string;
+}
+
+const TagBadge = ({ tag, customColor, onRemove }: { tag: string; customColor?: string; onRemove?: () => void }) => {
+  if (customColor) {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-medium border"
+        style={{
+          backgroundColor: `${customColor}20`,
+          color: customColor,
+          borderColor: `${customColor}50`,
+        }}
+      >
+        {tag}
+        {onRemove && (
+          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="hover:opacity-70">
+            <X className="h-2 w-2" />
+          </button>
+        )}
+      </span>
+    );
+  }
   const color = getTagColor(tag);
   return (
     <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-medium border", color.bg, color.text, color.border)}>
@@ -86,15 +120,38 @@ const TagBadge = ({ tag, onRemove }: { tag: string; onRemove?: () => void }) => 
   );
 };
 
-const TagEditor = ({ tags, onUpdate }: { tags: string[]; onUpdate: (tags: string[]) => void }) => {
+const TagEditor = ({ tags, onUpdate, predefinedTags }: { tags: string[]; onUpdate: (tags: string[]) => void; predefinedTags: PredefTag[] }) => {
   const [newTag, setNewTag] = useState("");
+  const availablePredef = predefinedTags.filter(pt => !tags.includes(pt.name));
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {tags.map(tag => (
-          <TagBadge key={tag} tag={tag} onRemove={() => onUpdate(tags.filter(t => t !== tag))} />
-        ))}
+        {tags.map(tag => {
+          const predef = predefinedTags.find(pt => pt.name === tag);
+          return <TagBadge key={tag} tag={tag} customColor={predef?.color} onRemove={() => onUpdate(tags.filter(t => t !== tag))} />;
+        })}
       </div>
+      {availablePredef.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-[9px] text-muted-foreground font-medium">Tags disponíveis:</span>
+          <div className="flex flex-wrap gap-1">
+            {availablePredef.map(pt => (
+              <button
+                key={pt.id}
+                className="rounded-full px-1.5 py-0.5 text-[9px] font-medium border cursor-pointer hover:opacity-80 transition-opacity"
+                style={{
+                  backgroundColor: `${pt.color}20`,
+                  color: pt.color,
+                  borderColor: `${pt.color}50`,
+                }}
+                onClick={() => onUpdate([...tags, pt.name])}
+              >
+                + {pt.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <form
         className="flex gap-1"
         onSubmit={e => {
@@ -103,7 +160,7 @@ const TagEditor = ({ tags, onUpdate }: { tags: string[]; onUpdate: (tags: string
           if (t && !tags.includes(t)) { onUpdate([...tags, t]); setNewTag(""); }
         }}
       >
-        <Input placeholder="Nova tag..." value={newTag} onChange={e => setNewTag(e.target.value)} className="h-6 text-[10px] flex-1" />
+        <Input placeholder="Tag personalizada..." value={newTag} onChange={e => setNewTag(e.target.value)} className="h-6 text-[10px] flex-1" />
         <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 text-primary shrink-0" disabled={!newTag.trim()}>
           <Plus className="h-2.5 w-2.5" />
         </Button>
@@ -112,6 +169,124 @@ const TagEditor = ({ tags, onUpdate }: { tags: string[]; onUpdate: (tags: string
   );
 };
 
+/* ─── Tag Management Dialog ─── */
+const TagManager = ({ orgId, userId }: { orgId: string; userId: string }) => {
+  const queryClient = useQueryClient();
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState(PRESET_HEX_COLORS[0]);
+
+  const { data: tags = [] } = useQuery({
+    queryKey: ["predefined-tags", orgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quick_task_tags" as any)
+        .select("*")
+        .eq("organization_id", orgId)
+        .order("name");
+      if (error) throw error;
+      return (data as any[] as PredefTag[]) || [];
+    },
+    enabled: !!orgId,
+  });
+
+  const addTag = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("quick_task_tags" as any).insert({
+        name: newName.trim().toLowerCase(),
+        color: newColor,
+        organization_id: orgId,
+        created_by: userId,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["predefined-tags", orgId] });
+      setNewName("");
+      toast.success("Tag criada!");
+    },
+    onError: (err: any) => {
+      if (err.message?.includes("duplicate") || err.code === "23505") {
+        toast.error("Já existe uma tag com esse nome.");
+      } else {
+        toast.error("Erro ao criar tag.");
+      }
+    },
+  });
+
+  const deleteTag = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("quick_task_tags" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["predefined-tags", orgId] });
+      toast.success("Tag removida.");
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        {tags.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-3">Nenhuma tag criada ainda.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {tags.map(tag => (
+              <div key={tag.id} className="flex items-center gap-2 group/tag">
+                <span
+                  className="h-3 w-3 rounded-full shrink-0 border"
+                  style={{ backgroundColor: tag.color, borderColor: `${tag.color}80` }}
+                />
+                <span className="text-sm flex-1">{tag.name}</span>
+                <Button
+                  variant="ghost" size="icon"
+                  className="h-6 w-6 opacity-0 group-hover/tag:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => deleteTag.mutate(tag.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <form
+        className="space-y-2"
+        onSubmit={e => {
+          e.preventDefault();
+          if (newName.trim()) addTag.mutate();
+        }}
+      >
+        <div className="flex gap-2">
+          <Input
+            placeholder="Nome da tag..."
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            className="h-8 text-xs flex-1"
+          />
+          <Button type="submit" size="sm" className="h-8" disabled={!newName.trim() || addTag.isPending}>
+            <Plus className="h-3 w-3 mr-1" /> Criar
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {PRESET_HEX_COLORS.map(c => (
+            <button
+              key={c}
+              type="button"
+              className={cn(
+                "h-5 w-5 rounded-full border-2 transition-all",
+                newColor === c ? "border-foreground scale-110" : "border-transparent hover:scale-105"
+              )}
+              style={{ backgroundColor: c }}
+              onClick={() => setNewColor(c)}
+            />
+          ))}
+        </div>
+      </form>
+    </div>
+  );
+};
 interface TaskItem {
   id: string;
   title: string;
@@ -269,7 +444,7 @@ const TaskComments = ({ taskId, members }: { taskId: string; members: OrgMember[
 
 /* ─── Sortable Task (list view) ─── */
 const SortableTask = ({
-  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription, onTagsChange,
+  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription, onTagsChange, predefinedTags = [],
 }: {
   task: TaskItem;
   members: OrgMember[];
@@ -282,6 +457,7 @@ const SortableTask = ({
   onUpdateTitle: (id: string, title: string) => void;
   onUpdateDescription: (id: string, description: string | null) => void;
   onTagsChange: (id: string, tags: string[]) => void;
+  predefinedTags?: PredefTag[];
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
@@ -348,7 +524,10 @@ const SortableTask = ({
         <DueDateLabel dueDate={task.due_date} />
         {(task.tags || []).length > 0 && (
           <div className="flex items-center gap-0.5 shrink-0">
-            {(task.tags || []).slice(0, 3).map(tag => <TagBadge key={tag} tag={tag} />)}
+            {(task.tags || []).slice(0, 3).map(tag => {
+              const pt = predefinedTags.find(p => p.name === tag);
+              return <TagBadge key={tag} tag={tag} customColor={pt?.color} />;
+            })}
             {(task.tags || []).length > 3 && <span className="text-[8px] text-muted-foreground">+{(task.tags || []).length - 3}</span>}
           </div>
         )}
@@ -380,7 +559,7 @@ const SortableTask = ({
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-52 p-2" align="end">
-            <TagEditor tags={task.tags || []} onUpdate={(tags) => onTagsChange(task.id, tags)} />
+            <TagEditor tags={task.tags || []} onUpdate={(tags) => onTagsChange(task.id, tags)} predefinedTags={predefinedTags} />
           </PopoverContent>
         </Popover>
 
@@ -574,7 +753,10 @@ const DraggableKanbanCard = ({
       {/* Tags */}
       {(task.tags || []).length > 0 && (
         <div className="flex flex-wrap gap-0.5 pl-4">
-          {(task.tags || []).map(tag => <TagBadge key={tag} tag={tag} />)}
+          {(task.tags || []).map(tag => {
+            // Note: predefinedTags not available in kanban card context, use hash-based colors
+            return <TagBadge key={tag} tag={tag} />;
+          })}
         </div>
       )}
 
@@ -751,6 +933,21 @@ const QuickTasksWidget = () => {
       return (data as any[] as TaskItem[]) || [];
     },
     enabled: !!user && !!activeOrgId,
+  });
+
+  // Predefined tags for this org
+  const { data: predefinedTags = [] } = useQuery({
+    queryKey: ["predefined-tags", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quick_task_tags" as any)
+        .select("*")
+        .eq("organization_id", activeOrgId!)
+        .order("name");
+      if (error) throw error;
+      return (data as any[] as PredefTag[]) || [];
+    },
+    enabled: !!activeOrgId,
   });
 
   // Helper to send assignment notification
@@ -960,6 +1157,22 @@ const QuickTasksWidget = () => {
           <ListTodo className="h-4 w-4 text-primary" /> Tarefas Rápidas
         </LexCardTitle>
         <div className="flex items-center gap-2">
+          {/* Tag management dialog */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Gerenciar tags">
+                <Palette className="h-3.5 w-3.5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <Tag className="h-4 w-4 text-primary" /> Gerenciar Tags
+                </DialogTitle>
+              </DialogHeader>
+              {activeOrgId && user && <TagManager orgId={activeOrgId} userId={user.id} />}
+            </DialogContent>
+          </Dialog>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5">{todoCount} a fazer</span>
             <span className="text-[10px] text-warning bg-warning/10 rounded px-1.5 py-0.5">{inProgressCount} em prog.</span>
@@ -1033,7 +1246,7 @@ const QuickTasksWidget = () => {
               {allTags.map(tag => (
                 <SelectItem key={tag} value={tag}>
                   <div className="flex items-center gap-1.5">
-                    <TagBadge tag={tag} />
+                    <TagBadge tag={tag} customColor={predefinedTags.find(pt => pt.name === tag)?.color} />
                   </div>
                 </SelectItem>
               ))}
@@ -1170,6 +1383,7 @@ const QuickTasksWidget = () => {
                       onUpdateTitle={(id, title) => updateTask.mutate({ id, title })}
                       onUpdateDescription={(id, description) => updateTask.mutate({ id, description })}
                       onTagsChange={(id, tags) => updateTask.mutate({ id, tags })}
+                      predefinedTags={predefinedTags}
                     />
                   ))}
                 </div>
