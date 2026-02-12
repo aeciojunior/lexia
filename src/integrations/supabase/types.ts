@@ -699,6 +699,7 @@ export type Database = {
         Row: {
           created_at: string
           done: boolean
+          due_date: string | null
           id: string
           organization_id: string
           position: number
@@ -710,6 +711,7 @@ export type Database = {
         Insert: {
           created_at?: string
           done?: boolean
+          due_date?: string | null
           id?: string
           organization_id: string
           position?: number
@@ -721,6 +723,7 @@ export type Database = {
         Update: {
           created_at?: string
           done?: boolean
+          due_date?: string | null
           id?: string
           organization_id?: string
           position?: number
