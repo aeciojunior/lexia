@@ -41,6 +41,59 @@ export type Database = {
         }
         Relationships: []
       }
+      deadlines: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_date: string
+          due_time: string | null
+          id: string
+          notified: boolean
+          priority: string
+          process_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_date: string
+          due_time?: string | null
+          id?: string
+          notified?: boolean
+          priority?: string
+          process_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          due_time?: string | null
+          id?: string
+          notified?: boolean
+          priority?: string
+          process_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadlines_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           category: string
