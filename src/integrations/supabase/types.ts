@@ -238,6 +238,159 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          address: string | null
+          business_area: string | null
+          client_type: string
+          created_at: string
+          document_number: string | null
+          document_type: string
+          email: string | null
+          full_name: string
+          id: string
+          internal_notes: string | null
+          organization_id: string
+          phone: string | null
+          responsible_id: string | null
+          status: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          business_area?: string | null
+          client_type?: string
+          created_at?: string
+          document_number?: string | null
+          document_type?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          internal_notes?: string | null
+          organization_id: string
+          phone?: string | null
+          responsible_id?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          business_area?: string | null
+          client_type?: string
+          created_at?: string
+          document_number?: string | null
+          document_type?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          internal_notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          responsible_id?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          amount_cents: number
+          client_id: string | null
+          contract_type: string
+          created_at: string
+          currency: string
+          description: string | null
+          end_date: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          periodicity: string | null
+          process_id: string | null
+          start_date: string | null
+          status: string
+          terms: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number
+          client_id?: string | null
+          contract_type?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          periodicity?: string | null
+          process_id?: string | null
+          start_date?: string | null
+          status?: string
+          terms?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          client_id?: string | null
+          contract_type?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          periodicity?: string | null
+          process_id?: string | null
+          start_date?: string | null
+          status?: string
+          terms?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deadlines: {
         Row: {
           created_at: string
@@ -304,6 +457,7 @@ export type Database = {
       documents: {
         Row: {
           category: string
+          client_id: string | null
           created_at: string
           file_name: string
           file_size: number | null
@@ -318,6 +472,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          client_id?: string | null
           created_at?: string
           file_name: string
           file_size?: number | null
@@ -332,6 +487,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          client_id?: string | null
           created_at?: string
           file_name?: string
           file_size?: number | null
@@ -345,6 +501,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_organization_id_fkey"
             columns: ["organization_id"]
@@ -364,6 +527,7 @@ export type Database = {
       invoices: {
         Row: {
           amount_cents: number
+          client_id: string | null
           created_at: string
           currency: string
           description: string | null
@@ -379,6 +543,7 @@ export type Database = {
         }
         Insert: {
           amount_cents?: number
+          client_id?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -394,6 +559,7 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          client_id?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -408,6 +574,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_organization_id_fkey"
             columns: ["organization_id"]
@@ -848,6 +1021,7 @@ export type Database = {
       quick_tasks: {
         Row: {
           assigned_to: string | null
+          client_id: string | null
           created_at: string
           description: string | null
           done: boolean
@@ -865,6 +1039,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          client_id?: string | null
           created_at?: string
           description?: string | null
           done?: boolean
@@ -882,6 +1057,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          client_id?: string | null
           created_at?: string
           description?: string | null
           done?: boolean
@@ -898,6 +1074,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quick_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quick_tasks_process_id_fkey"
             columns: ["process_id"]
