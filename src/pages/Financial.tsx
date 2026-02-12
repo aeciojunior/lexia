@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, Target, Percent, Receipt, ShieldCheck } from "lucide-react";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, Target, Percent, Receipt, ShieldCheck, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
-import { format, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore, subQuarters, subYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
@@ -60,6 +60,7 @@ const Financial = () => {
   const [invoicePage, setInvoicePage] = useState(0);
   const [contractPage, setContractPage] = useState(0);
   const [paymentPage, setPaymentPage] = useState(0);
+  const [dashboardPeriod, setDashboardPeriod] = useState<"month" | "quarter" | "year" | "all">("all");
 
   const canViewFinancial = hasPermission("VIEW_FINANCIAL");
   const canManageFinancial = hasPermission("MANAGE_FINANCIAL");
@@ -382,11 +383,26 @@ const Financial = () => {
 
   // Executive dashboard indicators
   const executiveDashboard = useMemo(() => {
-    const paidInvoices = invoices.filter((i: any) => i.status === "paid");
-    const overdueInvoices = invoices.filter((i: any) => i.status === "overdue");
-    const pendingInvoices = invoices.filter((i: any) => i.status === "pending");
+    // Filter invoices/contracts by period
+    const now = new Date();
+    let periodStart: Date | null = null;
+    let periodLabel = "Todo o período";
+    if (dashboardPeriod === "month") { periodStart = startOfMonth(now); periodLabel = format(now, "MMMM yyyy", { locale: ptBR }); }
+    else if (dashboardPeriod === "quarter") { periodStart = startOfMonth(subMonths(now, 2)); periodLabel = `Últimos 3 meses`; }
+    else if (dashboardPeriod === "year") { periodStart = startOfMonth(subMonths(now, 11)); periodLabel = `Últimos 12 meses`; }
 
-    const totalBilled = invoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+    const filteredInv = periodStart
+      ? invoices.filter((i: any) => new Date(i.created_at) >= periodStart!)
+      : invoices;
+    const filteredCon = periodStart
+      ? contracts.filter((c: any) => new Date(c.created_at) >= periodStart!)
+      : contracts;
+
+    const paidInvoices = filteredInv.filter((i: any) => i.status === "paid");
+    const overdueInvoices = filteredInv.filter((i: any) => i.status === "overdue");
+    const pendingInvoices = filteredInv.filter((i: any) => i.status === "pending");
+
+    const totalBilled = filteredInv.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
     const totalCollected = paidInvoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
     const totalOverdueAmt = overdueInvoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
 
@@ -394,7 +410,7 @@ const Financial = () => {
     const collectionRate = totalBilled > 0 ? (totalCollected / totalBilled) * 100 : 0;
     const avgTicket = paidInvoices.length > 0 ? totalCollected / paidInvoices.length : 0;
 
-    const activeContracts = contracts.filter((c: any) => c.status === "active");
+    const activeContracts = filteredCon.filter((c: any) => c.status === "active");
     const activeContractsValue = activeContracts.reduce((s: number, c: any) => s + (c.amount_cents || 0), 0);
 
     const paidWithDates = paidInvoices.filter((i: any) => i.due_date && i.paid_at);
@@ -407,9 +423,9 @@ const Financial = () => {
       activeContractsCount: activeContracts.length, activeContractsValue,
       avgDaysToReceive,
       pendingCount: pendingInvoices.length + overdueInvoices.length,
-      totalBilled, totalCollected, totalOverdueAmt,
+      totalBilled, totalCollected, totalOverdueAmt, periodLabel,
     };
-  }, [invoices, contracts]);
+  }, [invoices, contracts, dashboardPeriod]);
 
   // CSV export helpers
   const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
@@ -608,7 +624,20 @@ const Financial = () => {
               <ShieldCheck className="h-4 w-4 text-primary" />
               Painel Executivo — Saúde Financeira
             </LexCardTitle>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={dashboardPeriod} onValueChange={(v: any) => setDashboardPeriod(v)}>
+                <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todo o período</SelectItem>
+                  <SelectItem value="month">Este mês</SelectItem>
+                  <SelectItem value="quarter">Trimestre</SelectItem>
+                  <SelectItem value="year">Último ano</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </LexCardHeader>
+          <p className="text-caption text-muted-foreground -mt-2 mb-3 capitalize">{executiveDashboard.periodLabel}</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Default Rate */}
             <div className="rounded-lg border border-border bg-muted/30 p-4">
