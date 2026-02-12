@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Shield, Users, Scale, Search, TrendingUp, UserPlus, Trash2, ChevronLeft, ChevronRight, PenTool, FileText, CheckCircle, Clock, Download, CalendarIcon,
+  Shield, Users, Scale, Search, TrendingUp, UserPlus, Trash2, ChevronLeft, ChevronRight, PenTool, FileText, CheckCircle, Clock, Download, CalendarIcon, DollarSign, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -39,6 +39,7 @@ const Admin = () => {
   const [sigDateFrom, setSigDateFrom] = useState<Date | undefined>(subMonths(new Date(), 6));
   const [sigDateTo, setSigDateTo] = useState<Date | undefined>(new Date());
   const [sigClientFilter, setSigClientFilter] = useState<string>("all");
+  const [sigTypeFilter, setSigTypeFilter] = useState<string>("all");
 
   // Check if current user is admin
   const { data: isAdmin, isLoading: checkingAdmin } = useQuery({
@@ -90,7 +91,7 @@ const Admin = () => {
   const { data: allContracts = [] } = useQuery({
     queryKey: ["admin-contracts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contracts").select("id, title, status, amount_cents, client_id, clients(full_name)");
+      const { data, error } = await supabase.from("contracts").select("id, title, status, amount_cents, client_id, contract_type, clients(full_name)");
       if (error) throw error;
       return data;
     },
@@ -143,19 +144,38 @@ const Admin = () => {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [allContracts]);
 
-  // Filtered signatures by date range and client
+  // Contract type labels
+  const CONTRACT_TYPE_LABELS: Record<string, string> = {
+    service: "Serviço",
+    consultancy: "Consultoria",
+    retainer: "Retenção",
+    contingency: "Êxito",
+    other: "Outro",
+  };
+
+  // Unique contract types for filter
+  const sigTypeOptions = useMemo(() => {
+    const types = new Set<string>();
+    allContracts.forEach((c: any) => { if (c.contract_type) types.add(c.contract_type); });
+    return Array.from(types).sort();
+  }, [allContracts]);
+
+  // Filtered signatures by date range, client and contract type
   const filteredSignatures = useMemo(() => {
     return allSignatures.filter((s: any) => {
       const d = new Date(s.signed_at);
       if (sigDateFrom && isBefore(d, startOfDay(sigDateFrom))) return false;
       if (sigDateTo && isAfter(d, endOfMonth(sigDateTo))) return false;
+      const contract = allContracts.find((c: any) => c.id === s.contract_id);
       if (sigClientFilter !== "all") {
-        const contract = allContracts.find((c: any) => c.id === s.contract_id);
         if (!contract || (contract as any).client_id !== sigClientFilter) return false;
+      }
+      if (sigTypeFilter !== "all") {
+        if (!contract || (contract as any).contract_type !== sigTypeFilter) return false;
       }
       return true;
     });
-  }, [allSignatures, sigDateFrom, sigDateTo, sigClientFilter, allContracts]);
+  }, [allSignatures, sigDateFrom, sigDateTo, sigClientFilter, sigTypeFilter, allContracts]);
 
   const chartData = useMemo(() => {
     const from = sigDateFrom || subMonths(new Date(), 6);
@@ -216,6 +236,13 @@ const Admin = () => {
   const filteredSignedContracts = allContracts.filter((c: any) => filteredSignedIds.has(c.id));
   const filteredPendingContracts = allContracts.filter((c: any) => !signedContractIds.has(c.id) && c.status === "active");
   const filteredSignedPercent = allContracts.length > 0 ? Math.round((filteredSignedContracts.length / allContracts.length) * 100) : 0;
+
+  // Financial summary of signed contracts
+  const formatCurrency = (cents: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+
+  const signedTotalCents = filteredSignedContracts.reduce((sum: number, c: any) => sum + (c.amount_cents || 0), 0);
+  const signedAvgCents = filteredSignedContracts.length > 0 ? Math.round(signedTotalCents / filteredSignedContracts.length) : 0;
 
   // CSV export
   const exportSignaturesCsv = () => {
@@ -309,6 +336,18 @@ const Admin = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* Contract type filter */}
+                  <Select value={sigTypeFilter} onValueChange={setSigTypeFilter}>
+                    <SelectTrigger className="h-9 w-[150px] rounded-lg text-xs">
+                      <SelectValue placeholder="Todos os tipos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
+                      {sigTypeOptions.map((t) => (
+                        <SelectItem key={t} value={t}>{CONTRACT_TYPE_LABELS[t] || t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button variant="outline" size="sm" className="h-9 rounded-lg text-xs gap-1.5" onClick={exportSignaturesCsv} disabled={filteredSignatures.length === 0}>
                     <Download className="h-3.5 w-3.5" /> CSV
                   </Button>
@@ -336,6 +375,28 @@ const Admin = () => {
                 <TrendingUp className="h-5 w-5 text-primary mx-auto mb-2" />
                 <p className="text-display-sm text-primary">{filteredSignedPercent}%</p>
                 <p className="text-caption text-muted-foreground">Taxa de Assinatura</p>
+              </div>
+            </div>
+
+            {/* Financial summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-4 flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
+                  <DollarSign className="h-5 w-5 text-secondary" />
+                </div>
+                <div>
+                  <p className="text-caption text-muted-foreground">Valor Total Assinado</p>
+                  <p className="text-display-sm text-secondary">{formatCurrency(signedTotalCents)}</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-caption text-muted-foreground">Ticket Médio</p>
+                  <p className="text-display-sm text-primary">{formatCurrency(signedAvgCents)}</p>
+                </div>
               </div>
             </div>
 
