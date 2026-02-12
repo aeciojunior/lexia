@@ -21,6 +21,7 @@ import Landing from "./pages/Landing";
 import Onboarding from "./pages/Onboarding";
 import ClientPortal from "./pages/ClientPortal";
 import Financial from "./pages/Financial";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="/organization" element={<Organization />} />
               <Route path="/financial" element={<Financial />} />
               <Route path="/portal" element={<ClientPortal />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
