@@ -306,6 +306,60 @@ export type Database = {
           },
         ]
       }
+      contract_signatures: {
+        Row: {
+          accepted_terms: boolean
+          contract_id: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          organization_id: string
+          signature_url: string
+          signed_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted_terms?: boolean
+          contract_id: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          organization_id: string
+          signature_url: string
+          signed_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted_terms?: boolean
+          contract_id?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          organization_id?: string
+          signature_url?: string
+          signed_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_signatures_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_signatures_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           amount_cents: number

@@ -11,9 +11,11 @@ import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink, ScrollText, CalendarDays,
+  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink, ScrollText, CalendarDays, PenTool,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import SignaturePad from "@/components/SignaturePad";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -42,6 +44,9 @@ const ClientPortal = () => {
   const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
   const [chargeInvoiceId, setChargeInvoiceId] = useState<string | null>(null);
   const [chargeMethod, setChargeMethod] = useState<"pix" | "boleto">("pix");
+  const [signDialogOpen, setSignDialogOpen] = useState(false);
+  const [signContractId, setSignContractId] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Redirect non-clients to dashboard
   if (!loadingPerms && !isClient) {
@@ -118,6 +123,59 @@ const ClientPortal = () => {
       return (data as any[]) || [];
     },
     enabled: !!activeOrgId,
+  });
+
+  // Fetch existing signatures for contracts
+  const { data: signatures = [] } = useQuery({
+    queryKey: ["client-signatures", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contract_signatures" as any)
+        .select("*")
+        .order("signed_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  const signedContractIds = new Set(signatures.map((s: any) => s.contract_id));
+
+  const signContractMutation = useMutation({
+    mutationFn: async (signatureDataUrl: string) => {
+      if (!signContractId || !user || !activeOrgId) throw new Error("Dados insuficientes");
+      if (!acceptedTerms) throw new Error("Aceite os termos para continuar");
+
+      // Convert data URL to blob and upload
+      const res = await fetch(signatureDataUrl);
+      const blob = await res.blob();
+      const filePath = `${user.id}/${signContractId}-${Date.now()}.png`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("signatures")
+        .upload(filePath, blob, { contentType: "image/png" });
+      if (uploadError) throw uploadError;
+
+      // Insert signature record
+      const { error: insertError } = await (supabase.from("contract_signatures" as any) as any).insert({
+        contract_id: signContractId,
+        user_id: user.id,
+        organization_id: activeOrgId,
+        signature_url: filePath,
+        ip_address: null, // would need a service to get real IP
+        user_agent: navigator.userAgent,
+        accepted_terms: true,
+      });
+      if (insertError) throw insertError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client-signatures"] });
+      setSignDialogOpen(false);
+      setSignContractId(null);
+      setAcceptedTerms(false);
+      toast.success("Contrato assinado com sucesso!");
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const formatCurrency = (cents: number) =>
@@ -519,6 +577,20 @@ const ClientPortal = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {signedContractIds.has(c.id) ? (
+                            <LexBadge variant="success">
+                              <CheckCircle className="h-3 w-3 mr-1" /> Assinado
+                            </LexBadge>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="gap-1.5"
+                              onClick={(e) => { e.stopPropagation(); setSignContractId(c.id); setAcceptedTerms(false); setSignDialogOpen(true); }}
+                            >
+                              <PenTool className="h-3.5 w-3.5" /> Assinar
+                            </Button>
+                          )}
                           <LexBadge variant={contractStatusVariant[c.status] as any || "default"}>
                             {contractStatusLabels[c.status] || c.status}
                           </LexBadge>
@@ -713,6 +785,54 @@ const ClientPortal = () => {
               {createChargeMutation.isPending ? "Gerando..." : "Gerar Pagamento"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Signature Dialog */}
+      <Dialog open={signDialogOpen} onOpenChange={(open) => { setSignDialogOpen(open); if (!open) { setAcceptedTerms(false); setSignContractId(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenTool className="h-5 w-5 text-primary" /> Assinar Contrato
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {signContractId && (() => {
+              const contract = contracts.find((c: any) => c.id === signContractId);
+              return contract ? (
+                <div className="rounded-xl bg-muted/50 p-4 space-y-1">
+                  <p className="text-body-sm font-medium">{contract.title}</p>
+                  <p className="text-caption text-muted-foreground">{formatCurrency(contract.amount_cents)}</p>
+                  {contract.terms && (
+                    <div className="mt-3 max-h-32 overflow-y-auto rounded-lg bg-background p-3 border border-border">
+                      <p className="text-caption text-muted-foreground whitespace-pre-wrap">{contract.terms}</p>
+                    </div>
+                  )}
+                </div>
+              ) : null;
+            })()}
+
+            <SignaturePad
+              onSign={(dataUrl) => signContractMutation.mutate(dataUrl)}
+              disabled={!acceptedTerms || signContractMutation.isPending}
+            />
+
+            <div className="flex items-start gap-3 p-3 rounded-xl border border-border bg-muted/30">
+              <Checkbox
+                id="accept-terms"
+                checked={acceptedTerms}
+                onCheckedChange={(v) => setAcceptedTerms(v === true)}
+                disabled={signContractMutation.isPending}
+              />
+              <label htmlFor="accept-terms" className="text-caption leading-tight cursor-pointer">
+                Li e aceito os termos e condições deste contrato. Declaro que esta assinatura digital tem validade jurídica conforme a legislação vigente.
+              </label>
+            </div>
+
+            {signContractMutation.isPending && (
+              <p className="text-caption text-muted-foreground text-center animate-pulse">Salvando assinatura...</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
