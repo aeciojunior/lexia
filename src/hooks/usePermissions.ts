@@ -28,7 +28,9 @@ export type Permission =
   | "ACCESS_CLIENT_PORTAL"
   | "DELETE_ORGANIZATION"
   | "MANAGE_HEARINGS"
-  | "VIEW_HEARINGS";
+  | "VIEW_HEARINGS"
+  | "MANAGE_LEGAL_REFS"
+  | "VIEW_LEGAL_REFS";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
@@ -46,6 +48,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_FINANCIAL", "MANAGE_FINANCIAL",
     "VIEW_AUDIT_LOGS", "ACCESS_CLIENT_PORTAL",
     "MANAGE_HEARINGS", "VIEW_HEARINGS",
+    "MANAGE_LEGAL_REFS", "VIEW_LEGAL_REFS",
   ],
   admin: [
     "MANAGE_USERS", "VIEW_USERS",
@@ -59,6 +62,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_FINANCIAL", "MANAGE_FINANCIAL",
     "VIEW_AUDIT_LOGS", "ACCESS_CLIENT_PORTAL",
     "MANAGE_HEARINGS", "VIEW_HEARINGS",
+    "MANAGE_LEGAL_REFS", "VIEW_LEGAL_REFS",
   ],
   user: [
     "MANAGE_PROCESSES", "VIEW_PROCESSES",
@@ -69,6 +73,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "USE_AGENTS",
     "ACCESS_CLIENT_PORTAL",
     "MANAGE_HEARINGS", "VIEW_HEARINGS",
+    "MANAGE_LEGAL_REFS", "VIEW_LEGAL_REFS",
   ],
   intern: [
     "VIEW_PROCESSES",
@@ -78,6 +83,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "USE_IA_BASIC",
     "ACCESS_CLIENT_PORTAL",
     "VIEW_HEARINGS",
+    "VIEW_LEGAL_REFS",
   ],
   client: [
     "VIEW_PROCESSES",
