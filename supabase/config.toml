@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.pagseguro-charge]
 verify_jwt = false
+
+[functions.pagseguro-webhook]
+verify_jwt = false
