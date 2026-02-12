@@ -252,6 +252,84 @@ Deno.serve(async (req) => {
       });
     }
 
+    // RF-014: Delete organization (Owner only, with confirmation)
+    if (action === "delete-organization") {
+      const { organization_id, confirm_name } = params;
+
+      const callerRole = await getCallerRole(organization_id);
+      if (callerRole !== "owner") {
+        return new Response(JSON.stringify({ error: "Apenas o Owner pode excluir a organização" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Double confirmation: user must type the org name
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", organization_id)
+        .single();
+
+      if (!org || org.name !== confirm_name) {
+        return new Response(JSON.stringify({ error: "Nome da organização não confere. Exclusão cancelada." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Clear active_organization_id for all members
+      const { data: orgMembers } = await supabase
+        .from("user_organizations")
+        .select("user_id")
+        .eq("organization_id", organization_id);
+
+      if (orgMembers && orgMembers.length > 0) {
+        for (const member of orgMembers) {
+          await supabase
+            .from("profiles")
+            .update({ active_organization_id: null })
+            .eq("user_id", member.user_id)
+            .eq("active_organization_id", organization_id);
+        }
+      }
+
+      // Remove all memberships
+      await supabase
+        .from("user_organizations")
+        .delete()
+        .eq("organization_id", organization_id);
+
+      // Remove all invites
+      await supabase
+        .from("organization_invites")
+        .delete()
+        .eq("organization_id", organization_id);
+
+      // Audit before deletion
+      await supabase.from("audit_logs").insert({
+        organization_id,
+        user_id: userId,
+        action: "organization_deleted",
+        resource_type: "organization",
+        resource_id: organization_id,
+        metadata: {
+          organization_name: org.name,
+          user_agent: req.headers.get("user-agent"),
+        },
+      });
+
+      // Delete the organization
+      const { error: deleteError } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", organization_id);
+
+      if (deleteError) throw deleteError;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Ação desconhecida" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
