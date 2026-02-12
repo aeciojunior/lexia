@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.org-invites]
 verify_jwt = false
+
+[functions.task-notifications]
+verify_jwt = false
