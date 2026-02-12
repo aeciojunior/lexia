@@ -14,12 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          resource_id: string | null
+          resource_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
           conversation_id: string
           created_at: string
           id: string
+          organization_id: string | null
           role: string
           user_id: string
         }
@@ -28,6 +70,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          organization_id?: string | null
           role: string
           user_id: string
         }
@@ -36,10 +79,19 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          organization_id?: string | null
           role?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deadlines: {
         Row: {
@@ -49,6 +101,7 @@ export type Database = {
           due_time: string | null
           id: string
           notified: boolean
+          organization_id: string | null
           priority: string
           process_id: string | null
           status: string
@@ -63,6 +116,7 @@ export type Database = {
           due_time?: string | null
           id?: string
           notified?: boolean
+          organization_id?: string | null
           priority?: string
           process_id?: string | null
           status?: string
@@ -77,6 +131,7 @@ export type Database = {
           due_time?: string | null
           id?: string
           notified?: boolean
+          organization_id?: string | null
           priority?: string
           process_id?: string | null
           status?: string
@@ -85,6 +140,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "deadlines_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deadlines_process_id_fkey"
             columns: ["process_id"]
@@ -104,6 +166,7 @@ export type Database = {
           file_url: string
           id: string
           notes: string | null
+          organization_id: string | null
           process_id: string | null
           updated_at: string
           user_id: string
@@ -117,6 +180,7 @@ export type Database = {
           file_url: string
           id?: string
           notes?: string | null
+          organization_id?: string | null
           process_id?: string | null
           updated_at?: string
           user_id: string
@@ -130,11 +194,19 @@ export type Database = {
           file_url?: string
           id?: string
           notes?: string | null
+          organization_id?: string | null
           process_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_process_id_fkey"
             columns: ["process_id"]
@@ -143,6 +215,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       processes: {
         Row: {
@@ -154,6 +250,7 @@ export type Database = {
           judge: string | null
           notes: string | null
           number: string
+          organization_id: string | null
           risk_level: string | null
           status: string
           title: string
@@ -170,6 +267,7 @@ export type Database = {
           judge?: string | null
           notes?: string | null
           number: string
+          organization_id?: string | null
           risk_level?: string | null
           status?: string
           title: string
@@ -186,6 +284,7 @@ export type Database = {
           judge?: string | null
           notes?: string | null
           number?: string
+          organization_id?: string | null
           risk_level?: string | null
           status?: string
           title?: string
@@ -193,10 +292,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "processes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
+          active_organization_id: string | null
           avatar_url: string | null
           created_at: string
           email_notifications: boolean
@@ -207,6 +315,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          active_organization_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email_notifications?: boolean
@@ -217,6 +326,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          active_organization_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email_notifications?: boolean
@@ -226,7 +336,47 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_active_organization_id_fkey"
+            columns: ["active_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_organizations: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_organizations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -251,11 +401,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_active_org_id: { Args: never; Returns: string }
+      has_org_role: {
+        Args: { _org_id: string; _role: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
     }
