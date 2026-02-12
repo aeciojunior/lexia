@@ -459,8 +459,9 @@ const Processes = () => {
           <form onSubmit={(e) => {
             e.preventDefault();
             setFormTouched(true);
-            if (!form.number.trim() || !form.client_name.trim() || !form.title.trim()) {
-              toast.error("Preencha todos os campos obrigatórios.");
+            const cnjDigits = form.number.replace(/\D/g, "");
+            if (!form.number.trim() || !form.client_name.trim() || !form.title.trim() || cnjDigits.length !== 20) {
+              toast.error(!form.number.trim() || !form.client_name.trim() || !form.title.trim() ? "Preencha todos os campos obrigatórios." : "Número CNJ deve ter 20 dígitos.");
               return;
             }
             saveMutation.mutate(form);
@@ -468,8 +469,9 @@ const Processes = () => {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="text-overline text-muted-foreground block mb-1.5">Número <span className="text-destructive">*</span></label>
-                <Input className={`bg-muted border-border rounded-xl ${formTouched && !form.number.trim() ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.number} onChange={(e) => { const digits = e.target.value.replace(/\D/g, "").slice(0, 20); let masked = ""; for (let i = 0; i < digits.length; i++) { if (i === 7) masked += "-"; if (i === 9) masked += "."; if (i === 13) masked += "."; if (i === 14) masked += "."; if (i === 16) masked += "."; masked += digits[i]; } setForm({ ...form, number: masked }); }} placeholder="0000000-00.0000.0.00.0000" maxLength={25} />
+                <Input className={`bg-muted border-border rounded-xl ${formTouched && (!form.number.trim() || form.number.replace(/\D/g, "").length !== 20) ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.number} onChange={(e) => { const digits = e.target.value.replace(/\D/g, "").slice(0, 20); let masked = ""; for (let i = 0; i < digits.length; i++) { if (i === 7) masked += "-"; if (i === 9) masked += "."; if (i === 13) masked += "."; if (i === 14) masked += "."; if (i === 16) masked += "."; masked += digits[i]; } setForm({ ...form, number: masked }); }} placeholder="0000000-00.0000.0.00.0000" maxLength={25} />
                 {formTouched && !form.number.trim() && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+                {formTouched && form.number.trim() && form.number.replace(/\D/g, "").length !== 20 && <p className="text-[10px] text-destructive mt-1">Número CNJ incompleto ({form.number.replace(/\D/g, "").length}/20 dígitos)</p>}
               </div>
               <div>
                 <label className="text-overline text-muted-foreground block mb-1.5">Cliente <span className="text-destructive">*</span></label>
