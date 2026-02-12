@@ -37,6 +37,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    // Audit log for logout
+    if (session?.user) {
+      try {
+        await supabase.from("audit_logs").insert({
+          action: "logout",
+          user_id: session.user.id,
+          resource_type: "auth",
+          metadata: {
+            user_agent: navigator.userAgent,
+          },
+        } as any);
+      } catch {}
+    }
     await supabase.auth.signOut();
   };
 

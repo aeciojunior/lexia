@@ -81,13 +81,45 @@ const Auth = () => {
     return PASSWORD_CHECKS.every((c) => c.test(password));
   }, [password]);
 
+  const mapAuthError = (message: string): string => {
+    const msg = message.toLowerCase();
+    if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials"))
+      return "E-mail ou senha incorretos.";
+    if (msg.includes("email not confirmed") || msg.includes("not confirmed"))
+      return "Conta não confirmada. Verifique seu e-mail.";
+    if (msg.includes("user not found") || msg.includes("no user found"))
+      return "E-mail não encontrado.";
+    if (msg.includes("too many requests") || msg.includes("rate limit"))
+      return "Muitas tentativas. Aguarde alguns minutos.";
+    if (msg.includes("user banned") || msg.includes("blocked"))
+      return "Conta bloqueada. Entre em contato com o suporte.";
+    return message;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) toast.error(error.message);
-    else navigate("/dashboard");
+    if (error) {
+      toast.error(mapAuthError(error.message));
+      return;
+    }
+
+    // Audit log for login
+    if (data.user) {
+      supabase.from("audit_logs").insert({
+        action: "login",
+        user_id: data.user.id,
+        resource_type: "auth",
+        metadata: {
+          method: "email",
+          user_agent: navigator.userAgent,
+        },
+      } as any).then(() => {});
+    }
+
+    navigate("/dashboard");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
