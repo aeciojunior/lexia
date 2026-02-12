@@ -26,6 +26,7 @@ import Clients from "./pages/Clients";
 import AILegalDocs from "./pages/AILegalDocs";
 import Settings from "./pages/Settings";
 import ResetPassword from "./pages/ResetPassword";
+import Timesheet from "./pages/Timesheet";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/ai-legal" element={<AILegalDocs />} />
               <Route path="/portal" element={<ClientPortal />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/timesheet" element={<Timesheet />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

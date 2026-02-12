@@ -423,7 +423,47 @@ const Financial = () => {
     setDeleteTarget(null);
   };
 
-  // Pagination helpers
+  // PagSeguro charge
+  const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
+  const [chargeInvoiceId, setChargeInvoiceId] = useState<string | null>(null);
+  const [chargeMethod, setChargeMethod] = useState<"pix" | "boleto">("pix");
+
+  const createChargeMutation = useMutation({
+    mutationFn: async () => {
+      if (!chargeInvoiceId) throw new Error("Fatura não selecionada");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+      const res = await fetch(
+        `https://dnpakncqtzjdtkwcjpsw.supabase.co/functions/v1/pagseguro-charge`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucGFrbmNxdHpqZHRrd2NqcHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTYzMjcsImV4cCI6MjA4NjQ3MjMyN30.BYLKOhlr-ekFWDQStd5ieSlUuhgypxRvgpO6L7gLc6U",
+          },
+          body: JSON.stringify({ invoice_id: chargeInvoiceId, method: chargeMethod }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar cobrança");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      setChargeDialogOpen(false);
+      setChargeInvoiceId(null);
+      if (data.payment_link) {
+        window.open(data.payment_link, "_blank");
+        toast.success("Cobrança gerada! Link de pagamento aberto.");
+      } else {
+        toast.success(`Cobrança ${chargeMethod.toUpperCase()} gerada com sucesso!`);
+      }
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+
   const paginatedInvoices = filteredInvoices.slice(invoicePage * ITEMS_PER_PAGE, (invoicePage + 1) * ITEMS_PER_PAGE);
   const invoiceTotalPages = Math.max(1, Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE));
   const paginatedContracts = filteredContracts.slice(contractPage * ITEMS_PER_PAGE, (contractPage + 1) * ITEMS_PER_PAGE);
@@ -1050,6 +1090,11 @@ const Financial = () => {
                         <td className="py-3.5 text-muted-foreground">{format(new Date(inv.created_at), "dd/MM/yyyy", { locale: ptBR })}</td>
                         {canManageFinancial && (
                           <td className="py-3.5 flex gap-1">
+                            {inv.status !== "paid" && (
+                              <Button variant="ghost" size="icon" title="Gerar cobrança PagSeguro" onClick={() => { setChargeInvoiceId(inv.id); setChargeDialogOpen(true); }}>
+                                <CreditCard className="h-3.5 w-3.5 text-success" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ type: "invoice", id: inv.id, label: inv.description || "esta fatura" })}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </td>
@@ -1550,6 +1595,31 @@ const Financial = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PagSeguro Charge Dialog */}
+      <Dialog open={chargeDialogOpen} onOpenChange={setChargeDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-success" /> Gerar Cobrança</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-body-sm text-muted-foreground">Escolha o método de pagamento para gerar a cobrança via PagSeguro:</p>
+            <Select value={chargeMethod} onValueChange={(v: any) => setChargeMethod(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="boleto">Boleto Bancário</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChargeDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={() => createChargeMutation.mutate()} disabled={createChargeMutation.isPending} className="gap-2">
+              {createChargeMutation.isPending ? "Gerando..." : "Gerar Cobrança"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
