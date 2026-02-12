@@ -236,6 +236,9 @@ const Automations = () => {
   const [showTemplates, setShowTemplates] = useState(false);
 
   const [activeTab, setActiveTab] = useState("workflows");
+  const [logStatusFilter, setLogStatusFilter] = useState<string>("all");
+  const [logDateFrom, setLogDateFrom] = useState<string>("");
+  const [logDateTo, setLogDateTo] = useState<string>("");
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automations", activeOrgId],
@@ -252,14 +255,24 @@ const Automations = () => {
   });
 
   const { data: logs = [], isLoading: logsLoading } = useQuery({
-    queryKey: ["automation_logs", activeOrgId],
+    queryKey: ["automation_logs", activeOrgId, logStatusFilter, logDateFrom, logDateTo],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("automation_logs")
         .select("*, automations(name)")
         .eq("organization_id", activeOrgId!)
         .order("created_at", { ascending: false })
         .limit(100);
+      if (logStatusFilter !== "all") {
+        query = query.eq("status", logStatusFilter);
+      }
+      if (logDateFrom) {
+        query = query.gte("started_at", `${logDateFrom}T00:00:00`);
+      }
+      if (logDateTo) {
+        query = query.lte("started_at", `${logDateTo}T23:59:59`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data as any[]) || [];
     },
@@ -643,9 +656,50 @@ const Automations = () => {
 
         <TabsContent value="history" className="mt-4">
           <LexCard hover={false}>
-            <div className="p-4 border-b border-border">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">Histórico de Execuções</h2>
-              <p className="text-xs text-muted-foreground mt-1">Últimas 100 execuções das automações</p>
+            <div className="p-4 border-b border-border space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">Histórico de Execuções</h2>
+                <p className="text-xs text-muted-foreground mt-1">Últimas 100 execuções das automações</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Select value={logStatusFilter} onValueChange={setLogStatusFilter}>
+                  <SelectTrigger className="w-[160px] h-9 text-sm">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    <SelectItem value="success">Sucesso</SelectItem>
+                    <SelectItem value="error">Erro</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={logDateFrom}
+                    onChange={e => setLogDateFrom(e.target.value)}
+                    className="h-9 w-[150px] text-sm"
+                    placeholder="Data início"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input
+                    type="date"
+                    value={logDateTo}
+                    onChange={e => setLogDateTo(e.target.value)}
+                    className="h-9 w-[150px] text-sm"
+                    placeholder="Data fim"
+                  />
+                </div>
+                {(logStatusFilter !== "all" || logDateFrom || logDateTo) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-9"
+                    onClick={() => { setLogStatusFilter("all"); setLogDateFrom(""); setLogDateTo(""); }}
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
             </div>
             {logsLoading ? (
               <div className="p-8 text-center text-muted-foreground">Carregando...</div>
