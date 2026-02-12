@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
@@ -19,6 +19,7 @@ import InviteAccept from "./pages/InviteAccept";
 import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import Onboarding from "./pages/Onboarding";
+import NoOrganization from "./pages/NoOrganization";
 import ClientPortal from "./pages/ClientPortal";
 import Financial from "./pages/Financial";
 import Settings from "./pages/Settings";
@@ -50,6 +51,7 @@ const App = () => (
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+            <Route path="/no-organization" element={<ProtectedRoute><NoOrganization /></ProtectedRoute>} />
             <Route path="/design-system" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
