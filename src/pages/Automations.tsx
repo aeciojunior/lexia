@@ -117,6 +117,98 @@ const emptyWorkflow: WorkflowConfig = {
   actions: [{ type: "send_notification", params: { title: "", message: "" } }],
 };
 
+// ─── Templates ──────────────────────────────────────────────────
+
+interface AutomationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: typeof Zap;
+  category: string;
+  workflow: WorkflowConfig;
+}
+
+const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
+  {
+    id: "deadline_reminder_3d",
+    name: "Lembrete 3 dias antes do prazo",
+    description: "Envia notificação quando um prazo está a 3 dias do vencimento",
+    icon: CalendarDays,
+    category: "Prazos",
+    workflow: {
+      trigger: { event: "deadline_approaching", params: { days_before: "3" } },
+      conditions: [],
+      actions: [{ type: "send_notification", params: { title: "⏰ Prazo em 3 dias: {{titulo}}", message: "O prazo \"{{titulo}}\" do processo {{processo}} ({{numero}}) vence em 3 dias." } }],
+    },
+  },
+  {
+    id: "deadline_overdue_alert",
+    name: "Alerta de prazo vencido",
+    description: "Notifica e envia e-mail quando um prazo vence sem ser concluído",
+    icon: AlertTriangle,
+    category: "Prazos",
+    workflow: {
+      trigger: { event: "deadline_overdue", params: {} },
+      conditions: [],
+      actions: [
+        { type: "send_notification", params: { title: "🔴 Prazo vencido: {{titulo}}", message: "O prazo \"{{titulo}}\" está vencido! Tome providências imediatas." } },
+        { type: "send_email", params: { title: "Prazo vencido: {{titulo}}", message: "O prazo \"{{titulo}}\" do processo {{processo}} ({{numero}}) está vencido. Por favor, verifique e tome as providências necessárias.", to: "" } },
+      ],
+    },
+  },
+  {
+    id: "hearing_client_notify",
+    name: "Notificar cliente ao agendar audiência",
+    description: "Envia e-mail ao cliente quando uma nova audiência é agendada",
+    icon: Gavel,
+    category: "Audiências",
+    workflow: {
+      trigger: { event: "hearing_scheduled", params: {} },
+      conditions: [],
+      actions: [
+        { type: "send_notification", params: { title: "📅 Audiência agendada", message: "Nova audiência agendada para o processo {{processo}} ({{numero}}) — Cliente: {{cliente}}" } },
+        { type: "send_email", params: { title: "Audiência agendada — {{processo}}", message: "Prezado(a) {{cliente}}, informamos que uma audiência foi agendada para o processo {{numero}}. Entraremos em contato com mais detalhes.", to: "" } },
+      ],
+    },
+  },
+  {
+    id: "invoice_overdue_reminder",
+    name: "Lembrete de fatura vencida",
+    description: "Envia notificação diária para faturas que passaram do vencimento",
+    icon: DollarSign,
+    category: "Financeiro",
+    workflow: {
+      trigger: { event: "invoice_overdue", params: {} },
+      conditions: [],
+      actions: [{ type: "send_notification", params: { title: "💰 Fatura vencida", message: "Há uma fatura vencida do cliente {{cliente}}. Verifique o status do pagamento." } }],
+    },
+  },
+  {
+    id: "new_process_deadline",
+    name: "Criar prazo ao registrar processo",
+    description: "Cria automaticamente um prazo de 30 dias ao cadastrar novo processo",
+    icon: Scale,
+    category: "Processos",
+    workflow: {
+      trigger: { event: "process_created", params: {} },
+      conditions: [],
+      actions: [{ type: "create_deadline", params: { title: "Prazo inicial — {{processo}}", days_offset: "30", priority: "medium" } }],
+    },
+  },
+  {
+    id: "movement_notify",
+    name: "Notificar nova movimentação",
+    description: "Envia alerta quando uma nova movimentação processual é registrada",
+    icon: GitCommitHorizontal,
+    category: "Processos",
+    workflow: {
+      trigger: { event: "movement_created", params: {} },
+      conditions: [],
+      actions: [{ type: "send_notification", params: { title: "📋 Nova movimentação: {{processo}}", message: "Uma nova movimentação foi registrada no processo {{numero}} ({{cliente}})." } }],
+    },
+  },
+];
+
 const anim = (delay: number) => ({
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
@@ -139,6 +231,7 @@ const Automations = () => {
   const [workflowDesc, setWorkflowDesc] = useState("");
   const [workflow, setWorkflow] = useState<WorkflowConfig>(emptyWorkflow);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automations", activeOrgId],
@@ -213,6 +306,35 @@ const Automations = () => {
     setWorkflow(emptyWorkflow);
   };
 
+  const useTemplate = (template: AutomationTemplate) => {
+    setEditingId(null);
+    setWorkflowName(template.name);
+    setWorkflowDesc(template.description);
+    setWorkflow(JSON.parse(JSON.stringify(template.workflow)));
+    setEditorOpen(true);
+    setShowTemplates(false);
+  };
+
+  const activateTemplate = async (template: AutomationTemplate) => {
+    if (!user || !activeOrgId) return;
+    try {
+      const { error } = await supabase.from("automations").insert({
+        name: template.name,
+        description: template.description,
+        organization_id: activeOrgId,
+        user_id: user.id,
+        type: "workflow",
+        status: "active",
+        config: template.workflow as any,
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+      toast.success(`Template "${template.name}" ativado!`);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const openEdit = (auto: any) => {
     setEditingId(auto.id);
     setWorkflowName(auto.name);
@@ -283,11 +405,55 @@ const Automations = () => {
           </p>
         </div>
         {canManage && (
-          <Button onClick={() => { closeEditor(); setEditorOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Nova Automação
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowTemplates(!showTemplates)} className="gap-2">
+              <FileText className="h-4 w-4" /> Templates
+            </Button>
+            <Button onClick={() => { closeEditor(); setEditorOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> Nova Automação
+            </Button>
+          </div>
         )}
       </motion.div>
+
+      {/* Templates section */}
+      {showTemplates && canManage && (
+        <motion.div {...anim(0.05)}>
+          <LexCard hover={false}>
+            <div className="p-4 border-b border-border">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">Templates Prontos</h2>
+              <p className="text-xs text-muted-foreground mt-1">Ative com um clique ou personalize antes de criar</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+              {AUTOMATION_TEMPLATES.map((tpl) => {
+                const TplIcon = tpl.icon;
+                return (
+                  <div key={tpl.id} className="rounded-lg border border-border p-4 hover:border-primary/40 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <TplIcon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold truncate">{tpl.name}</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{tpl.description}</p>
+                        <Badge variant="outline" className="text-[10px] mt-2">{tpl.category}</Badge>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => useTemplate(tpl)}>
+                        <Pencil className="h-3 w-3 mr-1" /> Personalizar
+                      </Button>
+                      <Button size="sm" className="flex-1 text-xs h-8" onClick={() => activateTemplate(tpl)}>
+                        <Play className="h-3 w-3 mr-1" /> Ativar
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </LexCard>
+        </motion.div>
+      )}
 
       {/* Automations list */}
       {automations.length === 0 && !isLoading ? (
