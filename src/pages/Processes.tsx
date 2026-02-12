@@ -72,6 +72,31 @@ const Processes = () => {
     },
   });
 
+  const processIds = data?.items.map((p) => p.id) || [];
+
+  // Fetch counts for tasks, docs, deadlines per process
+  const { data: countsMap = {} } = useQuery({
+    queryKey: ["process-counts", processIds],
+    queryFn: async () => {
+      if (!processIds.length) return {};
+      const [tasks, docs, deadlines] = await Promise.all([
+        supabase.from("quick_tasks").select("process_id").in("process_id", processIds),
+        supabase.from("documents").select("process_id").in("process_id", processIds),
+        supabase.from("deadlines").select("process_id").in("process_id", processIds),
+      ]);
+      const counts: Record<string, { tasks: number; docs: number; deadlines: number }> = {};
+      for (const id of processIds) {
+        counts[id] = {
+          tasks: (tasks.data || []).filter((r: any) => r.process_id === id).length,
+          docs: (docs.data || []).filter((r: any) => r.process_id === id).length,
+          deadlines: (deadlines.data || []).filter((r: any) => r.process_id === id).length,
+        };
+      }
+      return counts;
+    },
+    enabled: processIds.length > 0,
+  });
+
   const logAudit = async (action: string, resourceId: string, metadata: Record<string, any> = {}) => {
     if (!user) return;
     await supabase.from("audit_logs").insert({
@@ -201,7 +226,7 @@ const Processes = () => {
               <table className="w-full text-body-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    {["Número", "Título", "Cliente", "Tipo", "Status", "Risco", "Ações"].map((h) => (
+                    {["Número", "Título", "Cliente", "Tipo", "Status", "Risco", "Vínculos", "Ações"].map((h) => (
                       <th key={h} className="text-left py-3 text-overline text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -225,6 +250,34 @@ const Processes = () => {
                         </LexBadge>
                       </td>
                       <td className="py-3.5"><RiskIndicator level={p.risk_level as any || "low"} /></td>
+                      <td className="py-3.5">
+                        {(() => {
+                          const c = (countsMap as Record<string, { tasks: number; docs: number; deadlines: number }>)[p.id];
+                          if (!c) return <span className="text-muted-foreground/40">—</span>;
+                          return (
+                            <div className="flex items-center gap-2">
+                              {c.tasks > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Tarefas">
+                                  <ListTodo className="h-3 w-3" />{c.tasks}
+                                </span>
+                              )}
+                              {c.deadlines > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Prazos">
+                                  <CalendarClock className="h-3 w-3" />{c.deadlines}
+                                </span>
+                              )}
+                              {c.docs > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Documentos">
+                                  <FileText className="h-3 w-3" />{c.docs}
+                                </span>
+                              )}
+                              {c.tasks === 0 && c.deadlines === 0 && c.docs === 0 && (
+                                <span className="text-[10px] text-muted-foreground/40">—</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="py-3.5">
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-normal">
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => { setSelectedProcess(p); setViewDialog(true); }}><Eye className="h-4 w-4" /></Button>
