@@ -65,12 +65,12 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1, duration: 0.4 }}
           >
-            <div className={`rounded-xl border ${kpi.border} bg-gradient-to-br ${kpi.gradient} p-5 transition-all hover:shadow-lg hover:-translate-y-0.5`}>
+            <div className={`rounded-xl border ${kpi.border} bg-gradient-to-br ${kpi.gradient} p-5 transition-all duration-normal hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] cursor-default group`}>
               <div className="flex items-center justify-between mb-3">
-                <kpi.icon className={`h-5 w-5 ${kpi.text}`} />
+                <kpi.icon className={`h-5 w-5 ${kpi.text} transition-transform duration-normal group-hover:scale-110`} />
                 <span className="text-overline text-muted-foreground">{kpi.label}</span>
               </div>
-              <p className={`text-display-lg ${kpi.text}`}>{kpi.value}</p>
+              <p className={`text-display-lg ${kpi.text} transition-transform duration-normal group-hover:scale-105 origin-left`}>{kpi.value}</p>
             </div>
           </motion.div>
         ))}
@@ -110,8 +110,15 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {processes.map((p) => (
-                      <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate("/processes")}>
+                    {processes.map((p, i) => (
+                      <motion.tr
+                        key={p.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + i * 0.06, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        className="border-b border-border/50 last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                        onClick={() => navigate("/processes")}
+                      >
                         <td className="py-3.5 font-mono text-caption text-primary">{p.number}</td>
                         <td className="py-3.5 font-medium">{p.title}</td>
                         <td className="py-3.5 text-muted-foreground">{p.client_name}</td>
@@ -121,7 +128,7 @@ const Dashboard = () => {
                           </LexBadge>
                         </td>
                         <td className="py-3.5"><RiskIndicator level={p.risk_level as any || "low"} /></td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>

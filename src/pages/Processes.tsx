@@ -146,8 +146,14 @@ const Processes = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((p) => (
-                    <tr key={p.id} className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors">
+                  {data.items.map((p, i) => (
+                    <motion.tr
+                      key={p.id}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors group"
+                    >
                       <td className="py-3.5 font-mono text-caption text-primary">{p.number}</td>
                       <td className="py-3.5 font-medium">{p.title}</td>
                       <td className="py-3.5 text-muted-foreground">{p.client_name}</td>
@@ -159,13 +165,13 @@ const Processes = () => {
                       </td>
                       <td className="py-3.5"><RiskIndicator level={p.risk_level as any || "low"} /></td>
                       <td className="py-3.5">
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-normal">
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => { setSelectedProcess(p); setViewDialog(true); }}><Eye className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => openEdit(p)}><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-destructive" onClick={() => archiveMutation.mutate(p.id)}><Archive className="h-4 w-4" /></Button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
