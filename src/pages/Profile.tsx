@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Phone, Camera, Save, Shield, Bell, Palette } from "lucide-react";
+import { User, Mail, Phone, Camera, Save, Shield, Bell, Palette, FileText, CalendarDays, MonitorSmartphone } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -22,8 +22,13 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // Preferences
+  // Notification preferences
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [notifyDeadlines, setNotifyDeadlines] = useState(true);
+  const [notifyDocuments, setNotifyDocuments] = useState(true);
+  const [notifyInApp, setNotifyInApp] = useState(true);
+
+  // UI preferences
   const [compactMode, setCompactMode] = useState(() => localStorage.getItem("lex-compact") === "true");
   const [defaultView, setDefaultView] = useState(() => localStorage.getItem("lex-view") || "dashboard");
 
@@ -43,6 +48,9 @@ const Profile = () => {
       setPhone(profile.phone || "");
       setAvatarUrl(profile.avatar_url || "");
       setEmailNotifications((profile as any).email_notifications ?? true);
+      setNotifyDeadlines((profile as any).notify_deadlines ?? true);
+      setNotifyDocuments((profile as any).notify_documents ?? true);
+      setNotifyInApp((profile as any).notify_in_app ?? true);
     }
   }, [profile]);
 
@@ -98,6 +106,9 @@ const Profile = () => {
       if (user) {
         const { error } = await supabase.from("profiles").update({
           email_notifications: emailNotifications,
+          notify_deadlines: notifyDeadlines,
+          notify_documents: notifyDocuments,
+          notify_in_app: notifyInApp,
         } as any).eq("user_id", user.id);
         if (error) throw error;
       }
@@ -141,7 +152,6 @@ const Profile = () => {
           </LexCardHeader>
 
           <div className="flex flex-col sm:flex-row gap-6">
-            {/* Avatar */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative group">
                 <Avatar className="h-24 w-24 border-2 border-primary/30">
@@ -156,7 +166,6 @@ const Profile = () => {
               <p className="text-caption text-muted-foreground">{uploading ? "Enviando..." : "Clique para alterar"}</p>
             </div>
 
-            {/* Fields */}
             <div className="flex-1 space-y-4">
               <div>
                 <Label className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Nome Completo</Label>
@@ -178,20 +187,33 @@ const Profile = () => {
         </LexCard>
       </motion.div>
 
-      {/* Preferences */}
+      {/* Notification Preferences */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <LexCard hover={false}>
           <LexCardHeader>
-            <LexCardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-secondary" /> Preferências</LexCardTitle>
+            <LexCardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-warning" /> Notificações</LexCardTitle>
           </LexCardHeader>
 
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Bell className="h-4 w-4 text-muted-foreground" />
+                <MonitorSmartphone className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Notificações no App</p>
+                  <p className="text-caption text-muted-foreground">Sino de notificações em tempo real</p>
+                </div>
+              </div>
+              <Switch checked={notifyInApp} onCheckedChange={setNotifyInApp} />
+            </div>
+
+            <Separator className="bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mail className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-body-sm font-medium">Notificações por Email</p>
-                  <p className="text-caption text-muted-foreground">Receber alertas de prazos por email</p>
+                  <p className="text-caption text-muted-foreground">Receber alertas por email</p>
                 </div>
               </div>
               <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
@@ -199,6 +221,45 @@ const Profile = () => {
 
             <Separator className="bg-border" />
 
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Alertas de Prazos</p>
+                  <p className="text-caption text-muted-foreground">Notificar quando prazos estão próximos (24h/48h)</p>
+                </div>
+              </div>
+              <Switch checked={notifyDeadlines} onCheckedChange={setNotifyDeadlines} />
+            </div>
+
+            <Separator className="bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Novos Documentos</p>
+                  <p className="text-caption text-muted-foreground">Notificar quando documentos são adicionados</p>
+                </div>
+              </div>
+              <Switch checked={notifyDocuments} onCheckedChange={setNotifyDocuments} />
+            </div>
+
+            <Button variant="outline" onClick={() => savePreferencesMutation.mutate()} disabled={savePreferencesMutation.isPending} className="mt-2">
+              <Save className="h-4 w-4" /> {savePreferencesMutation.isPending ? "Salvando..." : "Salvar Notificações"}
+            </Button>
+          </div>
+        </LexCard>
+      </motion.div>
+
+      {/* UI Preferences */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <LexCard hover={false}>
+          <LexCardHeader>
+            <LexCardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-secondary" /> Interface</LexCardTitle>
+          </LexCardHeader>
+
+          <div className="space-y-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Palette className="h-4 w-4 text-muted-foreground" />
@@ -231,7 +292,7 @@ const Profile = () => {
             </div>
 
             <Button variant="outline" onClick={() => savePreferencesMutation.mutate()} disabled={savePreferencesMutation.isPending} className="mt-2">
-              <Save className="h-4 w-4" /> {savePreferencesMutation.isPending ? "Salvando..." : "Salvar Preferências"}
+              <Save className="h-4 w-4" /> {savePreferencesMutation.isPending ? "Salvando..." : "Salvar Interface"}
             </Button>
           </div>
         </LexCard>

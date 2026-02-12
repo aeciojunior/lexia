@@ -404,6 +404,9 @@ export type Database = {
           email_notifications: boolean
           full_name: string | null
           id: string
+          notify_deadlines: boolean
+          notify_documents: boolean
+          notify_in_app: boolean
           phone: string | null
           updated_at: string
           user_id: string
@@ -415,6 +418,9 @@ export type Database = {
           email_notifications?: boolean
           full_name?: string | null
           id?: string
+          notify_deadlines?: boolean
+          notify_documents?: boolean
+          notify_in_app?: boolean
           phone?: string | null
           updated_at?: string
           user_id: string
@@ -426,6 +432,9 @@ export type Database = {
           email_notifications?: boolean
           full_name?: string | null
           id?: string
+          notify_deadlines?: boolean
+          notify_documents?: boolean
+          notify_in_app?: boolean
           phone?: string | null
           updated_at?: string
           user_id?: string
