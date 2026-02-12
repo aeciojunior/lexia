@@ -19,6 +19,7 @@ import InviteAccept from "./pages/InviteAccept";
 import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import Onboarding from "./pages/Onboarding";
+import ClientPortal from "./pages/ClientPortal";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/deadlines" element={<Deadlines />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/organization" element={<Organization />} />
+              <Route path="/portal" element={<ClientPortal />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

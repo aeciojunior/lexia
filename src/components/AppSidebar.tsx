@@ -29,6 +29,7 @@ const navItems: NavItem[] = [
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
+  
   { title: "Perfil", url: "/profile", icon: UserCircle },
 ];
 
@@ -36,7 +37,7 @@ export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { signOut, user } = useAuth();
   const { activeOrgId, organizations, switchOrganization } = useOrganization();
-  const { role, hasAnyPermission } = usePermissions();
+  const { role, hasAnyPermission, isClient } = usePermissions();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -45,10 +46,16 @@ export const AppSidebar = () => {
     navigate("/auth");
   };
 
-  const visibleItems = navItems.filter((item) => {
-    if (!item.permissions) return true;
-    return hasAnyPermission(...item.permissions);
-  });
+  const visibleItems = [
+    // For clients, show Portal instead of Dashboard
+    ...(isClient
+      ? [{ title: "Portal", url: "/portal", icon: Shield } as NavItem]
+      : []),
+    ...navItems.filter((item) => {
+      if (!item.permissions) return !isClient || item.url === "/profile";
+      return hasAnyPermission(...item.permissions);
+    }),
+  ];
 
   return (
     <aside
