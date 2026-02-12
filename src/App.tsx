@@ -22,6 +22,8 @@ import Onboarding from "./pages/Onboarding";
 import NoOrganization from "./pages/NoOrganization";
 import ClientPortal from "./pages/ClientPortal";
 import Financial from "./pages/Financial";
+import Clients from "./pages/Clients";
+import AILegalDocs from "./pages/AILegalDocs";
 import Settings from "./pages/Settings";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -48,6 +50,8 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/organization" element={<Organization />} />
               <Route path="/financial" element={<Financial />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/ai-legal" element={<AILegalDocs />} />
               <Route path="/portal" element={<ClientPortal />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
