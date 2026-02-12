@@ -73,6 +73,30 @@ const Processes = () => {
     },
   });
 
+  // Global stats for mini-dashboard
+  const { data: stats } = useQuery({
+    queryKey: ["processes-stats", activeOrgId],
+    queryFn: async () => {
+      const [procs, tasks, deadlines, docs] = await Promise.all([
+        supabase.from("processes").select("id", { count: "exact" }).eq("archived", false),
+        supabase.from("quick_tasks").select("id, status, process_id").not("process_id", "is", null),
+        supabase.from("deadlines").select("id, status, due_date, process_id").not("process_id", "is", null),
+        supabase.from("documents").select("id, process_id").not("process_id", "is", null),
+      ]);
+      const now = new Date();
+      const allDeadlines = deadlines.data || [];
+      const pendingTasks = (tasks.data || []).filter((t: any) => t.status !== "done").length;
+      const overdueDeadlines = allDeadlines.filter((d: any) => d.status !== "completed" && new Date(d.due_date + "T23:59:59") < now).length;
+      return {
+        totalProcesses: procs.count || 0,
+        pendingTasks,
+        overdueDeadlines,
+        totalDocs: (docs.data || []).length,
+      };
+    },
+    enabled: !!activeOrgId,
+  });
+
   const processIds = data?.items.map((p) => p.id) || [];
 
   // Fetch counts for tasks, docs, deadlines per process
@@ -193,6 +217,28 @@ const Processes = () => {
           <Plus className="h-4 w-4" /> Novo Processo
         </Button>
       </motion.div>
+
+      {/* Mini Dashboard */}
+      {stats && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Processos ativos", value: stats.totalProcesses, icon: Scale, color: "text-primary" },
+            { label: "Tarefas pendentes", value: stats.pendingTasks, icon: ListTodo, color: stats.pendingTasks > 0 ? "text-warning" : "text-muted-foreground" },
+            { label: "Prazos vencidos", value: stats.overdueDeadlines, icon: AlertTriangle, color: stats.overdueDeadlines > 0 ? "text-destructive" : "text-muted-foreground" },
+            { label: "Documentos vinculados", value: stats.totalDocs, icon: FileText, color: "text-muted-foreground" },
+          ].map((card) => (
+            <div key={card.label} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-muted ${card.color}`}>
+                <card.icon className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-display-sm leading-none">{card.value}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{card.label}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      )}
 
       {/* Filters */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-col sm:flex-row gap-3">
