@@ -243,6 +243,35 @@ export const useRealtimeNotifications = () => {
       )
       .subscribe();
 
+    // --- Automation logs channel (realtime push for admins) ---
+    const autoLogsChannel = supabase
+      .channel(`autologs-rt-${activeOrgId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "automation_logs", filter: `organization_id=eq.${activeOrgId}` },
+        (payload) => {
+          const log = payload.new as any;
+          queryClient.invalidateQueries({ queryKey: ["automation_logs"] });
+
+          const p = prefsRef.current;
+          if (p?.inApp !== false) {
+            if (log.status === "error") {
+              toast("❌ Automação com erro", {
+                description: log.error_message || "Uma automação falhou durante a execução.",
+                duration: 8000,
+              });
+              sendBrowserNotification("Automação com erro", log.error_message || "Uma automação falhou.");
+            } else if (log.items_processed > 0) {
+              toast("⚡ Automação executada", {
+                description: `${log.items_processed} item(ns) processado(s) com sucesso.`,
+                duration: 6000,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
     // --- Notifications channel (badge updates) ---
     const notifChannel = supabase
       .channel(`notif-rt-${user.id}`)
@@ -261,6 +290,7 @@ export const useRealtimeNotifications = () => {
       supabase.removeChannel(deadlinesChannel);
       supabase.removeChannel(tasksChannel);
       supabase.removeChannel(sigChannel);
+      supabase.removeChannel(autoLogsChannel);
       supabase.removeChannel(notifChannel);
     };
   }, [user, activeOrgId, queryClient, sendBrowserNotification]);
