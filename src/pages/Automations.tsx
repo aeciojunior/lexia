@@ -14,10 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Zap, Plus, Trash2, Pencil, Play, Pause, ArrowRight,
   FileText, CalendarDays, DollarSign, Gavel, Scale, Bell, Mail, GitCommitHorizontal,
-  ChevronDown, ChevronUp, Clock, AlertTriangle, Settings2,
+  ChevronDown, ChevronUp, Clock, AlertTriangle, Settings2, History, CheckCircle2, XCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -233,6 +235,8 @@ const Automations = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
+  const [activeTab, setActiveTab] = useState("workflows");
+
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automations", activeOrgId],
     queryFn: async () => {
@@ -245,6 +249,21 @@ const Automations = () => {
       return (data as any[]) || [];
     },
     enabled: !!activeOrgId,
+  });
+
+  const { data: logs = [], isLoading: logsLoading } = useQuery({
+    queryKey: ["automation_logs", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("automation_logs")
+        .select("*, automations(name)")
+        .eq("organization_id", activeOrgId!)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId && activeTab === "history",
   });
 
   const createMutation = useMutation({
@@ -415,6 +434,18 @@ const Automations = () => {
           </div>
         )}
       </motion.div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="workflows" className="gap-2">
+            <Zap className="h-4 w-4" /> Workflows
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-2">
+            <History className="h-4 w-4" /> Histórico
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="workflows" className="space-y-4 mt-4">
 
       {/* Templates section */}
       {showTemplates && canManage && (
@@ -607,6 +638,86 @@ const Automations = () => {
           })}
         </div>
       )}
+
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <LexCard hover={false}>
+            <div className="p-4 border-b border-border">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">Histórico de Execuções</h2>
+              <p className="text-xs text-muted-foreground mt-1">Últimas 100 execuções das automações</p>
+            </div>
+            {logsLoading ? (
+              <div className="p-8 text-center text-muted-foreground">Carregando...</div>
+            ) : logs.length === 0 ? (
+              <div className="p-8 text-center">
+                <History className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Nenhuma execução registrada ainda</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Automação</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Encontrados</TableHead>
+                      <TableHead className="text-center">Processados</TableHead>
+                      <TableHead>Início</TableHead>
+                      <TableHead>Duração</TableHead>
+                      <TableHead>Detalhes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log: any) => {
+                      const duration = log.finished_at && log.started_at
+                        ? Math.round((new Date(log.finished_at).getTime() - new Date(log.started_at).getTime()) / 1000)
+                        : null;
+                      return (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-medium text-sm">
+                            {log.automations?.name || "—"}
+                          </TableCell>
+                          <TableCell>
+                            {log.status === "success" ? (
+                              <Badge variant="outline" className="gap-1 text-xs border-green-500/30 text-green-600">
+                                <CheckCircle2 className="h-3 w-3" /> Sucesso
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="gap-1 text-xs">
+                                <XCircle className="h-3 w-3" /> Erro
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center text-sm">{log.items_matched}</TableCell>
+                          <TableCell className="text-center text-sm">{log.items_processed}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(log.started_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {duration !== null ? `${duration}s` : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[200px]">
+                            {log.error_message ? (
+                              <span className="text-destructive truncate block">{log.error_message}</span>
+                            ) : log.items_processed > 0 ? (
+                              <span className="text-muted-foreground">
+                                {(log.details as any[])?.length || 0} ação(ões)
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic">Sem itens</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </LexCard>
+        </TabsContent>
+      </Tabs>
 
       {/* Editor Dialog */}
       <Dialog open={editorOpen} onOpenChange={(v) => !v && closeEditor()}>
