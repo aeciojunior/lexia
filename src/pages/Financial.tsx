@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users } from "lucide-react";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,6 +49,8 @@ const Financial = () => {
   const [search, setSearch] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [editingContractId, setEditingContractId] = useState<string | null>(null);
   const [newInvoice, setNewInvoice] = useState({ description: "", amount: "", due_date: "", status: "draft", client_id: "none" });
   const [newContract, setNewContract] = useState({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "", client_id: "none" });
 
@@ -216,6 +218,73 @@ const Financial = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const updateInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingInvoiceId) throw new Error("Nenhuma fatura selecionada");
+      const amountCents = Math.round(parseFloat(newInvoice.amount.replace(",", ".")) * 100);
+      if (isNaN(amountCents) || amountCents <= 0) throw new Error("Valor inválido");
+      const { error } = await supabase.from("invoices" as any).update({
+        description: newInvoice.description, amount_cents: amountCents,
+        due_date: newInvoice.due_date || null, status: newInvoice.status,
+        client_id: newInvoice.client_id === "none" ? null : newInvoice.client_id,
+      }).eq("id", editingInvoiceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      setCreateDialogOpen(false);
+      setEditingInvoiceId(null);
+      setNewInvoice({ description: "", amount: "", due_date: "", status: "draft", client_id: "none" });
+      toast.success("Fatura atualizada!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateContractMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingContractId) throw new Error("Nenhum contrato selecionado");
+      const amountCents = Math.round(parseFloat(newContract.amount.replace(",", ".")) * 100);
+      if (isNaN(amountCents) || amountCents < 0) throw new Error("Valor inválido");
+      const { error } = await supabase.from("contracts" as any).update({
+        title: newContract.title, description: newContract.description || null,
+        contract_type: newContract.contract_type, amount_cents: amountCents,
+        periodicity: newContract.periodicity,
+        start_date: newContract.start_date || null, end_date: newContract.end_date || null,
+        status: newContract.status, terms: newContract.terms || null,
+        client_id: newContract.client_id === "none" ? null : newContract.client_id,
+      }).eq("id", editingContractId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      setContractDialogOpen(false);
+      setEditingContractId(null);
+      setNewContract({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "", client_id: "none" });
+      toast.success("Contrato atualizado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const openEditInvoice = (inv: any) => {
+    setEditingInvoiceId(inv.id);
+    setNewInvoice({
+      description: inv.description || "", amount: (inv.amount_cents / 100).toFixed(2).replace(".", ","),
+      due_date: inv.due_date || "", status: inv.status, client_id: inv.client_id || "none",
+    });
+    setCreateDialogOpen(true);
+  };
+
+  const openEditContract = (c: any) => {
+    setEditingContractId(c.id);
+    setNewContract({
+      title: c.title || "", description: c.description || "", contract_type: c.contract_type || "service",
+      amount: (c.amount_cents / 100).toFixed(2).replace(".", ","), periodicity: c.periodicity || "monthly",
+      start_date: c.start_date || "", end_date: c.end_date || "", status: c.status || "active",
+      terms: c.terms || "", client_id: c.client_id || "none",
+    });
+    setContractDialogOpen(true);
+  };
+
   if (!canViewFinancial) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -326,8 +395,8 @@ const Financial = () => {
                 <table className="w-full text-body-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["Descrição", "Cliente", "Valor", "Status", "Vencimento", "Criado em"].map((h) => (
-                        <th key={h} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
+                      {["Descrição", "Cliente", "Valor", "Status", "Vencimento", "Criado em", ...(canManageFinancial ? [""] : [])].map((h, i) => (
+                        <th key={`${h}-${i}`} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -340,6 +409,11 @@ const Financial = () => {
                         <td className="py-3.5"><LexBadge variant={statusColors[inv.status] as any || "default"}>{statusLabels[inv.status] || inv.status}</LexBadge></td>
                         <td className="py-3.5 text-muted-foreground">{inv.due_date ? format(new Date(inv.due_date), "dd/MM/yyyy") : "—"}</td>
                         <td className="py-3.5 text-muted-foreground">{format(new Date(inv.created_at), "dd/MM/yyyy", { locale: ptBR })}</td>
+                        {canManageFinancial && (
+                          <td className="py-3.5">
+                            <Button variant="ghost" size="icon" onClick={() => openEditInvoice(inv)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -419,8 +493,8 @@ const Financial = () => {
                 <table className="w-full text-body-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["Título", "Cliente", "Tipo", "Valor", "Periodicidade", "Status", "Início", "Fim"].map((h) => (
-                        <th key={h} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
+                      {["Título", "Cliente", "Tipo", "Valor", "Periodicidade", "Status", "Início", "Fim", ...(canManageFinancial ? [""] : [])].map((h, i) => (
+                        <th key={`${h}-${i}`} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -435,6 +509,11 @@ const Financial = () => {
                         <td className="py-3.5"><LexBadge variant={statusColors[c.status] as any || "default"}>{statusLabels[c.status] || c.status}</LexBadge></td>
                         <td className="py-3.5 text-muted-foreground">{c.start_date ? format(new Date(c.start_date), "dd/MM/yyyy") : "—"}</td>
                         <td className="py-3.5 text-muted-foreground">{c.end_date ? format(new Date(c.end_date), "dd/MM/yyyy") : "—"}</td>
+                        {canManageFinancial && (
+                          <td className="py-3.5">
+                            <Button variant="ghost" size="icon" onClick={() => openEditContract(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -516,9 +595,9 @@ const Financial = () => {
       </Tabs>
 
       {/* Create Invoice Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={(open) => { setCreateDialogOpen(open); if (!open) { setEditingInvoiceId(null); setNewInvoice({ description: "", amount: "", due_date: "", status: "draft", client_id: "none" }); } }}>
         <DialogContent className="max-w-md bg-card border-border">
-          <DialogHeader><DialogTitle className="text-display-sm">Nova Fatura</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-display-sm">{editingInvoiceId ? "Editar Fatura" : "Nova Fatura"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Descrição</label>
@@ -549,23 +628,32 @@ const Financial = () => {
                 <SelectContent>
                   <SelectItem value="draft">Rascunho</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
+                  {editingInvoiceId && <SelectItem value="paid">Pago</SelectItem>}
+                  {editingInvoiceId && <SelectItem value="overdue">Vencido</SelectItem>}
+                  {editingInvoiceId && <SelectItem value="cancelled">Cancelado</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={() => createInvoiceMutation.mutate()} disabled={!newInvoice.amount || createInvoiceMutation.isPending}>
-                {createInvoiceMutation.isPending ? "Criando..." : "Criar Fatura"}
-              </Button>
+              {editingInvoiceId ? (
+                <Button onClick={() => updateInvoiceMutation.mutate()} disabled={!newInvoice.amount || updateInvoiceMutation.isPending}>
+                  {updateInvoiceMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              ) : (
+                <Button onClick={() => createInvoiceMutation.mutate()} disabled={!newInvoice.amount || createInvoiceMutation.isPending}>
+                  {createInvoiceMutation.isPending ? "Criando..." : "Criar Fatura"}
+                </Button>
+              )}
             </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Create Contract Dialog */}
-      <Dialog open={contractDialogOpen} onOpenChange={setContractDialogOpen}>
+      <Dialog open={contractDialogOpen} onOpenChange={(open) => { setContractDialogOpen(open); if (!open) { setEditingContractId(null); setNewContract({ title: "", description: "", contract_type: "service", amount: "", periodicity: "monthly", start_date: "", end_date: "", status: "active", terms: "", client_id: "none" }); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border">
-          <DialogHeader><DialogTitle className="text-display-sm">Novo Contrato</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-display-sm">{editingContractId ? "Editar Contrato" : "Novo Contrato"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Título <span className="text-destructive">*</span></label>
@@ -625,6 +713,9 @@ const Financial = () => {
                   <SelectContent>
                     <SelectItem value="draft">Rascunho</SelectItem>
                     <SelectItem value="active">Ativo</SelectItem>
+                    {editingContractId && <SelectItem value="suspended">Suspenso</SelectItem>}
+                    {editingContractId && <SelectItem value="completed">Concluído</SelectItem>}
+                    {editingContractId && <SelectItem value="cancelled">Cancelado</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -635,9 +726,15 @@ const Financial = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setContractDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={() => createContractMutation.mutate()} disabled={!newContract.title || !newContract.amount || createContractMutation.isPending}>
-                {createContractMutation.isPending ? "Criando..." : "Criar Contrato"}
-              </Button>
+              {editingContractId ? (
+                <Button onClick={() => updateContractMutation.mutate()} disabled={!newContract.title || !newContract.amount || updateContractMutation.isPending}>
+                  {updateContractMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              ) : (
+                <Button onClick={() => createContractMutation.mutate()} disabled={!newContract.title || !newContract.amount || createContractMutation.isPending}>
+                  {createContractMutation.isPending ? "Criando..." : "Criar Contrato"}
+                </Button>
+              )}
             </DialogFooter>
           </div>
         </DialogContent>
