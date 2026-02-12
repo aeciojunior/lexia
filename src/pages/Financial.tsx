@@ -326,7 +326,7 @@ const Financial = () => {
                 <table className="w-full text-body-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["Descrição", "Valor", "Status", "Vencimento", "Criado em"].map((h) => (
+                      {["Descrição", "Cliente", "Valor", "Status", "Vencimento", "Criado em"].map((h) => (
                         <th key={h} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
                       ))}
                     </tr>
@@ -335,6 +335,7 @@ const Financial = () => {
                     {filteredInvoices.map((inv: any) => (
                       <tr key={inv.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="py-3.5 font-medium">{inv.description || "—"}</td>
+                        <td className="py-3.5 text-muted-foreground">{orgClients.find(c => c.id === inv.client_id)?.full_name || "—"}</td>
                         <td className="py-3.5 font-mono text-primary">{formatCurrency(inv.amount_cents)}</td>
                         <td className="py-3.5"><LexBadge variant={statusColors[inv.status] as any || "default"}>{statusLabels[inv.status] || inv.status}</LexBadge></td>
                         <td className="py-3.5 text-muted-foreground">{inv.due_date ? format(new Date(inv.due_date), "dd/MM/yyyy") : "—"}</td>
@@ -418,7 +419,7 @@ const Financial = () => {
                 <table className="w-full text-body-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      {["Título", "Tipo", "Valor", "Periodicidade", "Status", "Início", "Fim"].map((h) => (
+                      {["Título", "Cliente", "Tipo", "Valor", "Periodicidade", "Status", "Início", "Fim"].map((h) => (
                         <th key={h} className="text-left py-2.5 text-overline text-muted-foreground font-semibold">{h}</th>
                       ))}
                     </tr>
@@ -427,6 +428,7 @@ const Financial = () => {
                     {filteredContracts.map((c: any) => (
                       <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="py-3.5 font-medium">{c.title}</td>
+                        <td className="py-3.5 text-muted-foreground">{orgClients.find(cl => cl.id === c.client_id)?.full_name || "—"}</td>
                         <td className="py-3.5"><LexBadge variant="outline">{contractTypeLabels[c.contract_type] || c.contract_type}</LexBadge></td>
                         <td className="py-3.5 font-mono text-primary">{formatCurrency(c.amount_cents)}</td>
                         <td className="py-3.5 text-muted-foreground">{periodicityLabels[c.periodicity] || c.periodicity}</td>
