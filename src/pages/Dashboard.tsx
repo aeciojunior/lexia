@@ -8,15 +8,16 @@ import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import {
-  Scale, AlertTriangle, CheckCircle, MessageSquare, TrendingUp, ArrowRight,
-  Sparkles, CalendarDays, FileText, Users, DollarSign, Clock,
+  Scale, AlertTriangle, MessageSquare, ArrowRight,
+  Sparkles, CalendarDays, FileText, Users, DollarSign, Clock, Activity, CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { format, differenceInDays, isPast, isToday } from "date-fns";
+import { format, differenceInDays, isPast, isToday, subMonths, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 const anim = (delay: number) => ({
   initial: { opacity: 0, y: 16 },
@@ -27,9 +28,10 @@ const anim = (delay: number) => ({
 const Dashboard = () => {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
-  const { hasPermission, isClient } = usePermissions();
+  const { hasPermission, isClient, isAdmin, isOwner } = usePermissions();
   const { plan, limits, isPro } = usePlanLimits();
   const navigate = useNavigate();
+  const canViewAudit = isAdmin || isOwner;
 
   // === Processes ===
   const { data: allProcesses = [] } = useQuery({
@@ -90,6 +92,29 @@ const Dashboard = () => {
     enabled: !!activeOrgId && canViewFinancial,
   });
 
+  // === Invoices with dates for chart ===
+  const { data: invoicesForChart = [] } = useQuery({
+    queryKey: ["dash-invoices-chart", activeOrgId],
+    queryFn: async () => {
+      const since = subMonths(new Date(), 5).toISOString();
+      const { data, error } = await supabase.from("invoices").select("amount_cents, status, created_at").gte("created_at", since);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!activeOrgId && canViewFinancial,
+  });
+
+  // === Audit logs ===
+  const { data: auditLogs = [] } = useQuery({
+    queryKey: ["dash-audit-logs", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("audit_logs").select("id, action, created_at, metadata, resource_type").order("created_at", { ascending: false }).limit(8);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId && canViewAudit,
+  });
+
   // Process stats
   const activeProcesses = allProcesses.filter(p => !p.archived);
   const active = activeProcesses.filter(p => p.status === "active").length;
@@ -103,6 +128,43 @@ const Dashboard = () => {
 
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+
+  // === Chart data: last 6 months ===
+  const chartMonths = Array.from({ length: 6 }, (_, i) => {
+    const d = subMonths(new Date(), 5 - i);
+    return { date: startOfMonth(d), label: format(d, "MMM", { locale: ptBR }) };
+  });
+
+  const processChartData = chartMonths.map(m => ({
+    month: m.label,
+    novos: allProcesses.filter(p => {
+      const c = new Date(p.created_at);
+      return c.getMonth() === m.date.getMonth() && c.getFullYear() === m.date.getFullYear();
+    }).length,
+  }));
+
+  const revenueChartData = chartMonths.map(m => ({
+    month: m.label,
+    faturado: invoicesForChart.filter(i => {
+      const c = new Date(i.created_at);
+      return c.getMonth() === m.date.getMonth() && c.getFullYear() === m.date.getFullYear();
+    }).reduce((s, i) => s + (i.amount_cents || 0), 0) / 100,
+    recebido: invoicesForChart.filter(i => {
+      const c = new Date(i.created_at);
+      return c.getMonth() === m.date.getMonth() && c.getFullYear() === m.date.getFullYear() && i.status === "paid";
+    }).reduce((s, i) => s + (i.amount_cents || 0), 0) / 100,
+  }));
+
+  const auditActionLabels: Record<string, string> = {
+    change_active_organization: "Trocou organização",
+    invite_sent: "Convite enviado",
+    invite_accepted: "Convite aceito",
+    member_removed: "Membro removido",
+    role_updated: "Papel alterado",
+    process_created: "Processo criado",
+    document_uploaded: "Documento enviado",
+    login: "Login",
+  };
 
   const kpis = [
     { label: "Processos Ativos", value: active, icon: Scale, gradient: "from-primary/20 to-primary/5", text: "text-primary", border: "border-primary/20" },
@@ -346,6 +408,101 @@ const Dashboard = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Trend charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Processes per month */}
+        <motion.div {...anim(0.65)}>
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" /> Processos por mês
+              </LexCardTitle>
+            </LexCardHeader>
+            <div className="h-52 -mx-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={processChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(228 12% 18%)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(220 10% 55%)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(220 10% 55%)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: "hsl(228 16% 12%)", border: "1px solid hsl(228 12% 18%)", borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: "hsl(210 20% 95%)" }}
+                  />
+                  <Bar dataKey="novos" name="Novos processos" fill="hsl(192 95% 55%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </LexCard>
+        </motion.div>
+
+        {/* Revenue per month */}
+        {canViewFinancial && (
+          <motion.div {...anim(0.7)}>
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-accent" /> Faturamento mensal
+                </LexCardTitle>
+              </LexCardHeader>
+              <div className="h-52 -mx-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={revenueChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gradFaturado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(270 80% 62%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(270 80% 62%)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradRecebido" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(155 75% 48%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(155 75% 48%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(228 12% 18%)" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(220 10% 55%)" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "hsl(220 10% 55%)" }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(228 16% 12%)", border: "1px solid hsl(228 12% 18%)", borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: "hsl(210 20% 95%)" }}
+                      formatter={(v: number) => formatCurrency(v * 100)}
+                    />
+                    <Area type="monotone" dataKey="faturado" name="Faturado" stroke="hsl(270 80% 62%)" fill="url(#gradFaturado)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="recebido" name="Recebido" stroke="hsl(155 75% 48%)" fill="url(#gradRecebido)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </LexCard>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Audit logs widget */}
+      {canViewAudit && auditLogs.length > 0 && (
+        <motion.div {...anim(0.75)}>
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-secondary" /> Atividades Recentes
+              </LexCardTitle>
+            </LexCardHeader>
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {auditLogs.map((log: any) => (
+                <div key={log.id} className="flex items-center gap-3 p-2.5 rounded-lg text-caption hover:bg-muted/30 transition-colors">
+                  <CheckCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium">{auditActionLabels[log.action] || log.action}</span>
+                    {log.metadata?.email && <span className="text-muted-foreground"> — {log.metadata.email}</span>}
+                    {log.resource_type && <span className="text-muted-foreground"> ({log.resource_type})</span>}
+                  </div>
+                  <span className="text-muted-foreground shrink-0">
+                    {format(new Date(log.created_at), "dd MMM HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </LexCard>
+        </motion.div>
+      )}
     </div>
   );
 };
