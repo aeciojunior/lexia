@@ -44,6 +44,8 @@ const Financial = () => {
   const queryClient = useQueryClient();
   const [invoiceStatus, setInvoiceStatus] = useState<string>("all");
   const [paymentStatus, setPaymentStatus] = useState<string>("all");
+  const [invoiceClientFilter, setInvoiceClientFilter] = useState<string>("all");
+  const [contractClientFilter, setContractClientFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
@@ -118,7 +120,16 @@ const Financial = () => {
     { label: "Contratos", value: `${contracts.length} (${formatCurrency(totalContracts)})`, icon: ScrollText, variant: "primary" },
   ];
 
-  const filteredInvoices = invoices.filter((i: any) => !search || i.description?.toLowerCase().includes(search.toLowerCase()));
+  const filteredInvoices = invoices.filter((i: any) => {
+    if (search && !i.description?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (invoiceClientFilter !== "all" && (i.client_id || "none") !== invoiceClientFilter) return false;
+    return true;
+  });
+  const filteredContracts = contracts.filter((c: any) => {
+    if (search && !c.title?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (contractClientFilter !== "all" && (c.client_id || "none") !== contractClientFilter) return false;
+    return true;
+  });
   const filteredPayments = payments.filter((p: any) => !search || p.external_id?.toLowerCase().includes(search.toLowerCase()));
 
   // Revenue by month chart data
@@ -283,17 +294,27 @@ const Financial = () => {
           <LexCard hover={false}>
             <LexCardHeader>
               <LexCardTitle>Faturas</LexCardTitle>
-              <Select value={invoiceStatus} onValueChange={setInvoiceStatus}>
-                <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="draft">Rascunho</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="paid">Pago</SelectItem>
-                  <SelectItem value="overdue">Vencido</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={invoiceClientFilter} onValueChange={setInvoiceClientFilter}>
+                  <SelectTrigger className="w-44"><SelectValue placeholder="Cliente" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os clientes</SelectItem>
+                    <SelectItem value="none">Sem cliente</SelectItem>
+                    {orgClients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={invoiceStatus} onValueChange={setInvoiceStatus}>
+                  <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="draft">Rascunho</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="paid">Pago</SelectItem>
+                    <SelectItem value="overdue">Vencido</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </LexCardHeader>
             {filteredInvoices.length === 0 ? (
               <div className="py-12 text-center">
@@ -378,8 +399,16 @@ const Financial = () => {
           <LexCard hover={false}>
             <LexCardHeader>
               <LexCardTitle>Contratos</LexCardTitle>
+              <Select value={contractClientFilter} onValueChange={setContractClientFilter}>
+                <SelectTrigger className="w-44"><SelectValue placeholder="Cliente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  <SelectItem value="none">Sem cliente</SelectItem>
+                  {orgClients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </LexCardHeader>
-            {contracts.length === 0 ? (
+            {filteredContracts.length === 0 ? (
               <div className="py-12 text-center">
                 <ScrollText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-body-sm text-muted-foreground">Nenhum contrato encontrado.</p>
@@ -395,7 +424,7 @@ const Financial = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {contracts.map((c: any) => (
+                    {filteredContracts.map((c: any) => (
                       <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="py-3.5 font-medium">{c.title}</td>
                         <td className="py-3.5"><LexBadge variant="outline">{contractTypeLabels[c.contract_type] || c.contract_type}</LexBadge></td>
