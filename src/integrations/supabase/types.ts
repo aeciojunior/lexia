@@ -697,6 +697,7 @@ export type Database = {
       }
       quick_tasks: {
         Row: {
+          assigned_to: string | null
           created_at: string
           done: boolean
           due_date: string | null
@@ -709,6 +710,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
           done?: boolean
           due_date?: string | null
@@ -721,6 +723,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
           done?: boolean
           due_date?: string | null
