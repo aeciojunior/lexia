@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
@@ -8,12 +9,15 @@ import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
   draft: "default",
@@ -46,12 +50,21 @@ const methodLabels: Record<string, string> = {
 };
 
 const Financial = () => {
+  const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const { hasPermission } = usePermissions();
   const { canUseFeature, isFree, plan } = usePlanLimits();
+  const queryClient = useQueryClient();
   const [invoiceStatus, setInvoiceStatus] = useState<string>("all");
   const [paymentStatus, setPaymentStatus] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newInvoice, setNewInvoice] = useState({
+    description: "",
+    amount: "",
+    due_date: "",
+    status: "draft",
+  });
 
   const canViewFinancial = hasPermission("VIEW_FINANCIAL");
 
@@ -139,6 +152,29 @@ const Financial = () => {
     !search || p.external_id?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const createInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const amountCents = Math.round(parseFloat(newInvoice.amount.replace(",", ".")) * 100);
+      if (isNaN(amountCents) || amountCents <= 0) throw new Error("Valor inválido");
+      const { error } = await supabase.from("invoices" as any).insert({
+        organization_id: activeOrgId,
+        user_id: user!.id,
+        description: newInvoice.description,
+        amount_cents: amountCents,
+        due_date: newInvoice.due_date || null,
+        status: newInvoice.status,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      setCreateDialogOpen(false);
+      setNewInvoice({ description: "", amount: "", due_date: "", status: "draft" });
+      toast.success("Fatura criada com sucesso!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <div className="p-6 lg:p-8 space-y-8">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -162,7 +198,7 @@ const Financial = () => {
         ))}
       </div>
 
-      {/* Search */}
+      {/* Search + Create */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -173,6 +209,11 @@ const Financial = () => {
             className="pl-9"
           />
         </div>
+        {hasPermission("MANAGE_FINANCIAL") && (
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4" /> Nova Fatura
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="invoices">
@@ -294,6 +335,62 @@ const Financial = () => {
           </LexCard>
         </TabsContent>
       </Tabs>
+      {/* Create Invoice Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-md bg-card border-border">
+          <DialogHeader><DialogTitle className="text-display-sm">Nova Fatura</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Descrição</label>
+              <Textarea
+                className="bg-muted border-border rounded-xl"
+                value={newInvoice.description}
+                onChange={(e) => setNewInvoice({ ...newInvoice, description: e.target.value })}
+                placeholder="Honorários advocatícios - Processo nº..."
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Valor (R$)</label>
+              <Input
+                className="bg-muted border-border rounded-xl"
+                value={newInvoice.amount}
+                onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
+                placeholder="1500,00"
+                type="text"
+              />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Data de vencimento</label>
+              <Input
+                className="bg-muted border-border rounded-xl"
+                type="date"
+                value={newInvoice.due_date}
+                onChange={(e) => setNewInvoice({ ...newInvoice, due_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1.5">Status inicial</label>
+              <Select value={newInvoice.status} onValueChange={(v) => setNewInvoice({ ...newInvoice, status: v })}>
+                <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Rascunho</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
+              <Button
+                onClick={() => createInvoiceMutation.mutate()}
+                disabled={!newInvoice.amount || createInvoiceMutation.isPending}
+              >
+                {createInvoiceMutation.isPending ? "Criando..." : "Criar Fatura"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          config: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          last_run_at: string | null
+          memory: Json | null
+          model: string | null
+          name: string
+          organization_id: string
+          run_count: number
+          status: string
+          system_prompt: string | null
+          tools: Json | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_run_at?: string | null
+          memory?: Json | null
+          model?: string | null
+          name: string
+          organization_id: string
+          run_count?: number
+          status?: string
+          system_prompt?: string | null
+          tools?: Json | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_run_at?: string | null
+          memory?: Json | null
+          model?: string | null
+          name?: string
+          organization_id?: string
+          run_count?: number
+          status?: string
+          system_prompt?: string | null
+          tools?: Json | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -48,6 +113,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          config: Json | null
+          created_at: string
+          description: string | null
+          external_flow_id: string | null
+          id: string
+          last_run_at: string | null
+          name: string
+          organization_id: string
+          run_count: number
+          status: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          external_flow_id?: string | null
+          id?: string
+          last_run_at?: string | null
+          name: string
+          organization_id: string
+          run_count?: number
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          external_flow_id?: string | null
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          organization_id?: string
+          run_count?: number
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
