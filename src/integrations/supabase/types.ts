@@ -701,6 +701,8 @@ export type Database = {
           done: boolean
           id: string
           organization_id: string
+          position: number
+          priority: string
           title: string
           updated_at: string
           user_id: string
@@ -710,6 +712,8 @@ export type Database = {
           done?: boolean
           id?: string
           organization_id: string
+          position?: number
+          priority?: string
           title: string
           updated_at?: string
           user_id: string
@@ -719,6 +723,8 @@ export type Database = {
           done?: boolean
           id?: string
           organization_id?: string
+          position?: number
+          priority?: string
           title?: string
           updated_at?: string
           user_id?: string
