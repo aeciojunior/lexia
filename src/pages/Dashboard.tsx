@@ -193,9 +193,18 @@ const Dashboard = () => {
     invite_accepted: "Convite aceito",
     member_removed: "Membro removido",
     role_updated: "Papel alterado",
+    role_changed: "Papel alterado",
+    user_disabled: "Usuário desativado",
+    user_enabled: "Usuário reativado",
     process_created: "Processo criado",
     document_uploaded: "Documento enviado",
     login: "Login",
+    logout: "Logout",
+    organization_updated: "Organização atualizada",
+    organization_deleted: "Organização excluída",
+    profile_updated: "Perfil atualizado",
+    preferences_updated: "Preferências atualizadas",
+    user_registered: "Usuário registrado",
   };
 
   const kpis = [
