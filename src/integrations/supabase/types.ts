@@ -1090,6 +1090,82 @@ export type Database = {
           },
         ]
       }
+      time_entries: {
+        Row: {
+          billable: boolean
+          client_id: string | null
+          created_at: string
+          date: string
+          description: string | null
+          duration_minutes: number
+          end_time: string | null
+          hourly_rate_cents: number
+          id: string
+          organization_id: string
+          process_id: string | null
+          start_time: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billable?: boolean
+          client_id?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          duration_minutes?: number
+          end_time?: string | null
+          hourly_rate_cents?: number
+          id?: string
+          organization_id: string
+          process_id?: string | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billable?: boolean
+          client_id?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          duration_minutes?: number
+          end_time?: string | null
+          hourly_rate_cents?: number
+          id?: string
+          organization_id?: string
+          process_id?: string | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_organizations: {
         Row: {
           created_at: string
