@@ -19,9 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette, Pencil, Check,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette, Pencil, Check, ArrowUpDown, AlertTriangle,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import TaskProgressChart from "./TaskProgressChart";
 import TaskSubtasks from "./TaskSubtasks";
@@ -170,6 +170,8 @@ const TagEditor = ({ tags, onUpdate, predefinedTags }: { tags: string[]; onUpdat
 };
 
 /* ─── Tag Management Dialog ─── */
+type TagSortMode = "name" | "usage";
+
 const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: string; tasks?: TaskItem[] }) => {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState("");
@@ -177,6 +179,8 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
+  const [sortMode, setSortMode] = useState<TagSortMode>("name");
+  const [deleteConfirm, setDeleteConfirm] = useState<PredefTag | null>(null);
 
   const { data: tags = [] } = useQuery({
     queryKey: ["predefined-tags", orgId],
@@ -193,6 +197,11 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
   });
 
   const tagUsageCount = (tagName: string) => tasks.filter(t => (t.tags || []).includes(tagName)).length;
+
+  const sortedTags = [...tags].sort((a, b) => {
+    if (sortMode === "usage") return tagUsageCount(b.name) - tagUsageCount(a.name);
+    return a.name.localeCompare(b.name);
+  });
 
   const addTag = useMutation({
     mutationFn: async () => {
@@ -244,6 +253,7 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["predefined-tags", orgId] });
+      setDeleteConfirm(null);
       toast.success("Tag removida.");
     },
   });
@@ -260,14 +270,46 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
     }
   };
 
+  const handleDeleteClick = (tag: PredefTag) => {
+    const count = tagUsageCount(tag.name);
+    if (count > 0) {
+      setDeleteConfirm(tag);
+    } else {
+      deleteTag.mutate(tag.id);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Sort toggle */}
+      {tags.length > 1 && (
+        <div className="flex items-center justify-end gap-1">
+          <span className="text-[10px] text-muted-foreground mr-1">Ordenar:</span>
+          <Button
+            variant={sortMode === "name" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-6 text-[10px] px-2"
+            onClick={() => setSortMode("name")}
+          >
+            Nome
+          </Button>
+          <Button
+            variant={sortMode === "usage" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-6 text-[10px] px-2"
+            onClick={() => setSortMode("usage")}
+          >
+            Uso
+          </Button>
+        </div>
+      )}
+
       <div className="space-y-2">
         {tags.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-3">Nenhuma tag criada ainda.</p>
         ) : (
           <div className="space-y-1.5 max-h-56 overflow-y-auto">
-            {tags.map(tag => {
+            {sortedTags.map(tag => {
               const count = tagUsageCount(tag.name);
               const isEditing = editingId === tag.id;
 
@@ -323,7 +365,7 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
                   <Button
                     variant="ghost" size="icon"
                     className="h-6 w-6 opacity-0 group-hover/tag:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => deleteTag.mutate(tag.id)}
+                    onClick={() => handleDeleteClick(tag)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -367,6 +409,35 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
           ))}
         </div>
       </form>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              Excluir tag
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              A tag <strong>"{deleteConfirm?.name}"</strong> está sendo usada por{" "}
+              <strong>{deleteConfirm ? tagUsageCount(deleteConfirm.name) : 0} tarefa(s)</strong>.
+              A tag será removida da biblioteca, mas permanecerá nas tarefas existentes como tag personalizada.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive" size="sm"
+              onClick={() => { if (deleteConfirm) deleteTag.mutate(deleteConfirm.id); }}
+              disabled={deleteTag.isPending}
+            >
+              Excluir mesmo assim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
