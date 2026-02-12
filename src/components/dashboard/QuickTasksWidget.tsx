@@ -25,7 +25,8 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
-  useSensor, useSensors, type DragEndEvent,
+  useSensor, useSensors, type DragEndEvent, DragOverlay, type DragStartEvent,
+  useDroppable, type DragOverEvent, pointerWithin,
 } from "@dnd-kit/core";
 import {
   arrayMove, SortableContext, sortableKeyboardCoordinates,
@@ -344,23 +345,36 @@ const SortableTask = ({
   );
 };
 
-/* ─── Kanban Card ─── */
-const KanbanCard = ({
-  task, members, onDelete, onPriorityChange, onAssign, onStatusChange,
+/* ─── Draggable Kanban Card ─── */
+const DraggableKanbanCard = ({
+  task, members, onDelete, onStatusChange, isDragOverlay = false,
 }: {
   task: TaskItem;
   members: OrgMember[];
   onDelete: (id: string) => void;
-  onPriorityChange: (id: string, priority: Priority) => void;
-  onAssign: (id: string, userId: string | null) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
+  isDragOverlay?: boolean;
 }) => {
   const [showComments, setShowComments] = useState(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+    data: { type: "kanban-card", status: task.status },
+  });
+  const style = isDragOverlay ? {} : {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : undefined,
+  };
   const prio = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const assignedMember = members.find(m => m.user_id === task.assigned_to);
 
   return (
-    <div className="rounded-lg border border-border bg-card/60 p-2.5 space-y-1.5 group hover:border-primary/20 transition-colors">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+      className={cn(
+        "rounded-lg border border-border bg-card/60 p-2.5 space-y-1.5 group hover:border-primary/20 transition-colors cursor-grab active:cursor-grabbing",
+        isDragOverlay && "shadow-lg border-primary/30 bg-card",
+      )}
+    >
       <div className="flex items-start gap-2">
         <div className={`h-2 w-2 rounded-full mt-1 shrink-0 ${prio.dot}`} />
         <span className={cn("flex-1 text-caption leading-snug", task.status === "done" && "line-through text-muted-foreground")}>
@@ -369,7 +383,7 @@ const KanbanCard = ({
         <Button
           variant="ghost" size="icon"
           className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
-          onClick={() => onDelete(task.id)}
+          onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
         >
           <Trash2 className="h-2.5 w-2.5" />
         </Button>
@@ -379,74 +393,64 @@ const KanbanCard = ({
         <DueDateLabel dueDate={task.due_date} />
         {assignedMember && <MemberAvatar member={assignedMember} />}
 
-        {/* Move to other columns */}
-        <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v as TaskStatus)}>
-          <SelectTrigger className="h-5 px-1 text-[9px] w-auto min-w-0 border-0 bg-muted/40 shadow-none gap-0.5 shrink-0 ml-auto">
-            <span className={STATUS_CONFIG[task.status]?.color}>Mover</span>
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-              <SelectItem key={key} value={key}>
-                <span className={cfg.color}>{cfg.label}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Button
           variant="ghost" size="icon"
-          className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary"
-          onClick={() => setShowComments(!showComments)}
+          className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary ml-auto"
+          onClick={(e) => { e.stopPropagation(); setShowComments(!showComments); }}
         >
           <MessageSquare className="h-2.5 w-2.5" />
         </Button>
       </div>
 
-      {showComments && <TaskComments taskId={task.id} members={members} />}
+      {showComments && (
+        <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+          <TaskComments taskId={task.id} members={members} />
+        </div>
+      )}
     </div>
   );
 };
 
-/* ─── Kanban Column ─── */
-const KanbanColumn = ({
-  status, tasks, members, onDelete, onPriorityChange, onAssign, onStatusChange,
+/* ─── Droppable Kanban Column ─── */
+const DroppableKanbanColumn = ({
+  status, tasks, members, onDelete, onStatusChange, isOver,
 }: {
   status: TaskStatus;
   tasks: TaskItem[];
   members: OrgMember[];
   onDelete: (id: string) => void;
-  onPriorityChange: (id: string, priority: Priority) => void;
-  onAssign: (id: string, userId: string | null) => void;
   onStatusChange: (id: string, status: TaskStatus) => void;
+  isOver?: boolean;
 }) => {
+  const { setNodeRef } = useDroppable({ id: status });
   const cfg = STATUS_CONFIG[status];
   return (
-    <div className="flex-1 min-w-[200px]">
+    <div ref={setNodeRef} className={cn("flex-1 min-w-[200px] rounded-lg p-1 transition-colors", isOver && "bg-primary/5 ring-1 ring-primary/20")}>
       <div className="flex items-center gap-2 mb-2 px-1">
         <span className={cn("text-caption font-semibold", cfg.color)}>{cfg.label}</span>
         <span className="text-[10px] text-muted-foreground bg-muted/50 rounded-full px-1.5">{tasks.length}</span>
       </div>
-      <ScrollArea className="max-h-64">
-        <div className="space-y-1.5 pr-1">
-          {tasks.length === 0 ? (
-            <div className="text-center py-4 text-[10px] text-muted-foreground/50 border border-dashed border-border rounded-lg">
-              Nenhuma tarefa
-            </div>
-          ) : (
-            tasks.map(task => (
-              <KanbanCard
-                key={task.id}
-                task={task}
-                members={members}
-                onDelete={onDelete}
-                onPriorityChange={onPriorityChange}
-                onAssign={onAssign}
-                onStatusChange={onStatusChange}
-              />
-            ))
-          )}
-        </div>
-      </ScrollArea>
+      <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        <ScrollArea className="max-h-64">
+          <div className="space-y-1.5 pr-1">
+            {tasks.length === 0 ? (
+              <div className="text-center py-4 text-[10px] text-muted-foreground/50 border border-dashed border-border rounded-lg">
+                Arraste tarefas aqui
+              </div>
+            ) : (
+              tasks.map(task => (
+                <DraggableKanbanCard
+                  key={task.id}
+                  task={task}
+                  members={members}
+                  onDelete={onDelete}
+                  onStatusChange={onStatusChange}
+                />
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </SortableContext>
     </div>
   );
 };
@@ -461,7 +465,9 @@ const QuickTasksWidget = () => {
   const [newDueDate, setNewDueDate] = useState<Date | undefined>();
   const [newAssignee, setNewAssignee] = useState<string>("__none__");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [memberFilter, setMemberFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -559,9 +565,42 @@ const QuickTasksWidget = () => {
     });
   };
 
-  const filteredTasks = priorityFilter === "all"
-    ? quickTasks
-    : quickTasks.filter(t => t.priority === priorityFilter);
+  const filteredTasks = quickTasks.filter(t => {
+    if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+    if (memberFilter !== "all" && t.assigned_to !== memberFilter && t.user_id !== memberFilter) return false;
+    return true;
+  });
+
+  const activeDragTask = activeDragId ? quickTasks.find(t => t.id === activeDragId) : null;
+
+  const handleKanbanDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
+  const handleKanbanDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over) return;
+    const taskId = active.id as string;
+    const overId = over.id as string;
+    // Check if dropped over a column droppable
+    const statuses: TaskStatus[] = ["todo", "in_progress", "done"];
+    if (statuses.includes(overId as TaskStatus)) {
+      const task = quickTasks.find(t => t.id === taskId);
+      if (task && task.status !== overId) {
+        handleStatusChange(taskId, overId as TaskStatus);
+      }
+    } else {
+      // Dropped over another card — get that card's status
+      const overTask = quickTasks.find(t => t.id === overId);
+      if (overTask) {
+        const task = quickTasks.find(t => t.id === taskId);
+        if (task && task.status !== overTask.status) {
+          handleStatusChange(taskId, overTask.status);
+        }
+      }
+    }
+  };
 
   const doneCount = quickTasks.filter(t => t.status === "done").length;
 
@@ -599,8 +638,8 @@ const QuickTasksWidget = () => {
         </div>
       </LexCardHeader>
 
-      {/* Priority filter */}
-      <div className="mb-3">
+      {/* Filters */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <ToggleGroup type="single" value={priorityFilter} onValueChange={v => v && setPriorityFilter(v as PriorityFilter)} size="sm" className="justify-start flex-wrap">
           <ToggleGroupItem value="all" className="text-xs px-2.5 h-7">Todas</ToggleGroupItem>
           {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => (
@@ -610,6 +649,22 @@ const QuickTasksWidget = () => {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+
+        {/* Member filter */}
+        <Select value={memberFilter} onValueChange={setMemberFilter}>
+          <SelectTrigger className={cn("h-7 w-auto min-w-0 text-xs gap-1 px-2 border-border", memberFilter !== "all" && "border-secondary/40 text-secondary")}>
+            <UserPlus className="h-3 w-3 shrink-0" />
+            <span className="truncate max-w-[80px]">
+              {memberFilter === "all" ? "Todos" : orgMembers.find(m => m.user_id === memberFilter)?.full_name || "Membro"}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os membros</SelectItem>
+            {orgMembers.map(m => (
+              <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || "Sem nome"}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Add task form */}
@@ -731,20 +786,36 @@ const QuickTasksWidget = () => {
 
       {/* ─── KANBAN VIEW ─── */}
       {viewMode === "kanban" && (
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {(["todo", "in_progress", "done"] as TaskStatus[]).map(status => (
-            <KanbanColumn
-              key={status}
-              status={status}
-              tasks={filteredTasks.filter(t => t.status === status)}
-              members={orgMembers}
-              onDelete={(id) => deleteTask.mutate(id)}
-              onPriorityChange={(id, priority) => updateTask.mutate({ id, priority })}
-              onAssign={(id, assigned_to) => updateTask.mutate({ id, assigned_to })}
-              onStatusChange={handleStatusChange}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleKanbanDragStart}
+          onDragEnd={handleKanbanDragEnd}
+        >
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {(["todo", "in_progress", "done"] as TaskStatus[]).map(status => (
+              <DroppableKanbanColumn
+                key={status}
+                status={status}
+                tasks={filteredTasks.filter(t => t.status === status)}
+                members={orgMembers}
+                onDelete={(id) => deleteTask.mutate(id)}
+                onStatusChange={handleStatusChange}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeDragTask && (
+              <DraggableKanbanCard
+                task={activeDragTask}
+                members={orgMembers}
+                onDelete={() => {}}
+                onStatusChange={() => {}}
+                isDragOverlay
+              />
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
     </LexCard>
   );
