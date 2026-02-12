@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LexLogo } from "@/components/lexia/LexLogo";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Mail, Lock, User, CheckCircle, XCircle, MailCheck } from "lucide-react";
@@ -83,6 +83,8 @@ const Auth = () => {
   const failedAttempts = useRef(0);
   const lockoutLevel = useRef(0);
   const lockoutTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
   const navigate = useNavigate();
 
   const passwordValid = useMemo(() => {
@@ -169,7 +171,7 @@ const Auth = () => {
       } as any).then(() => {});
     }
 
-    navigate("/dashboard");
+    navigate(redirectTo);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -215,7 +217,7 @@ const Auth = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin + "/dashboard",
+        redirectTo: window.location.origin + redirectTo,
       },
     });
     if (error) toast.error(error.message);
