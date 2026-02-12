@@ -15,8 +15,10 @@ import {
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
-const roleMap: Record<string, string> = { admin: "Admin", user: "Usuário", intern: "Estagiário" };
-const roleBadge: Record<string, string> = { admin: "destructive", user: "default", intern: "warning" };
+import { ROLE_LABELS, ROLE_BADGE_VARIANT, type OrgRole } from "@/hooks/usePermissions";
+
+const roleMap = ROLE_LABELS;
+const roleBadge = ROLE_BADGE_VARIANT;
 
 const PAGE_SIZE = 10;
 
@@ -263,7 +265,9 @@ const Admin = () => {
               <Select value={newRole} onValueChange={setNewRole}>
                 <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(roleMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  {(Object.entries(roleMap) as [OrgRole, string][])
+                    .filter(([k]) => k !== "owner") // Cannot assign owner role via UI
+                    .map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
               <DialogFooter>
