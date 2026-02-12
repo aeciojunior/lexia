@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import TaskProgressChart from "./TaskProgressChart";
@@ -707,6 +707,7 @@ const QuickTasksWidget = () => {
   const [newAssignee, setNewAssignee] = useState<string>("__none__");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -829,11 +830,43 @@ const QuickTasksWidget = () => {
     });
   };
 
+  // Collect all unique tags
+  const allTags = Array.from(new Set(quickTasks.flatMap(t => t.tags || []))).sort();
+
   const filteredTasks = quickTasks.filter(t => {
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
     if (memberFilter !== "all" && t.assigned_to !== memberFilter && t.user_id !== memberFilter) return false;
+    if (tagFilter !== "all" && !(t.tags || []).includes(tagFilter)) return false;
     return true;
   });
+
+  // CSV export
+  const exportToCSV = () => {
+    const headers = ["Título", "Descrição", "Status", "Prioridade", "Data de Vencimento", "Tags", "Responsável"];
+    const rows = filteredTasks.map(t => {
+      const assignee = orgMembers.find(m => m.user_id === t.assigned_to)?.full_name || "";
+      const statusLabel = STATUS_CONFIG[t.status]?.label || t.status;
+      const prioLabel = PRIORITY_CONFIG[t.priority]?.label || t.priority;
+      return [
+        `"${(t.title || "").replace(/"/g, '""')}"`,
+        `"${(t.description || "").replace(/"/g, '""')}"`,
+        statusLabel,
+        prioLabel,
+        t.due_date || "",
+        `"${(t.tags || []).join(", ")}"`,
+        `"${assignee}"`,
+      ].join(",");
+    });
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tarefas-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Tarefas exportadas com sucesso!");
+  };
 
   const activeDragTask = activeDragId ? quickTasks.find(t => t.id === activeDragId) : null;
 
@@ -985,6 +1018,45 @@ const QuickTasksWidget = () => {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Tag filter */}
+        {allTags.length > 0 && (
+          <Select value={tagFilter} onValueChange={setTagFilter}>
+            <SelectTrigger className={cn("h-7 w-auto min-w-0 text-xs gap-1 px-2 border-border", tagFilter !== "all" && "border-primary/40 text-primary")}>
+              <Tag className="h-3 w-3 shrink-0" />
+              <span className="truncate max-w-[80px]">
+                {tagFilter === "all" ? "Tags" : tagFilter}
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as tags</SelectItem>
+              {allTags.map(tag => (
+                <SelectItem key={tag} value={tag}>
+                  <div className="flex items-center gap-1.5">
+                    <TagBadge tag={tag} />
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* CSV Export */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost" size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-primary shrink-0"
+                onClick={exportToCSV}
+                disabled={filteredTasks.length === 0}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Exportar CSV</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Add task form */}
