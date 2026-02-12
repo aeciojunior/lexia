@@ -10,8 +10,9 @@ import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt,
+  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt, History, CheckCircle, Clock, ExternalLink,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -83,6 +84,20 @@ const ClientPortal = () => {
       const { data, error } = await supabase
         .from("invoices" as any)
         .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // Fetch payments history (RLS: clients can see their own payments)
+  const { data: payments = [], isLoading: loadingPayments } = useQuery({
+    queryKey: ["client-payments", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments" as any)
+        .select("*, invoices(description, amount_cents)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data as any[]) || [];
@@ -202,86 +217,170 @@ const ClientPortal = () => {
       {/* Pending Invoices with Pay Button */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <LexCard hover={false}>
-          <LexCardHeader>
-            <LexCardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-primary" /> Faturas ({invoices.length})
-            </LexCardTitle>
-          </LexCardHeader>
-
-          {loadingInvoices ? (
-            <div className="py-12 text-center">
-              <div className="flex gap-1.5 justify-center mb-3">
-                <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
-                <span className="h-2.5 w-2.5 rounded-full bg-secondary animate-pulse-glow" style={{ animationDelay: "200ms" }} />
+          <Tabs defaultValue="invoices">
+            <LexCardHeader>
+              <div className="flex items-center justify-between w-full">
+                <LexCardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" /> Financeiro
+                </LexCardTitle>
+                <TabsList>
+                  <TabsTrigger value="invoices" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Faturas</TabsTrigger>
+                  <TabsTrigger value="payments" className="gap-1.5"><History className="h-3.5 w-3.5" /> Pagamentos</TabsTrigger>
+                </TabsList>
               </div>
-            </div>
-          ) : invoices.length === 0 ? (
-            <div className="py-12 text-center">
-              <CreditCard className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-              <p className="text-body-sm text-muted-foreground">Nenhuma fatura encontrada.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {invoices.map((inv: any, i: number) => {
-                const canPay = inv.status === "pending" || inv.status === "overdue";
-                const hasPayLink = inv.metadata?.pagseguro_payment_link;
-                return (
-                  <motion.div
-                    key={inv.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl border shrink-0 ${
-                        inv.status === "paid" ? "bg-success/10 border-success/20" : "bg-warning/10 border-warning/20"
-                      }`}>
-                        {inv.status === "paid" ? (
-                          <DollarSign className="h-5 w-5 text-success" />
-                        ) : (
-                          <Receipt className="h-5 w-5 text-warning" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-body-sm font-medium">{inv.description || "Sem descrição"}</p>
-                        <p className="text-caption text-muted-foreground">
-                          {formatCurrency(inv.amount_cents)}
-                          {inv.due_date && ` • Vence: ${new Date(inv.due_date).toLocaleDateString("pt-BR")}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <LexBadge variant={invoiceStatusVariant[inv.status] as any || "default"}>
-                        {invoiceStatusLabels[inv.status] || inv.status}
-                      </LexBadge>
-                      {canPay && (
-                        hasPayLink ? (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="gap-1.5"
-                            onClick={() => window.open(inv.metadata.pagseguro_payment_link, "_blank")}
-                          >
-                            <CreditCard className="h-3.5 w-3.5" /> Pagar
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5"
-                            onClick={() => { setChargeInvoiceId(inv.id); setChargeDialogOpen(true); }}
-                          >
-                            <CreditCard className="h-3.5 w-3.5" /> Gerar Pagamento
-                          </Button>
-                        )
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
+            </LexCardHeader>
+
+            {/* Invoices Tab */}
+            <TabsContent value="invoices">
+              {loadingInvoices ? (
+                <div className="py-12 text-center">
+                  <div className="flex gap-1.5 justify-center mb-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-secondary animate-pulse-glow" style={{ animationDelay: "200ms" }} />
+                  </div>
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="py-12 text-center">
+                  <CreditCard className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                  <p className="text-body-sm text-muted-foreground">Nenhuma fatura encontrada.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {invoices.map((inv: any, i: number) => {
+                    const canPay = inv.status === "pending" || inv.status === "overdue";
+                    const hasPayLink = inv.metadata?.pagseguro_payment_link;
+                    return (
+                      <motion.div
+                        key={inv.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl border shrink-0 ${
+                            inv.status === "paid" ? "bg-success/10 border-success/20" : "bg-warning/10 border-warning/20"
+                          }`}>
+                            {inv.status === "paid" ? (
+                              <DollarSign className="h-5 w-5 text-success" />
+                            ) : (
+                              <Receipt className="h-5 w-5 text-warning" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-body-sm font-medium">{inv.description || "Sem descrição"}</p>
+                            <p className="text-caption text-muted-foreground">
+                              {formatCurrency(inv.amount_cents)}
+                              {inv.due_date && ` • Vence: ${new Date(inv.due_date).toLocaleDateString("pt-BR")}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <LexBadge variant={invoiceStatusVariant[inv.status] as any || "default"}>
+                            {invoiceStatusLabels[inv.status] || inv.status}
+                          </LexBadge>
+                          {canPay && (
+                            hasPayLink ? (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="gap-1.5"
+                                onClick={() => window.open(inv.metadata.pagseguro_payment_link, "_blank")}
+                              >
+                                <CreditCard className="h-3.5 w-3.5" /> Pagar
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5"
+                                onClick={() => { setChargeInvoiceId(inv.id); setChargeDialogOpen(true); }}
+                              >
+                                <CreditCard className="h-3.5 w-3.5" /> Gerar Pagamento
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Payments History Tab */}
+            <TabsContent value="payments">
+              {loadingPayments ? (
+                <div className="py-12 text-center">
+                  <div className="flex gap-1.5 justify-center mb-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-secondary animate-pulse-glow" style={{ animationDelay: "200ms" }} />
+                  </div>
+                </div>
+              ) : payments.length === 0 ? (
+                <div className="py-12 text-center">
+                  <History className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                  <p className="text-body-sm text-muted-foreground">Nenhum pagamento registrado.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {payments.map((pay: any, i: number) => {
+                    const isPaid = pay.status === "paid" || pay.status === "confirmed";
+                    const methodLabels: Record<string, string> = { pix: "PIX", boleto: "Boleto", credit_card: "Cartão", other: "Outro" };
+                    const paymentStatusLabels: Record<string, string> = { pending: "Pendente", paid: "Confirmado", confirmed: "Confirmado", failed: "Falhou", refunded: "Estornado" };
+                    const paymentStatusVariant: Record<string, string> = { pending: "warning", paid: "success", confirmed: "success", failed: "destructive", refunded: "secondary" };
+                    return (
+                      <motion.div
+                        key={pay.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl border shrink-0 ${
+                            isPaid ? "bg-success/10 border-success/20" : "bg-muted border-border"
+                          }`}>
+                            {isPaid ? (
+                              <CheckCircle className="h-5 w-5 text-success" />
+                            ) : (
+                              <Clock className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-body-sm font-medium">
+                              {formatCurrency(pay.amount_cents)}
+                              <span className="ml-2 text-caption text-muted-foreground">
+                                via {methodLabels[pay.method] || pay.method}
+                              </span>
+                            </p>
+                            <p className="text-caption text-muted-foreground">
+                              {pay.invoices?.description || "Pagamento avulso"}
+                              {" • "}
+                              {pay.paid_at
+                                ? `Pago em ${new Date(pay.paid_at).toLocaleDateString("pt-BR")}`
+                                : `Criado em ${new Date(pay.created_at).toLocaleDateString("pt-BR")}`
+                              }
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <LexBadge variant={paymentStatusVariant[pay.status] as any || "default"}>
+                            {paymentStatusLabels[pay.status] || pay.status}
+                          </LexBadge>
+                          {pay.external_id && (
+                            <span className="text-caption font-mono text-muted-foreground" title="ID PagSeguro">
+                              #{pay.external_id.slice(0, 8)}
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </LexCard>
       </motion.div>
 

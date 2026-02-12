@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.pagseguro-webhook]
 verify_jwt = false
+
+[functions.notify-client-invoice]
+verify_jwt = false

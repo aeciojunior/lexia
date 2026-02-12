@@ -359,14 +359,22 @@ const Financial = () => {
     mutationFn: async () => {
       const amountCents = Math.round(parseFloat(newInvoice.amount.replace(",", ".")) * 100);
       if (isNaN(amountCents) || amountCents <= 0) throw new Error("Valor inválido");
-      const { error } = await supabase.from("invoices" as any).insert({
+      const { data: inserted, error } = await (supabase.from("invoices" as any).insert({
         organization_id: activeOrgId, user_id: user!.id,
         description: newInvoice.description, amount_cents: amountCents,
         due_date: newInvoice.due_date || null, status: newInvoice.status,
         client_id: newInvoice.client_id === "none" ? null : newInvoice.client_id,
-      });
+      }) as any).select("id, client_id").single();
       if (error) throw error;
       await supabase.from("audit_logs").insert({ action: "billing_generated", user_id: user!.id, organization_id: activeOrgId, resource_type: "invoice", metadata: { amount_cents: amountCents } } as any);
+      // Notify client via email if linked to a client
+      if (inserted?.client_id) {
+        try {
+          await supabase.functions.invoke("notify-client-invoice", { body: { invoice_id: inserted.id } });
+        } catch (e) {
+          console.error("Failed to send client notification:", e);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
