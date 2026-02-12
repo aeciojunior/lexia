@@ -15,6 +15,7 @@ import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, Use
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -80,16 +81,22 @@ const Processes = () => {
     queryFn: async () => {
       if (!processIds.length) return {};
       const [tasks, docs, deadlines] = await Promise.all([
-        supabase.from("quick_tasks").select("process_id").in("process_id", processIds),
+        supabase.from("quick_tasks").select("process_id, status").in("process_id", processIds),
         supabase.from("documents").select("process_id").in("process_id", processIds),
-        supabase.from("deadlines").select("process_id").in("process_id", processIds),
+        supabase.from("deadlines").select("process_id, status, due_date").in("process_id", processIds),
       ]);
-      const counts: Record<string, { tasks: number; docs: number; deadlines: number }> = {};
+      const counts: Record<string, { tasks: number; tasksDone: number; docs: number; deadlines: number; deadlinesOverdue: number; deadlinesDone: number }> = {};
+      const now = new Date();
       for (const id of processIds) {
+        const pTasks = (tasks.data || []).filter((r: any) => r.process_id === id);
+        const pDeadlines = (deadlines.data || []).filter((r: any) => r.process_id === id);
         counts[id] = {
-          tasks: (tasks.data || []).filter((r: any) => r.process_id === id).length,
+          tasks: pTasks.length,
+          tasksDone: pTasks.filter((t: any) => t.status === "done").length,
           docs: (docs.data || []).filter((r: any) => r.process_id === id).length,
-          deadlines: (deadlines.data || []).filter((r: any) => r.process_id === id).length,
+          deadlines: pDeadlines.length,
+          deadlinesDone: pDeadlines.filter((d: any) => d.status === "completed").length,
+          deadlinesOverdue: pDeadlines.filter((d: any) => d.status !== "completed" && new Date(d.due_date + "T23:59:59") < now).length,
         };
       }
       return counts;
@@ -174,6 +181,7 @@ const Processes = () => {
   const totalPages = Math.ceil((data?.count || 0) / PAGE_SIZE);
 
   return (
+    <TooltipProvider>
     <div className="p-6 lg:p-8 space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -252,24 +260,46 @@ const Processes = () => {
                       <td className="py-3.5"><RiskIndicator level={p.risk_level as any || "low"} /></td>
                       <td className="py-3.5">
                         {(() => {
-                          const c = (countsMap as Record<string, { tasks: number; docs: number; deadlines: number }>)[p.id];
+                          const c = (countsMap as Record<string, { tasks: number; tasksDone: number; docs: number; deadlines: number; deadlinesOverdue: number; deadlinesDone: number }>)[p.id];
                           if (!c) return <span className="text-muted-foreground/40">—</span>;
                           return (
                             <div className="flex items-center gap-2">
                               {c.tasks > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Tarefas">
-                                  <ListTodo className="h-3 w-3" />{c.tasks}
-                                </span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground cursor-default">
+                                      <ListTodo className="h-3 w-3" />{c.tasks}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {c.tasksDone}/{c.tasks} concluída{c.tasks !== 1 ? "s" : ""}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {c.deadlines > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Prazos">
-                                  <CalendarClock className="h-3 w-3" />{c.deadlines}
-                                </span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`inline-flex items-center gap-1 text-[10px] cursor-default ${c.deadlinesOverdue > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                                      <CalendarClock className="h-3 w-3" />{c.deadlines}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {c.deadlinesDone}/{c.deadlines} concluído{c.deadlines !== 1 ? "s" : ""}
+                                    {c.deadlinesOverdue > 0 && ` · ${c.deadlinesOverdue} vencido${c.deadlinesOverdue !== 1 ? "s" : ""}`}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {c.docs > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title="Documentos">
-                                  <FileText className="h-3 w-3" />{c.docs}
-                                </span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground cursor-default">
+                                      <FileText className="h-3 w-3" />{c.docs}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {c.docs} documento{c.docs !== 1 ? "s" : ""}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {c.tasks === 0 && c.deadlines === 0 && c.docs === 0 && (
                                 <span className="text-[10px] text-muted-foreground/40">—</span>
@@ -362,6 +392,7 @@ const Processes = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
