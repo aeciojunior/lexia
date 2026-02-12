@@ -11,7 +11,7 @@ import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import {
   Scale, AlertTriangle, MessageSquare, ArrowRight,
   Sparkles, CalendarDays, FileText, Users, DollarSign, Clock, Activity, CheckCircle, Bell,
-  Download,
+  Download, GitCommitHorizontal,
 } from "lucide-react";
 import QuickTasksWidget from "@/components/dashboard/QuickTasksWidget";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { format, differenceInDays, isPast, isToday, subMonths, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -59,6 +59,29 @@ const Dashboard = () => {
       const { data, error } = await supabase.from("processes").select("id, status, risk_level, archived, title, number, client_name, created_at").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // === Movements ===
+  const { data: movements = [] } = useQuery({
+    queryKey: ["dash-movements", activeOrgId, chartPeriod],
+    queryFn: async () => {
+      const since = subMonths(new Date(), chartPeriod - 1).toISOString();
+      const { data, error } = await supabase.from("process_movements").select("id, movement_date, movement_type, origin").gte("movement_date", since);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  // === All deadlines for analytics ===
+  const { data: allDeadlines = [] } = useQuery({
+    queryKey: ["dash-all-deadlines", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("deadlines").select("id, title, due_date, status, priority").order("due_date", { ascending: true });
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!activeOrgId,
   });
@@ -186,6 +209,39 @@ const Dashboard = () => {
       return c.getMonth() === m.date.getMonth() && c.getFullYear() === m.date.getFullYear() && i.status === "paid";
     }).reduce((s, i) => s + (i.amount_cents || 0), 0) / 100,
   }));
+
+  // === Processes by status (Pie chart) ===
+  const processStatusLabels: Record<string, string> = { active: "Ativos", closed: "Encerrados", pending: "Pendentes", suspended: "Suspensos" };
+  const processStatusColors: Record<string, string> = { active: "hsl(192 95% 55%)", closed: "hsl(220 10% 55%)", pending: "hsl(38 92% 60%)", suspended: "hsl(0 84% 60%)" };
+  const processStatusData = Object.entries(
+    activeProcesses.reduce<Record<string, number>>((acc, p) => {
+      acc[p.status] = (acc[p.status] || 0) + 1;
+      return acc;
+    }, {})
+  ).map(([status, count]) => ({
+    name: processStatusLabels[status] || status,
+    value: count,
+    color: processStatusColors[status] || "hsl(270 80% 62%)",
+  }));
+
+  // === Movements by month ===
+  const movementsChartData = chartMonths.map(m => ({
+    month: m.label,
+    movimentações: movements.filter(mv => {
+      const d = new Date(mv.movement_date);
+      return d.getMonth() === m.date.getMonth() && d.getFullYear() === m.date.getFullYear();
+    }).length,
+  }));
+
+  // === Overdue deadlines stats ===
+  const overdueDeadlines = allDeadlines.filter(d => d.status !== "done" && isPast(new Date(d.due_date)) && !isToday(new Date(d.due_date)));
+  const upcomingDeadlines = allDeadlines.filter(d => d.status !== "done" && !isPast(new Date(d.due_date)));
+  const doneDeadlines = allDeadlines.filter(d => d.status === "done");
+  const deadlineStatusData = [
+    { name: "Vencidos", value: overdueDeadlines.length, color: "hsl(0 84% 60%)" },
+    { name: "Pendentes", value: upcomingDeadlines.length, color: "hsl(38 92% 60%)" },
+    { name: "Concluídos", value: doneDeadlines.length, color: "hsl(155 75% 48%)" },
+  ].filter(d => d.value > 0);
 
   const auditActionLabels: Record<string, string> = {
     change_active_organization: "Trocou organização",
@@ -545,6 +601,137 @@ const Dashboard = () => {
             </LexCard>
           </motion.div>
         )}
+      </div>
+
+      {/* Analytics row: Process by status + Movements + Deadlines */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Processes by status pie */}
+        <motion.div {...anim(0.72)}>
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" /> Processos por Status
+              </LexCardTitle>
+            </LexCardHeader>
+            {processStatusData.length === 0 ? (
+              <div className="py-8 text-center">
+                <Scale className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                <p className="text-caption text-muted-foreground">Sem dados</p>
+              </div>
+            ) : (
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={processStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {processStatusData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "hsl(228 16% 12%)", border: "1px solid hsl(228 12% 18%)", borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={28}
+                      formatter={(value) => <span className="text-[11px] text-muted-foreground">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </LexCard>
+        </motion.div>
+
+        {/* Movements by month */}
+        <motion.div {...anim(0.74)}>
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <GitCommitHorizontal className="h-4 w-4 text-secondary" /> Movimentações / Mês
+              </LexCardTitle>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Exportar CSV" onClick={() => downloadCsv(movementsChartData, "movimentacoes-por-mes")}>
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </LexCardHeader>
+            <div className="h-52 -mx-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={movementsChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(228 12% 18%)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(220 10% 55%)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(220 10% 55%)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: "hsl(228 16% 12%)", border: "1px solid hsl(228 12% 18%)", borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: "hsl(210 20% 95%)" }}
+                  />
+                  <Bar dataKey="movimentações" name="Movimentações" fill="hsl(270 80% 62%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </LexCard>
+        </motion.div>
+
+        {/* Deadlines status pie */}
+        <motion.div {...anim(0.76)}>
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-warning" /> Prazos por Status
+              </LexCardTitle>
+            </LexCardHeader>
+            {deadlineStatusData.length === 0 ? (
+              <div className="py-8 text-center">
+                <CalendarDays className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                <p className="text-caption text-muted-foreground">Sem prazos registrados</p>
+              </div>
+            ) : (
+              <>
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={deadlineStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {deadlineStatusData.map((entry, index) => (
+                          <Cell key={index} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: "hsl(228 16% 12%)", border: "1px solid hsl(228 12% 18%)", borderRadius: 8, fontSize: 12 }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={28}
+                        formatter={(value) => <span className="text-[11px] text-muted-foreground">{value}</span>}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {overdueDeadlines.length > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 mt-2">
+                    <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                    <span className="text-caption text-destructive font-medium">
+                      {overdueDeadlines.length} prazo{overdueDeadlines.length > 1 ? "s" : ""} vencido{overdueDeadlines.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </LexCard>
+        </motion.div>
       </div>
 
       {/* Recent notifications widget */}
