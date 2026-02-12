@@ -35,6 +35,8 @@ const Organization = () => {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [newRole, setNewRole] = useState("user");
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<any>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch org details
@@ -174,16 +176,24 @@ const Organization = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Remove member
+  // Remove member via edge function
   const removeMemberMutation = useMutation({
-    mutationFn: async (memberId: string) => {
-      const { error } = await supabase.from("user_organizations" as any).delete().eq("id", memberId);
+    mutationFn: async (memberUserId: string) => {
+      const { data, error } = await supabase.functions.invoke("org-invites", {
+        body: { action: "remove-member", organization_id: activeOrgId, member_user_id: memberUserId },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-members"] });
-      toast.success("Membro removido!");
+      queryClient.invalidateQueries({ queryKey: ["org-invites"] });
+      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
+      setRemoveDialogOpen(false);
+      setMemberToRemove(null);
+      toast.success("Membro removido com sucesso!");
     },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const handleLogoRemove = async () => {
@@ -242,8 +252,12 @@ const Organization = () => {
   const actionLabels: Record<string, string> = {
     invite_sent: "Convite enviado",
     invite_accepted: "Convite aceito",
+    invite_revoked: "Convite revogado",
     member_removed: "Membro removido",
+    user_removed: "Membro removido",
     role_updated: "Papel alterado",
+    password_reset_request: "Recuperação de senha",
+    password_reset_success: "Senha redefinida",
   };
 
   if (!activeOrgId) {
@@ -361,12 +375,12 @@ const Organization = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <LexBadge variant={roleBadgeVariant[m.role] as any}>{roleMap[m.role] || m.role}</LexBadge>
-                    {isOwnerOrAdmin && !isCurrentUser && m.role !== "owner" && (
+                    {isOwnerOrAdmin && !isCurrentUser && m.role !== "owner" && !(currentUserRole === "admin" && m.role === "admin") && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedMember(m); setNewRole(m.role); setRoleDialog(true); }}>
                           <Shield className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => removeMemberMutation.mutate(m.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => { setMemberToRemove(m); setRemoveDialogOpen(true); }}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -487,6 +501,29 @@ const Organization = () => {
                 <Button variant="outline" onClick={() => setRoleDialog(false)}>Cancelar</Button>
                 <Button onClick={() => updateRoleMutation.mutate({ memberId: selectedMember.id, role: newRole })} disabled={updateRoleMutation.isPending}>
                   {updateRoleMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={removeDialogOpen} onOpenChange={(open) => { setRemoveDialogOpen(open); if (!open) setMemberToRemove(null); }}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader><DialogTitle className="text-display-sm">Remover Membro</DialogTitle></DialogHeader>
+          {memberToRemove && (
+            <div className="space-y-4">
+              <p className="text-body-sm">
+                Tem certeza que deseja remover <span className="font-semibold">{memberToRemove.profiles?.full_name || "este membro"}</span> ({roleMap[memberToRemove.role] || memberToRemove.role}) da organização?
+              </p>
+              <p className="text-caption text-muted-foreground">
+                O membro perderá acesso imediato a todos os recursos da organização. Dados criados por ele serão mantidos.
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRemoveDialogOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={() => removeMemberMutation.mutate(memberToRemove.user_id)} disabled={removeMemberMutation.isPending}>
+                  {removeMemberMutation.isPending ? "Removendo..." : "Remover"}
                 </Button>
               </DialogFooter>
             </div>
