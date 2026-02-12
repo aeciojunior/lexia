@@ -37,7 +37,7 @@ const Auth = () => {
     });
     setLoading(false);
     if (error) toast.error(error.message);
-    else { toast.success("Conta criada! Verifique seu e-mail."); setMode("login"); }
+    else { toast.success("Conta criada! Verifique seu e-mail ou faça login."); navigate("/onboarding"); }
   };
 
   const handleForgot = async (e: React.FormEvent) => {
