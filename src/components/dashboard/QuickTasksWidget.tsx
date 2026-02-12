@@ -181,6 +181,7 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
   const [editColor, setEditColor] = useState("");
   const [sortMode, setSortMode] = useState<TagSortMode>("name");
   const [deleteConfirm, setDeleteConfirm] = useState<PredefTag | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: tags = [] } = useQuery({
     queryKey: ["predefined-tags", orgId],
@@ -198,10 +199,12 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
 
   const tagUsageCount = (tagName: string) => tasks.filter(t => (t.tags || []).includes(tagName)).length;
 
-  const sortedTags = [...tags].sort((a, b) => {
-    if (sortMode === "usage") return tagUsageCount(b.name) - tagUsageCount(a.name);
-    return a.name.localeCompare(b.name);
-  });
+  const sortedTags = [...tags]
+    .filter(t => !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (sortMode === "usage") return tagUsageCount(b.name) - tagUsageCount(a.name);
+      return a.name.localeCompare(b.name);
+    });
 
   const addTag = useMutation({
     mutationFn: async () => {
@@ -280,27 +283,42 @@ const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: stri
   };
 
   return (
-    <div className="space-y-4">
-      {/* Sort toggle */}
+    <div className="space-y-3">
+      {/* Search & Sort */}
+      {tags.length > 3 && (
+        <Input
+          placeholder="Buscar tags..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="h-7 text-xs"
+        />
+      )}
       {tags.length > 1 && (
-        <div className="flex items-center justify-end gap-1">
-          <span className="text-[10px] text-muted-foreground mr-1">Ordenar:</span>
-          <Button
-            variant={sortMode === "name" ? "secondary" : "ghost"}
-            size="sm"
-            className="h-6 text-[10px] px-2"
-            onClick={() => setSortMode("name")}
-          >
-            Nome
-          </Button>
-          <Button
-            variant={sortMode === "usage" ? "secondary" : "ghost"}
-            size="sm"
-            className="h-6 text-[10px] px-2"
-            onClick={() => setSortMode("usage")}
-          >
-            Uso
-          </Button>
+        <div className="flex items-center justify-between">
+          {searchQuery && (
+            <span className="text-[10px] text-muted-foreground">
+              {sortedTags.length} de {tags.length}
+            </span>
+          )}
+          <div className="flex items-center gap-1 ml-auto">
+            <span className="text-[10px] text-muted-foreground mr-1">Ordenar:</span>
+            <Button
+              variant={sortMode === "name" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() => setSortMode("name")}
+            >
+              Nome
+            </Button>
+            <Button
+              variant={sortMode === "usage" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() => setSortMode("usage")}
+            >
+              Uso
+            </Button>
+          </div>
         </div>
       )}
 
