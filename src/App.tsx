@@ -12,6 +12,8 @@ import Processes from "./pages/Processes";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Documents from "./pages/Documents";
+import Deadlines from "./pages/Deadlines";
+import Admin from "./pages/Admin";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const App = () => (
               <Route path="/chat" element={<Chat />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/deadlines" element={<Deadlines />} />
+              <Route path="/admin" element={<Admin />} />
             </Route>
             <Route path="/design-system" element={<Index />} />
             <Route path="*" element={<NotFound />} />

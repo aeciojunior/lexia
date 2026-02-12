@@ -2,7 +2,7 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,10 @@ import { useNavigate } from "react-router-dom";
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Processos", url: "/processes", icon: Scale },
+  { title: "Prazos", url: "/deadlines", icon: CalendarDays },
   { title: "Documentos", url: "/documents", icon: FileText },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true },
+  { title: "Admin", url: "/admin", icon: Shield },
   { title: "Perfil", url: "/profile", icon: UserCircle },
 ];
 
