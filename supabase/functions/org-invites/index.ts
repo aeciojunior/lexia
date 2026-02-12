@@ -60,6 +60,20 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Admin cannot invite owner or admin; Owner cannot invite owner
+      if (role === "owner") {
+        return new Response(JSON.stringify({ error: "Não é possível convidar com o papel de Proprietário" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (membership.role === "admin" && role === "admin") {
+        return new Response(JSON.stringify({ error: "Admins não podem convidar outros Administradores" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Check if already a member
       const { data: existingUser } = await supabase.auth.admin.listUsers();
       const targetUser = existingUser?.users?.find((u: any) => u.email === email);
@@ -78,6 +92,19 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Check for existing pending invite — if exists, revoke old and create new (resend)
+      const { data: existingInvite } = await supabase
+        .from("organization_invites")
+        .select("id")
+        .eq("organization_id", organization_id)
+        .eq("email", email)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (existingInvite) {
+        await supabase.from("organization_invites").update({ status: "revoked" }).eq("id", existingInvite.id);
+      }
+
       // Create invite
       const { data: invite, error: inviteError } = await supabase
         .from("organization_invites")
@@ -90,15 +117,7 @@ Deno.serve(async (req) => {
         .select()
         .single();
 
-      if (inviteError) {
-        if (inviteError.code === "23505") {
-          return new Response(JSON.stringify({ error: "Convite já enviado para este email" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        throw inviteError;
-      }
+      if (inviteError) throw inviteError;
 
       // Get org name
       const { data: org } = await supabase
@@ -247,6 +266,47 @@ Deno.serve(async (req) => {
       });
 
       return new Response(JSON.stringify({ success: true, organization_id: invite.organization_id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "revoke-invite") {
+      const { invite_id, organization_id } = params;
+
+      // Verify caller is admin/owner
+      const { data: membership } = await supabase
+        .from("user_organizations")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+
+      if (!membership || !["admin", "owner"].includes(membership.role)) {
+        return new Response(JSON.stringify({ error: "Sem permissão" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error: revokeError } = await supabase
+        .from("organization_invites")
+        .update({ status: "revoked" })
+        .eq("id", invite_id)
+        .eq("organization_id", organization_id)
+        .eq("status", "pending");
+
+      if (revokeError) throw revokeError;
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        organization_id,
+        user_id: userId,
+        action: "invite_revoked",
+        resource_type: "organization_invite",
+        resource_id: invite_id,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
