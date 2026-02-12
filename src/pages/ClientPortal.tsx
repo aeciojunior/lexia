@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -7,10 +7,11 @@ import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
 import { RiskIndicator } from "@/components/lexia/LegalComponents";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Scale, FileText, Download, Eye, MessageSquare, Shield, FolderOpen,
+  Scale, FileText, Download, Eye, Shield, FolderOpen, CreditCard, DollarSign, Receipt,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -22,13 +23,23 @@ const categoryMap: Record<string, string> = {
   petition: "Petição", contract: "Contrato", evidence: "Prova", court_order: "Decisão Judicial",
   correspondence: "Correspondência", power_of_attorney: "Procuração", report: "Relatório", other: "Outro",
 };
+const invoiceStatusLabels: Record<string, string> = {
+  draft: "Rascunho", pending: "Pendente", paid: "Pago", overdue: "Vencido", cancelled: "Cancelado",
+};
+const invoiceStatusVariant: Record<string, string> = {
+  draft: "default", pending: "warning", paid: "success", overdue: "destructive", cancelled: "secondary",
+};
 
 const ClientPortal = () => {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const { isClient, isLoading: loadingPerms } = usePermissions();
+  const queryClient = useQueryClient();
   const [selectedProcess, setSelectedProcess] = useState<any>(null);
   const [viewProcessDialog, setViewProcessDialog] = useState(false);
+  const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
+  const [chargeInvoiceId, setChargeInvoiceId] = useState<string | null>(null);
+  const [chargeMethod, setChargeMethod] = useState<"pix" | "boleto">("pix");
 
   // Redirect non-clients to dashboard
   if (!loadingPerms && !isClient) {
@@ -65,6 +76,23 @@ const ClientPortal = () => {
     enabled: !!activeOrgId,
   });
 
+  // Fetch invoices (RLS: clients can see their own invoices)
+  const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
+    queryKey: ["client-invoices", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("invoices" as any)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId,
+  });
+
+  const formatCurrency = (cents: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+
   const downloadFile = async (doc: any) => {
     const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.file_url, 60);
     if (error) {
@@ -81,7 +109,46 @@ const ClientPortal = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const createChargeMutation = useMutation({
+    mutationFn: async () => {
+      if (!chargeInvoiceId) throw new Error("Fatura não selecionada");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+      const res = await fetch(
+        `https://dnpakncqtzjdtkwcjpsw.supabase.co/functions/v1/pagseguro-charge`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucGFrbmNxdHpqZHRrd2NqcHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTYzMjcsImV4cCI6MjA4NjQ3MjMyN30.BYLKOhlr-ekFWDQStd5ieSlUuhgypxRvgpO6L7gLc6U",
+          },
+          body: JSON.stringify({ invoice_id: chargeInvoiceId, method: chargeMethod }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar cobrança");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["client-invoices"] });
+      setChargeDialogOpen(false);
+      setChargeInvoiceId(null);
+      if (data.payment_link) {
+        window.open(data.payment_link, "_blank");
+        toast.success("Link de pagamento aberto!");
+      } else {
+        toast.success("Cobrança gerada com sucesso!");
+      }
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (loadingPerms) return null;
+
+  const pendingInvoices = invoices.filter((i: any) => i.status === "pending" || i.status === "overdue");
+  const paidInvoices = invoices.filter((i: any) => i.status === "paid");
+  const totalPending = pendingInvoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-5xl">
@@ -93,16 +160,133 @@ const ClientPortal = () => {
           </div>
           <div>
             <p className="text-overline text-primary mb-0.5">Portal do Cliente</p>
-            <h1 className="text-display-lg">Meus Processos</h1>
+            <h1 className="text-display-lg">Meus Processos & Faturas</h1>
           </div>
         </div>
         <p className="text-body-sm text-muted-foreground mt-1">
-          Acompanhe seus processos e documentos autorizados
+          Acompanhe seus processos, documentos e efetue pagamentos
         </p>
       </motion.div>
 
-      {/* Processes */}
+      {/* Invoices Summary */}
+      {invoices.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Receipt className="h-4 w-4 text-warning" />
+                <span className="text-overline text-muted-foreground">Pendente</span>
+              </div>
+              <p className="text-display-sm">{formatCurrency(totalPending)}</p>
+              <p className="text-caption text-muted-foreground mt-1">{pendingInvoices.length} fatura{pendingInvoices.length !== 1 ? "s" : ""}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-success" />
+                <span className="text-overline text-muted-foreground">Pago</span>
+              </div>
+              <p className="text-display-sm">{formatCurrency(paidInvoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0))}</p>
+              <p className="text-caption text-muted-foreground mt-1">{paidInvoices.length} fatura{paidInvoices.length !== 1 ? "s" : ""}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="text-overline text-muted-foreground">Total de Faturas</span>
+              </div>
+              <p className="text-display-sm">{invoices.length}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Pending Invoices with Pay Button */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <LexCard hover={false}>
+          <LexCardHeader>
+            <LexCardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" /> Faturas ({invoices.length})
+            </LexCardTitle>
+          </LexCardHeader>
+
+          {loadingInvoices ? (
+            <div className="py-12 text-center">
+              <div className="flex gap-1.5 justify-center mb-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
+                <span className="h-2.5 w-2.5 rounded-full bg-secondary animate-pulse-glow" style={{ animationDelay: "200ms" }} />
+              </div>
+            </div>
+          ) : invoices.length === 0 ? (
+            <div className="py-12 text-center">
+              <CreditCard className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+              <p className="text-body-sm text-muted-foreground">Nenhuma fatura encontrada.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map((inv: any, i: number) => {
+                const canPay = inv.status === "pending" || inv.status === "overdue";
+                const hasPayLink = inv.metadata?.pagseguro_payment_link;
+                return (
+                  <motion.div
+                    key={inv.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl border shrink-0 ${
+                        inv.status === "paid" ? "bg-success/10 border-success/20" : "bg-warning/10 border-warning/20"
+                      }`}>
+                        {inv.status === "paid" ? (
+                          <DollarSign className="h-5 w-5 text-success" />
+                        ) : (
+                          <Receipt className="h-5 w-5 text-warning" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-body-sm font-medium">{inv.description || "Sem descrição"}</p>
+                        <p className="text-caption text-muted-foreground">
+                          {formatCurrency(inv.amount_cents)}
+                          {inv.due_date && ` • Vence: ${new Date(inv.due_date).toLocaleDateString("pt-BR")}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <LexBadge variant={invoiceStatusVariant[inv.status] as any || "default"}>
+                        {invoiceStatusLabels[inv.status] || inv.status}
+                      </LexBadge>
+                      {canPay && (
+                        hasPayLink ? (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="gap-1.5"
+                            onClick={() => window.open(inv.metadata.pagseguro_payment_link, "_blank")}
+                          >
+                            <CreditCard className="h-3.5 w-3.5" /> Pagar
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            onClick={() => { setChargeInvoiceId(inv.id); setChargeDialogOpen(true); }}
+                          >
+                            <CreditCard className="h-3.5 w-3.5" /> Gerar Pagamento
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </LexCard>
+      </motion.div>
+
+      {/* Processes */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
         <LexCard hover={false}>
           <LexCardHeader>
             <LexCardTitle className="flex items-center gap-2">
@@ -246,6 +430,33 @@ const ClientPortal = () => {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Method Dialog */}
+      <Dialog open={chargeDialogOpen} onOpenChange={setChargeDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-success" /> Efetuar Pagamento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-body-sm text-muted-foreground">Escolha o método de pagamento:</p>
+            <Select value={chargeMethod} onValueChange={(v: any) => setChargeMethod(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pix">PIX</SelectItem>
+                <SelectItem value="boleto">Boleto Bancário</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChargeDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={() => createChargeMutation.mutate()} disabled={createChargeMutation.isPending} className="gap-2">
+              {createChargeMutation.isPending ? "Gerando..." : "Gerar Pagamento"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
