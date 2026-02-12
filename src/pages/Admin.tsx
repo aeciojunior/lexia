@@ -38,6 +38,7 @@ const Admin = () => {
   const [newRole, setNewRole] = useState("user");
   const [sigDateFrom, setSigDateFrom] = useState<Date | undefined>(subMonths(new Date(), 6));
   const [sigDateTo, setSigDateTo] = useState<Date | undefined>(new Date());
+  const [sigClientFilter, setSigClientFilter] = useState<string>("all");
 
   // Check if current user is admin
   const { data: isAdmin, isLoading: checkingAdmin } = useQuery({
@@ -131,15 +132,30 @@ const Admin = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Filtered signatures by date range (before early returns to respect hooks rules)
+  // Unique clients from contracts for filter dropdown
+  const sigClientOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    allContracts.forEach((c: any) => {
+      if (c.client_id && (c as any)?.clients?.full_name) {
+        map.set(c.client_id, (c as any).clients.full_name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allContracts]);
+
+  // Filtered signatures by date range and client
   const filteredSignatures = useMemo(() => {
     return allSignatures.filter((s: any) => {
       const d = new Date(s.signed_at);
       if (sigDateFrom && isBefore(d, startOfDay(sigDateFrom))) return false;
       if (sigDateTo && isAfter(d, endOfMonth(sigDateTo))) return false;
+      if (sigClientFilter !== "all") {
+        const contract = allContracts.find((c: any) => c.id === s.contract_id);
+        if (!contract || (contract as any).client_id !== sigClientFilter) return false;
+      }
       return true;
     });
-  }, [allSignatures, sigDateFrom, sigDateTo]);
+  }, [allSignatures, sigDateFrom, sigDateTo, sigClientFilter, allContracts]);
 
   const chartData = useMemo(() => {
     const from = sigDateFrom || subMonths(new Date(), 6);
@@ -281,6 +297,18 @@ const Admin = () => {
                       <Calendar mode="single" selected={sigDateTo} onSelect={setSigDateTo} initialFocus className="p-3 pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
+                  {/* Client filter */}
+                  <Select value={sigClientFilter} onValueChange={setSigClientFilter}>
+                    <SelectTrigger className="h-9 w-[160px] rounded-lg text-xs">
+                      <SelectValue placeholder="Todos os clientes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os clientes</SelectItem>
+                      {sigClientOptions.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button variant="outline" size="sm" className="h-9 rounded-lg text-xs gap-1.5" onClick={exportSignaturesCsv} disabled={filteredSignatures.length === 0}>
                     <Download className="h-3.5 w-3.5" /> CSV
                   </Button>
