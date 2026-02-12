@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Bell, FileText, CalendarDays, Check, CheckCheck, Trash2,
+  Bell, FileText, CalendarDays, Check, CheckCheck, Trash2, Users, Shield, Bot, Zap, UserPlus, MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,6 +14,17 @@ const typeConfig: Record<string, { icon: any; color: string }> = {
   document_added: { icon: FileText, color: "text-primary" },
   deadline_created: { icon: CalendarDays, color: "text-warning" },
   deadline_approaching: { icon: CalendarDays, color: "text-destructive" },
+  task_assigned: { icon: Check, color: "text-info" },
+  task_completed: { icon: Check, color: "text-success" },
+  role_changed: { icon: Shield, color: "text-secondary" },
+  user_disabled: { icon: Users, color: "text-destructive" },
+  user_enabled: { icon: Users, color: "text-success" },
+  invite_accepted: { icon: UserPlus, color: "text-success" },
+  member_removed: { icon: Users, color: "text-destructive" },
+  organization_updated: { icon: Shield, color: "text-primary" },
+  agent_completed: { icon: Bot, color: "text-secondary" },
+  automation_executed: { icon: Zap, color: "text-accent" },
+  chat_message: { icon: MessageSquare, color: "text-primary" },
 };
 
 export const NotificationBell = () => {

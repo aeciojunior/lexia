@@ -127,6 +127,65 @@ export const useRealtimeNotifications = () => {
       )
       .subscribe();
 
+    // --- Quick tasks channel (RF-016: task assignment notifications) ---
+    const tasksChannel = supabase
+      .channel(`tasks-rt-${activeOrgId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "quick_tasks", filter: `organization_id=eq.${activeOrgId}` },
+        (payload) => {
+          const task = payload.new as any;
+          queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+
+          // Notify assigned user
+          if (task.assigned_to && task.assigned_to !== task.user_id && task.assigned_to !== user.id) {
+            supabase.from("notifications" as any).insert({
+              user_id: task.assigned_to,
+              organization_id: activeOrgId,
+              type: "task_assigned",
+              title: "Nova tarefa atribuída",
+              message: task.title,
+              resource_id: task.id,
+              resource_type: "quick_task",
+            });
+          }
+
+          if (task.assigned_to === user.id && task.user_id !== user.id) {
+            const p = prefsRef.current;
+            if (p?.inApp !== false) {
+              toast("📋 Nova tarefa", {
+                description: task.title,
+                duration: 6000,
+              });
+            }
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "quick_tasks", filter: `organization_id=eq.${activeOrgId}` },
+        (payload) => {
+          queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+          const task = payload.new as any;
+          const old = payload.old as any;
+
+          // Notify if assignment changed
+          if (task.assigned_to && task.assigned_to !== old.assigned_to && task.assigned_to !== user.id) {
+            supabase.from("notifications" as any).insert({
+              user_id: task.assigned_to,
+              organization_id: activeOrgId,
+              type: "task_assigned",
+              title: "Tarefa atribuída a você",
+              message: task.title,
+              resource_id: task.id,
+              resource_type: "quick_task",
+            });
+          }
+        }
+      )
+      .subscribe();
+
     // --- Notifications channel (badge updates) ---
     const notifChannel = supabase
       .channel(`notif-rt-${user.id}`)
@@ -143,6 +202,7 @@ export const useRealtimeNotifications = () => {
     return () => {
       supabase.removeChannel(docsChannel);
       supabase.removeChannel(deadlinesChannel);
+      supabase.removeChannel(tasksChannel);
       supabase.removeChannel(notifChannel);
     };
   }, [user, activeOrgId, queryClient]);
