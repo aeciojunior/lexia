@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -11,11 +11,9 @@ import { RiskIndicator } from "@/components/lexia/LegalComponents";
 import {
   Scale, AlertTriangle, MessageSquare, ArrowRight,
   Sparkles, CalendarDays, FileText, Users, DollarSign, Clock, Activity, CheckCircle, Bell,
-  Download, Plus, Trash2, ListTodo,
+  Download,
 } from "lucide-react";
-
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import QuickTasksWidget from "@/components/dashboard/QuickTasksWidget";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
@@ -51,10 +49,8 @@ const Dashboard = () => {
   const { hasPermission, isClient, isAdmin, isOwner } = usePermissions();
   const { plan, limits, isPro } = usePlanLimits();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const canViewAudit = isAdmin || isOwner;
   const [chartPeriod, setChartPeriod] = useState<number>(6);
-  const [newTask, setNewTask] = useState("");
 
   // === Processes ===
   const { data: allProcesses = [] } = useQuery({
@@ -149,40 +145,7 @@ const Dashboard = () => {
     enabled: !!user,
   });
 
-  // === Quick tasks ===
-  const { data: quickTasks = [] } = useQuery({
-    queryKey: ["dash-quick-tasks", user?.id, activeOrgId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("quick_tasks" as any).select("*").eq("user_id", user!.id).eq("organization_id", activeOrgId!).order("created_at", { ascending: false }).limit(20);
-      if (error) throw error;
-      return (data as any[]) || [];
-    },
-    enabled: !!user && !!activeOrgId,
-  });
-
-  const addTask = useMutation({
-    mutationFn: async (title: string) => {
-      const { error } = await supabase.from("quick_tasks" as any).insert({ title, user_id: user!.id, organization_id: activeOrgId! } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
-  });
-
-  const toggleTask = useMutation({
-    mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
-      const { error } = await supabase.from("quick_tasks" as any).update({ done } as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
-  });
-
-  const deleteTask = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("quick_tasks" as any).delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
-  });
+  // Quick tasks handled by QuickTasksWidget component
 
   // Process stats
   const activeProcesses = allProcesses.filter(p => !p.archived);
@@ -645,71 +608,7 @@ const Dashboard = () => {
 
       {/* Quick tasks to-do widget */}
       <motion.div {...anim(0.8)}>
-        <LexCard hover={false}>
-          <LexCardHeader>
-            <LexCardTitle className="flex items-center gap-2">
-              <ListTodo className="h-4 w-4 text-primary" /> Tarefas Rápidas
-            </LexCardTitle>
-            <span className="text-caption text-muted-foreground">
-              {(quickTasks as any[]).filter((t: any) => t.done).length}/{(quickTasks as any[]).length} concluídas
-            </span>
-          </LexCardHeader>
-
-          {/* Add task form */}
-          <form
-            className="flex gap-2 mb-4"
-            onSubmit={e => {
-              e.preventDefault();
-              if (!newTask.trim()) return;
-              addTask.mutate(newTask.trim());
-              setNewTask("");
-            }}
-          >
-            <Input
-              placeholder="Nova tarefa..."
-              value={newTask}
-              onChange={e => setNewTask(e.target.value)}
-              className="h-9 text-sm"
-            />
-            <Button type="submit" size="sm" variant="outline" disabled={!newTask.trim() || addTask.isPending}>
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </form>
-
-          {(quickTasks as any[]).length === 0 ? (
-            <div className="py-8 text-center">
-              <ListTodo className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
-              <p className="text-caption text-muted-foreground">Nenhuma tarefa ainda. Adicione uma acima!</p>
-            </div>
-          ) : (
-            <ScrollArea className="max-h-64">
-              <div className="space-y-1">
-                {(quickTasks as any[]).map((task: any) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors hover:bg-muted/30 group ${task.done ? "opacity-60" : ""}`}
-                  >
-                    <Checkbox
-                      checked={task.done}
-                      onCheckedChange={(checked) => toggleTask.mutate({ id: task.id, done: !!checked })}
-                    />
-                    <span className={`flex-1 text-caption ${task.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                      {task.title}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteTask.mutate(task.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </LexCard>
+        <QuickTasksWidget />
       </motion.div>
     </div>
   );
