@@ -19,8 +19,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks,
 } from "lucide-react";
+import TaskProgressChart from "./TaskProgressChart";
+import TaskSubtasks from "./TaskSubtasks";
 import { format, isPast, isToday, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -219,6 +221,7 @@ const SortableTask = ({
   onStatusChange: (id: string, status: TaskStatus) => void;
 }) => {
   const [showComments, setShowComments] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -269,6 +272,15 @@ const SortableTask = ({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Subtasks toggle */}
+        <Button
+          variant="ghost" size="icon"
+          className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => setShowSubtasks(!showSubtasks)}
+        >
+          <ListChecks className="h-3 w-3" />
+        </Button>
 
         {/* Comments toggle */}
         <Button
@@ -341,6 +353,7 @@ const SortableTask = ({
         </Button>
       </div>
 
+      {showSubtasks && <TaskSubtasks taskId={task.id} />}
       {showComments && <TaskComments taskId={task.id} members={members} />}
     </div>
   );
@@ -357,6 +370,7 @@ const DraggableKanbanCard = ({
   isDragOverlay?: boolean;
 }) => {
   const [showComments, setShowComments] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: "kanban-card", status: task.status },
@@ -396,12 +410,26 @@ const DraggableKanbanCard = ({
 
         <Button
           variant="ghost" size="icon"
+          className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary"
+          onClick={(e) => { e.stopPropagation(); setShowSubtasks(!showSubtasks); }}
+        >
+          <ListChecks className="h-2.5 w-2.5" />
+        </Button>
+
+        <Button
+          variant="ghost" size="icon"
           className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary ml-auto"
           onClick={(e) => { e.stopPropagation(); setShowComments(!showComments); }}
         >
           <MessageSquare className="h-2.5 w-2.5" />
         </Button>
       </div>
+
+      {showSubtasks && (
+        <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+          <TaskSubtasks taskId={task.id} />
+        </div>
+      )}
 
       {showComments && (
         <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
@@ -712,7 +740,13 @@ const QuickTasksWidget = () => {
         </div>
       </LexCardHeader>
 
-      {/* Filters */}
+      {/* Progress Chart */}
+      {quickTasks.length > 0 && (
+        <div className="mb-3">
+          <TaskProgressChart todoCount={todoCount} inProgressCount={inProgressCount} doneCount={doneCount} />
+        </div>
+      )}
+
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         <ToggleGroup type="single" value={priorityFilter} onValueChange={v => v && setPriorityFilter(v as PriorityFilter)} size="sm" className="justify-start flex-wrap">
           <ToggleGroupItem value="all" className="text-xs px-2.5 h-7">Todas</ToggleGroupItem>

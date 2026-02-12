@@ -730,6 +730,47 @@ export type Database = {
           },
         ]
       }
+      quick_task_subtasks: {
+        Row: {
+          created_at: string
+          done: boolean
+          id: string
+          organization_id: string
+          position: number
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          organization_id: string
+          position?: number
+          task_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          organization_id?: string
+          position?: number
+          task_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_task_subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "quick_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quick_tasks: {
         Row: {
           assigned_to: string | null
