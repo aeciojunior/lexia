@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -312,6 +312,103 @@ const Processes = () => {
   );
 };
 
+/* ─── Linked Documents with Filters ─── */
+const CATEGORY_OPTIONS = [
+  { value: "__all__", label: "Todas categorias" },
+  { value: "petition", label: "Petição" },
+  { value: "contract", label: "Contrato" },
+  { value: "evidence", label: "Prova" },
+  { value: "correspondence", label: "Correspondência" },
+  { value: "court_order", label: "Decisão Judicial" },
+  { value: "other", label: "Outro" },
+];
+
+const LinkedDocsSection = ({ docs, loading }: { docs: any[]; loading: boolean }) => {
+  const [docSearch, setDocSearch] = useState("");
+  const [docCategory, setDocCategory] = useState("__all__");
+
+  const filtered = useMemo(() => {
+    return docs.filter((doc: any) => {
+      const matchSearch = !docSearch || doc.file_name.toLowerCase().includes(docSearch.toLowerCase());
+      const matchCat = docCategory === "__all__" || doc.category === docCategory;
+      return matchSearch && matchCat;
+    });
+  }, [docs, docSearch, docCategory]);
+
+  return (
+    <div className="border-t border-border pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" />
+          <span className="text-overline text-muted-foreground">Documentos vinculados</span>
+        </div>
+        {docs.length > 0 && (
+          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+            {filtered.length}/{docs.length} documento{docs.length !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+      {loading ? (
+        <p className="text-caption text-muted-foreground text-center py-4">Carregando documentos...</p>
+      ) : docs.length === 0 ? (
+        <p className="text-caption text-muted-foreground text-center py-4">Nenhum documento vinculado a este processo.</p>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                placeholder="Buscar documento..."
+                value={docSearch}
+                onChange={(e) => setDocSearch(e.target.value)}
+                className="h-7 text-xs pl-7"
+              />
+            </div>
+            <Select value={docCategory} onValueChange={setDocCategory}>
+              <SelectTrigger className="h-7 text-xs w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {filtered.length === 0 ? (
+            <p className="text-caption text-muted-foreground text-center py-3">Nenhum documento encontrado com os filtros aplicados.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {filtered.map((doc: any) => {
+                const sizeKB = doc.file_size ? (doc.file_size / 1024).toFixed(0) : null;
+                const sizeLabel = sizeKB ? (Number(sizeKB) > 1024 ? `${(Number(sizeKB) / 1024).toFixed(1)} MB` : `${sizeKB} KB`) : null;
+                return (
+                  <div key={doc.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="flex-1 text-caption truncate text-foreground">{doc.file_name}</span>
+                    {doc.file_type && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 uppercase">{doc.file_type.split("/").pop()}</Badge>
+                    )}
+                    {sizeLabel && <span className="text-[10px] text-muted-foreground shrink-0">{sizeLabel}</span>}
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {new Date(doc.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                    </span>
+                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary">
+                        <Download className="h-3 w-3" />
+                      </Button>
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 /* ─── Process Details with Linked Tasks ─── */
 const TASK_STATUS_ICON: Record<string, React.ReactNode> = {
   todo: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
@@ -423,49 +520,7 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
       </div>
 
       {/* Linked Documents */}
-      <div className="border-t border-border pt-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            <span className="text-overline text-muted-foreground">Documentos vinculados</span>
-          </div>
-          {linkedDocs.length > 0 && (
-            <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
-              {linkedDocs.length} documento{linkedDocs.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-        {docsLoading ? (
-          <p className="text-caption text-muted-foreground text-center py-4">Carregando documentos...</p>
-        ) : linkedDocs.length === 0 ? (
-          <p className="text-caption text-muted-foreground text-center py-4">Nenhum documento vinculado a este processo.</p>
-        ) : (
-          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-            {linkedDocs.map((doc: any) => {
-              const sizeKB = doc.file_size ? (doc.file_size / 1024).toFixed(0) : null;
-              const sizeLabel = sizeKB ? (Number(sizeKB) > 1024 ? `${(Number(sizeKB) / 1024).toFixed(1)} MB` : `${sizeKB} KB`) : null;
-              return (
-                <div key={doc.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="flex-1 text-caption truncate text-foreground">{doc.file_name}</span>
-                  {doc.file_type && (
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 uppercase">{doc.file_type.split("/").pop()}</Badge>
-                  )}
-                  {sizeLabel && <span className="text-[10px] text-muted-foreground shrink-0">{sizeLabel}</span>}
-                  <span className="text-[10px] text-muted-foreground shrink-0">
-                    {new Date(doc.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                  </span>
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary">
-                      <Download className="h-3 w-3" />
-                    </Button>
-                  </a>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <LinkedDocsSection docs={linkedDocs} loading={docsLoading} />
     </div>
   );
 };
