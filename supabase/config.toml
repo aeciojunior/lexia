@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.manage-member]
 verify_jwt = false
+
+[functions.generate-legal-piece]
+verify_jwt = false

@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,9 @@ const navItems: NavItem[] = [
   { title: "Processos", url: "/processes", icon: Scale, permissions: ["VIEW_PROCESSES"] },
   { title: "Prazos", url: "/deadlines", icon: CalendarDays, permissions: ["VIEW_TASKS"] },
   { title: "Documentos", url: "/documents", icon: FileText, permissions: ["VIEW_DOCUMENTS"] },
+  { title: "Clientes", url: "/clients", icon: Users, permissions: ["VIEW_CLIENTS"] },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
+  { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },
   { title: "Financeiro", url: "/financial", icon: DollarSign, permissions: ["VIEW_FINANCIAL"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
