@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, Target, Percent, Receipt, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
@@ -367,6 +367,50 @@ const Financial = () => {
     };
   }, [invoices]);
 
+  // Invoices due within 7 days
+  const dueSoonInvoices = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const in7Days = addDays(today, 7);
+    return invoices.filter((inv: any) => {
+      if (!inv.due_date || inv.status === "paid" || inv.status === "cancelled") return false;
+      const due = new Date(inv.due_date);
+      due.setHours(0, 0, 0, 0);
+      return due >= today && due <= in7Days;
+    });
+  }, [invoices]);
+
+  // Executive dashboard indicators
+  const executiveDashboard = useMemo(() => {
+    const paidInvoices = invoices.filter((i: any) => i.status === "paid");
+    const overdueInvoices = invoices.filter((i: any) => i.status === "overdue");
+    const pendingInvoices = invoices.filter((i: any) => i.status === "pending");
+
+    const totalBilled = invoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+    const totalCollected = paidInvoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+    const totalOverdueAmt = overdueInvoices.reduce((s: number, i: any) => s + (i.amount_cents || 0), 0);
+
+    const defaultRate = totalBilled > 0 ? (totalOverdueAmt / totalBilled) * 100 : 0;
+    const collectionRate = totalBilled > 0 ? (totalCollected / totalBilled) * 100 : 0;
+    const avgTicket = paidInvoices.length > 0 ? totalCollected / paidInvoices.length : 0;
+
+    const activeContracts = contracts.filter((c: any) => c.status === "active");
+    const activeContractsValue = activeContracts.reduce((s: number, c: any) => s + (c.amount_cents || 0), 0);
+
+    const paidWithDates = paidInvoices.filter((i: any) => i.due_date && i.paid_at);
+    const avgDaysToReceive = paidWithDates.length > 0
+      ? paidWithDates.reduce((s: number, i: any) => s + differenceInDays(new Date(i.paid_at), new Date(i.due_date)), 0) / paidWithDates.length
+      : null;
+
+    return {
+      defaultRate, collectionRate, avgTicket,
+      activeContractsCount: activeContracts.length, activeContractsValue,
+      avgDaysToReceive,
+      pendingCount: pendingInvoices.length + overdueInvoices.length,
+      totalBilled, totalCollected, totalOverdueAmt,
+    };
+  }, [invoices, contracts]);
+
   // CSV export helpers
   const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
     const bom = "\uFEFF";
@@ -511,6 +555,123 @@ const Financial = () => {
                 </div>
               );
             })}
+          </div>
+        </LexCard>
+      </motion.div>
+
+      {/* Due Soon Alerts */}
+      {dueSoonInvoices.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          <div className="rounded-xl border border-warning/30 bg-warning/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4.5 w-4.5 text-warning" />
+              <h3 className="text-body-sm font-semibold text-warning">
+                {dueSoonInvoices.length} fatura{dueSoonInvoices.length > 1 ? "s" : ""} vence{dueSoonInvoices.length > 1 ? "m" : ""} nos próximos 7 dias
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {dueSoonInvoices.slice(0, 5).map((inv: any) => {
+                const daysLeft = differenceInDays(new Date(inv.due_date), new Date());
+                return (
+                  <div key={inv.id} className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <Receipt className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-body-sm font-medium">{inv.description || "Sem descrição"}</span>
+                      {orgClients.find(c => c.id === inv.client_id) && (
+                        <span className="text-caption text-muted-foreground">• {orgClients.find(c => c.id === inv.client_id)?.full_name}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-body-sm text-primary">{formatCurrency(inv.amount_cents)}</span>
+                      <LexBadge variant={daysLeft <= 2 ? "destructive" : "warning"}>
+                        {daysLeft === 0 ? "Vence hoje" : `${daysLeft} dia${daysLeft > 1 ? "s" : ""}`}
+                      </LexBadge>
+                    </div>
+                  </div>
+                );
+              })}
+              {dueSoonInvoices.length > 5 && (
+                <p className="text-caption text-muted-foreground text-center pt-1">
+                  + {dueSoonInvoices.length - 5} fatura{dueSoonInvoices.length - 5 > 1 ? "s" : ""} a vencer
+                </p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Executive Financial Dashboard */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <LexCard hover={false}>
+          <LexCardHeader>
+            <LexCardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Painel Executivo — Saúde Financeira
+            </LexCardTitle>
+          </LexCardHeader>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Default Rate */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className={`h-4 w-4 ${executiveDashboard.defaultRate > 20 ? "text-destructive" : executiveDashboard.defaultRate > 10 ? "text-warning" : "text-success"}`} />
+                <p className="text-overline text-muted-foreground">Inadimplência</p>
+              </div>
+              <p className="text-display-sm">{executiveDashboard.defaultRate.toFixed(1)}%</p>
+              <p className="text-caption text-muted-foreground mt-1">{formatCurrency(executiveDashboard.totalOverdueAmt)} vencido</p>
+            </div>
+
+            {/* Collection Rate */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Percent className={`h-4 w-4 ${executiveDashboard.collectionRate >= 80 ? "text-success" : executiveDashboard.collectionRate >= 50 ? "text-warning" : "text-destructive"}`} />
+                <p className="text-overline text-muted-foreground">Taxa de Recebimento</p>
+              </div>
+              <p className="text-display-sm">{executiveDashboard.collectionRate.toFixed(1)}%</p>
+              <p className="text-caption text-muted-foreground mt-1">{formatCurrency(executiveDashboard.totalCollected)} de {formatCurrency(executiveDashboard.totalBilled)}</p>
+            </div>
+
+            {/* Average Ticket */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="h-4 w-4 text-primary" />
+                <p className="text-overline text-muted-foreground">Ticket Médio</p>
+              </div>
+              <p className="text-display-sm">{formatCurrency(executiveDashboard.avgTicket)}</p>
+              <p className="text-caption text-muted-foreground mt-1">por fatura paga</p>
+            </div>
+
+            {/* Active Contracts */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ScrollText className="h-4 w-4 text-secondary" />
+                <p className="text-overline text-muted-foreground">Contratos Ativos</p>
+              </div>
+              <p className="text-display-sm">{executiveDashboard.activeContractsCount}</p>
+              <p className="text-caption text-muted-foreground mt-1">{formatCurrency(executiveDashboard.activeContractsValue)} total</p>
+            </div>
+          </div>
+
+          {/* Second row: additional indicators */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-overline text-muted-foreground mb-1">Faturas em Aberto</p>
+              <p className="text-display-sm">{executiveDashboard.pendingCount}</p>
+              <p className="text-caption text-muted-foreground mt-1">pendentes + vencidas</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-overline text-muted-foreground mb-1">Prazo Médio Recebimento</p>
+              <p className="text-display-sm">
+                {executiveDashboard.avgDaysToReceive !== null
+                  ? `${executiveDashboard.avgDaysToReceive > 0 ? "+" : ""}${executiveDashboard.avgDaysToReceive.toFixed(0)} dias`
+                  : "—"}
+              </p>
+              <p className="text-caption text-muted-foreground mt-1">após vencimento</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <p className="text-overline text-muted-foreground mb-1">Próximos Vencimentos</p>
+              <p className="text-display-sm">{dueSoonInvoices.length}</p>
+              <p className="text-caption text-muted-foreground mt-1">nos próximos 7 dias</p>
+            </div>
           </div>
         </LexCard>
       </motion.div>
