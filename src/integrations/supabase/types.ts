@@ -1258,6 +1258,10 @@ export type Database = {
     }
     Functions: {
       get_active_org_id: { Args: never; Returns: string }
+      get_client_id_for_user: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: string
+      }
       has_org_role: {
         Args: { _org_id: string; _role: string; _user_id: string }
         Returns: boolean
