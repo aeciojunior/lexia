@@ -181,7 +181,7 @@ const ClientPortal = () => {
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
-  const downloadContractPdf = (contract: any, typeLabels: Record<string, string>, periodLabels: Record<string, string>, statusLabels: Record<string, string>) => {
+  const downloadContractPdf = async (contract: any, typeLabels: Record<string, string>, periodLabels: Record<string, string>, statusLabels: Record<string, string>) => {
     const pdf = new jsPDF({ unit: "mm", format: "a4" });
     const w = pdf.internal.pageSize.getWidth();
     let y = 20;
@@ -238,6 +238,57 @@ const ClientPortal = () => {
         pdf.text(line, 15, y);
         y += 5;
       });
+    }
+
+    // Add signature if contract is signed
+    const sig = signatures.find((s: any) => s.contract_id === contract.id);
+    if (sig) {
+      try {
+        const { data: signedUrlData } = await supabase.storage.from("signatures").createSignedUrl(sig.signature_url, 60);
+        if (signedUrlData?.signedUrl) {
+          // Load image
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            img.src = signedUrlData.signedUrl;
+          });
+
+          // Draw signature section
+          if (y > 220) { pdf.addPage(); y = 20; }
+          y += 10;
+          pdf.setDrawColor(200, 200, 200);
+          pdf.line(15, y, w - 15, y);
+          y += 8;
+          pdf.setFontSize(11);
+          pdf.setTextColor(50, 50, 50);
+          pdf.text("Assinatura Digital", 15, y);
+          y += 6;
+
+          // Add signature image
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0);
+          const imgData = canvas.toDataURL("image/png");
+          const sigW = 60;
+          const sigH = (img.naturalHeight / img.naturalWidth) * sigW;
+          pdf.addImage(imgData, "PNG", 15, y, sigW, sigH);
+          y += sigH + 5;
+
+          pdf.setFontSize(8);
+          pdf.setTextColor(130, 130, 130);
+          pdf.text(`Assinado em ${new Date(sig.signed_at).toLocaleDateString("pt-BR")} às ${new Date(sig.signed_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, 15, y);
+          y += 4;
+          if (sig.accepted_terms) {
+            pdf.text("Termos aceitos digitalmente", 15, y);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load signature for PDF:", e);
+      }
     }
 
     // Footer

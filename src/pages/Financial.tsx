@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, Target, Percent, Receipt, ShieldCheck, Calendar } from "lucide-react";
+import { DollarSign, FileText, CreditCard, TrendingUp, Search, Lock, Plus, ScrollText, BarChart3, Users, Pencil, Trash2, ChevronLeft, ChevronRight, Download, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle, Target, Percent, Receipt, ShieldCheck, Calendar, PenTool, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore, subQuarters, subYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -132,6 +132,23 @@ const Financial = () => {
     },
     enabled: !!activeOrgId && canViewFinancial,
   });
+
+  // Fetch contract signatures
+  const { data: contractSignatures = [] } = useQuery({
+    queryKey: ["contract-signatures", activeOrgId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contract_signatures" as any)
+        .select("*")
+        .eq("organization_id", activeOrgId!)
+        .order("signed_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!activeOrgId && canViewFinancial,
+  });
+
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
 
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
@@ -1114,6 +1131,7 @@ const Financial = () => {
           <TabsTrigger value="invoices">Faturas ({invoices.length})</TabsTrigger>
           <TabsTrigger value="payments">Pagamentos ({payments.length})</TabsTrigger>
           <TabsTrigger value="contracts">Contratos ({contracts.length})</TabsTrigger>
+          <TabsTrigger value="signatures"><PenTool className="h-3.5 w-3.5 mr-1" /> Assinaturas ({contractSignatures.length})</TabsTrigger>
           <TabsTrigger value="profitability"><Users className="h-3.5 w-3.5 mr-1" /> Rentabilidade</TabsTrigger>
           <TabsTrigger value="reports"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Relatórios</TabsTrigger>
         </TabsList>
@@ -1311,6 +1329,70 @@ const Financial = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </LexCard>
+        </TabsContent>
+        {/* Signatures Tab */}
+        <TabsContent value="signatures" className="mt-4">
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2">
+                <PenTool className="h-4 w-4 text-primary" /> Assinaturas de Contratos
+              </LexCardTitle>
+            </LexCardHeader>
+            {contractSignatures.length === 0 ? (
+              <div className="py-12 text-center">
+                <PenTool className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                <p className="text-body-sm text-muted-foreground">Nenhuma assinatura recebida ainda.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contractSignatures.map((sig: any, i: number) => {
+                  const contract = contracts.find((c: any) => c.id === sig.contract_id);
+                  const signedAt = new Date(sig.signed_at);
+                  return (
+                    <motion.div
+                      key={sig.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 border border-success/20 shrink-0">
+                          <PenTool className="h-5 w-5 text-success" />
+                        </div>
+                        <div>
+                          <p className="text-body-sm font-medium">{contract?.title || "Contrato removido"}</p>
+                          <p className="text-caption text-muted-foreground">
+                            Assinado em {signedAt.toLocaleDateString("pt-BR")} às {signedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          {contract && (
+                            <p className="text-caption text-muted-foreground">
+                              {contractTypeLabels[contract.contract_type] || contract.contract_type} • {formatCurrency(contract.amount_cents)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <LexBadge variant="success">Assinado</LexBadge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1.5"
+                          onClick={async () => {
+                            const { data } = await supabase.storage.from("signatures").createSignedUrl(sig.signature_url, 120);
+                            if (data?.signedUrl) setSignaturePreview(data.signedUrl);
+                            else toast.error("Erro ao carregar assinatura");
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Ver
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </LexCard>
@@ -1860,6 +1942,22 @@ const Financial = () => {
               {createChargeMutation.isPending ? "Gerando..." : "Gerar Cobrança"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Signature Preview Dialog */}
+      <Dialog open={!!signaturePreview} onOpenChange={() => setSignaturePreview(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenTool className="h-5 w-5 text-primary" /> Assinatura Digital
+            </DialogTitle>
+          </DialogHeader>
+          {signaturePreview && (
+            <div className="rounded-xl border border-border bg-background p-4">
+              <img src={signaturePreview} alt="Assinatura digital" className="w-full h-auto" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
