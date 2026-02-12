@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-legal-piece]
 verify_jwt = false
+
+[functions.invoice-notifications]
+verify_jwt = false
