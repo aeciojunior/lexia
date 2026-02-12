@@ -311,6 +311,108 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "remove-member") {
+      const { organization_id, member_user_id } = params;
+
+      // Verify caller is admin/owner of this org
+      const { data: callerMembership } = await supabase
+        .from("user_organizations")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+
+      if (!callerMembership || !["admin", "owner"].includes(callerMembership.role)) {
+        return new Response(JSON.stringify({ error: "Sem permissão" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Cannot remove yourself
+      if (member_user_id === userId) {
+        return new Response(JSON.stringify({ error: "Você não pode remover a si mesmo da organização" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get target member's role
+      const { data: targetMembership } = await supabase
+        .from("user_organizations")
+        .select("id, role")
+        .eq("user_id", member_user_id)
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+
+      if (!targetMembership) {
+        return new Response(JSON.stringify({ error: "Membro não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Admin cannot remove Owner or Admin
+      if (callerMembership.role === "admin" && ["owner", "admin"].includes(targetMembership.role)) {
+        return new Response(JSON.stringify({ error: "Administradores não podem remover Proprietários ou outros Administradores" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Owner cannot remove another Owner
+      if (callerMembership.role === "owner" && targetMembership.role === "owner") {
+        return new Response(JSON.stringify({ error: "Não é possível remover outro Proprietário" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Delete the membership
+      const { error: deleteError } = await supabase
+        .from("user_organizations")
+        .delete()
+        .eq("id", targetMembership.id);
+
+      if (deleteError) throw deleteError;
+
+      // Revoke pending invites for this user's email
+      const { data: targetAuthUser } = await supabase.auth.admin.getUserById(member_user_id);
+      if (targetAuthUser?.user?.email) {
+        await supabase
+          .from("organization_invites")
+          .update({ status: "revoked" })
+          .eq("organization_id", organization_id)
+          .eq("email", targetAuthUser.user.email)
+          .eq("status", "pending");
+      }
+
+      // If removed user's active org is this one, clear it
+      await supabase
+        .from("profiles")
+        .update({ active_organization_id: null })
+        .eq("user_id", member_user_id)
+        .eq("active_organization_id", organization_id);
+
+      // Audit log
+      await supabase.from("audit_logs").insert({
+        organization_id,
+        user_id: userId,
+        action: "user_removed",
+        resource_type: "user_organization",
+        resource_id: targetMembership.id,
+        metadata: {
+          removed_user_id: member_user_id,
+          role_removed: targetMembership.role,
+          user_agent: req.headers.get("user-agent") || null,
+        },
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Ação desconhecida" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
