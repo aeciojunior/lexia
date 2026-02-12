@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
-  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle,
+  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, Camera, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { useRef } from "react";
 
 const roleMap: Record<string, string> = { owner: "Proprietário", admin: "Administrador", user: "Usuário", intern: "Estagiário", client: "Cliente" };
 const roleBadgeVariant: Record<string, string> = { owner: "destructive", admin: "warning", user: "default", intern: "info", client: "outline" };
@@ -33,6 +34,8 @@ const Organization = () => {
   const [roleDialog, setRoleDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [newRole, setNewRole] = useState("user");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch org details
   const { data: org, isLoading: loadingOrg } = useQuery({
@@ -178,6 +181,34 @@ const Organization = () => {
     },
   });
 
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeOrgId) return;
+    if (!file.type.startsWith("image/")) { toast.error("Selecione uma imagem"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("Máximo 2MB"); return; }
+
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${activeOrgId}/logo.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("org-logos").upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("org-logos").getPublicUrl(path);
+      const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      const { error: updateError } = await supabase.from("organizations").update({ logo_url: logoUrl } as any).eq("id", activeOrgId);
+      if (updateError) throw updateError;
+      queryClient.invalidateQueries({ queryKey: ["org-details"] });
+      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
+      toast.success("Logo atualizado!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar logo");
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
   // Set orgName when org loads
   if (org && !orgName && !loadingOrg) {
     setOrgName(org.name || "");
@@ -218,6 +249,36 @@ const Organization = () => {
             <LexCardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> Dados da Organização</LexCardTitle>
           </LexCardHeader>
           <div className="space-y-4">
+            {/* Logo upload */}
+            <div className="flex items-center gap-4">
+              <div className="relative group">
+                <Avatar className="h-16 w-16">
+                  {org?.logo_url && <AvatarImage src={org.logo_url} alt={org?.name} />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+                    {(org?.name || "O").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {isOwnerOrAdmin && (
+                  <button
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    {uploadingLogo ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
+                  </button>
+                )}
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              </div>
+              <div>
+                <p className="text-body-sm font-medium">{org?.name || "Organização"}</p>
+                <p className="text-caption text-muted-foreground">
+                  {isOwnerOrAdmin ? "Clique no avatar para alterar o logo" : "Logo da organização"}
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Nome</label>
               <Input className="bg-muted border-border rounded-xl max-w-md" value={orgName} onChange={(e) => setOrgName(e.target.value)} disabled={!isOwnerOrAdmin} />
