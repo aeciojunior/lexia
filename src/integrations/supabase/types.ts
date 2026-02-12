@@ -893,6 +893,7 @@ export type Database = {
           id: string
           organization_id: string
           role: string
+          status: string
           user_id: string
         }
         Insert: {
@@ -900,6 +901,7 @@ export type Database = {
           id?: string
           organization_id: string
           role?: string
+          status?: string
           user_id: string
         }
         Update: {
@@ -907,6 +909,7 @@ export type Database = {
           id?: string
           organization_id?: string
           role?: string
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -918,6 +921,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          accessibility: Json
+          created_at: string
+          id: string
+          interface: Json
+          notifications: Json
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accessibility?: Json
+          created_at?: string
+          id?: string
+          interface?: Json
+          notifications?: Json
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accessibility?: Json
+          created_at?: string
+          id?: string
+          interface?: Json
+          notifications?: Json
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

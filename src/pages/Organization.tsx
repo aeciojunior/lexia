@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
-  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, Camera, Loader2,
+  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, Camera, Loader2, UserX, UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -159,19 +159,54 @@ const Organization = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Update member role
+  // Update member role via edge function (RF-011)
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ memberId, role }: { memberId: string; role: string }) => {
-      const { error } = await supabase
-        .from("user_organizations" as any)
-        .update({ role })
-        .eq("id", memberId);
+    mutationFn: async ({ memberUserId, role }: { memberUserId: string; role: string }) => {
+      const { data, error } = await supabase.functions.invoke("manage-member", {
+        body: { action: "change-role", organization_id: activeOrgId, member_user_id: memberUserId, new_role: role },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-members"] });
+      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
       setRoleDialog(false);
       toast.success("Papel atualizado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Disable member (RF-012)
+  const disableMemberMutation = useMutation({
+    mutationFn: async (memberUserId: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-member", {
+        body: { action: "disable-member", organization_id: activeOrgId, member_user_id: memberUserId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["org-members"] });
+      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
+      toast.success("Usuário desativado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Enable member (RF-012)
+  const enableMemberMutation = useMutation({
+    mutationFn: async (memberUserId: string) => {
+      const { data, error } = await supabase.functions.invoke("manage-member", {
+        body: { action: "enable-member", organization_id: activeOrgId, member_user_id: memberUserId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["org-members"] });
+      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
+      toast.success("Usuário reativado!");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -256,8 +291,13 @@ const Organization = () => {
     member_removed: "Membro removido",
     user_removed: "Membro removido",
     role_updated: "Papel alterado",
+    role_changed: "Papel alterado",
+    user_disabled: "Usuário desativado",
+    user_enabled: "Usuário reativado",
     password_reset_request: "Recuperação de senha",
     password_reset_success: "Senha redefinida",
+    profile_updated: "Perfil atualizado",
+    change_active_organization: "Org. alterada",
   };
 
   if (!activeOrgId) {
@@ -361,26 +401,42 @@ const Organization = () => {
               const name = profile?.full_name || "Sem nome";
               const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
               const isCurrentUser = m.user_id === user?.id;
+              const isDisabled = m.status === "disabled";
+              const canManage = isOwnerOrAdmin && !isCurrentUser && m.role !== "owner" && !(currentUserRole === "admin" && m.role === "admin");
 
               return (
-                <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group">
+                <div key={m.id} className={`flex items-center justify-between p-3 rounded-xl transition-colors group ${isDisabled ? "bg-muted/10 opacity-60" : "bg-muted/30 hover:bg-muted/50"}`}>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
                       <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="text-body-sm font-medium">{name} {isCurrentUser && <span className="text-caption text-muted-foreground">(você)</span>}</p>
+                      <p className="text-body-sm font-medium">
+                        {name} {isCurrentUser && <span className="text-caption text-muted-foreground">(você)</span>}
+                        {isDisabled && <span className="text-caption text-destructive ml-1">(desativado)</span>}
+                      </p>
                       <p className="text-caption text-muted-foreground">{profile?.phone || ""}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <LexBadge variant={roleBadgeVariant[m.role] as any}>{roleMap[m.role] || m.role}</LexBadge>
-                    {isOwnerOrAdmin && !isCurrentUser && m.role !== "owner" && !(currentUserRole === "admin" && m.role === "admin") && (
+                    {canManage && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedMember(m); setNewRole(m.role); setRoleDialog(true); }}>
-                          <Shield className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => { setMemberToRemove(m); setRemoveDialogOpen(true); }}>
+                        {isDisabled ? (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-success" onClick={() => enableMemberMutation.mutate(m.user_id)} disabled={enableMemberMutation.isPending}>
+                            <UserCheck className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedMember(m); setNewRole(m.role); setRoleDialog(true); }} title="Alterar papel">
+                              <Shield className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-warning" onClick={() => disableMemberMutation.mutate(m.user_id)} disabled={disableMemberMutation.isPending} title="Desativar">
+                              <UserX className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => { setMemberToRemove(m); setRemoveDialogOpen(true); }} title="Remover">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -491,15 +547,18 @@ const Organization = () => {
               <Select value={newRole} onValueChange={setNewRole}>
                 <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrador</SelectItem>
+                  {currentUserRole === "owner" && <SelectItem value="admin">Administrador</SelectItem>}
                   <SelectItem value="user">Usuário</SelectItem>
                   <SelectItem value="intern">Estagiário</SelectItem>
                   <SelectItem value="client">Cliente</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-caption text-muted-foreground">
+                {currentUserRole === "admin" ? "Admins só podem alterar para Usuário, Estagiário ou Cliente." : "Owners podem alterar para qualquer papel exceto Proprietário."}
+              </p>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setRoleDialog(false)}>Cancelar</Button>
-                <Button onClick={() => updateRoleMutation.mutate({ memberId: selectedMember.id, role: newRole })} disabled={updateRoleMutation.isPending}>
+                <Button onClick={() => updateRoleMutation.mutate({ memberUserId: selectedMember.user_id, role: newRole })} disabled={updateRoleMutation.isPending}>
                   {updateRoleMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
               </DialogFooter>

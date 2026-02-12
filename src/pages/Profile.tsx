@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Phone, Camera, Save, Shield, Bell, Palette, FileText, CalendarDays, MonitorSmartphone, Globe, Clock } from "lucide-react";
+import { User, Mail, Phone, Camera, Save, Shield, Bell, Palette, FileText, CalendarDays, MonitorSmartphone, Globe, Clock, Eye, Type, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -59,9 +59,13 @@ const Profile = () => {
   const [notifyDocuments, setNotifyDocuments] = useState(true);
   const [notifyInApp, setNotifyInApp] = useState(true);
 
-  // UI preferences
+  // UI & accessibility preferences (RF-013)
   const [compactMode, setCompactMode] = useState(() => localStorage.getItem("lex-compact") === "true");
   const [defaultView, setDefaultView] = useState(() => localStorage.getItem("lex-view") || "dashboard");
+  const [dateFormat, setDateFormat] = useState("relative");
+  const [highContrast, setHighContrast] = useState(false);
+  const [largeFonts, setLargeFonts] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
@@ -69,6 +73,17 @@ const Profile = () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user!.id).maybeSingle();
       if (error) throw error;
       return data;
+    },
+    enabled: !!user,
+  });
+
+  // RF-013: User preferences
+  const { data: preferences } = useQuery({
+    queryKey: ["user-preferences", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_preferences" as any).select("*").eq("user_id", user!.id).maybeSingle();
+      if (error) throw error;
+      return data as any;
     },
     enabled: !!user,
   });
@@ -86,6 +101,17 @@ const Profile = () => {
       setNotifyInApp((profile as any).notify_in_app ?? true);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (preferences) {
+      setCompactMode(preferences.interface?.compact ?? false);
+      setDefaultView(preferences.interface?.default_sort === "newest" ? "dashboard" : (preferences.interface?.default_view || "dashboard"));
+      setDateFormat(preferences.interface?.date_format || "relative");
+      setHighContrast(preferences.accessibility?.high_contrast ?? false);
+      setLargeFonts(preferences.accessibility?.large_fonts ?? false);
+      setReducedMotion(preferences.accessibility?.reduced_motion ?? false);
+    }
+  }, [preferences]);
 
   const nameValid = useMemo(() => fullName.trim().length >= 2 && fullName.trim().length <= 120, [fullName]);
 
@@ -170,20 +196,47 @@ const Profile = () => {
 
   const savePreferencesMutation = useMutation({
     mutationFn: async () => {
-      localStorage.setItem("lex-compact", String(compactMode));
-      localStorage.setItem("lex-view", defaultView);
-      if (user) {
-        const { error } = await supabase.from("profiles").update({
-          email_notifications: emailNotifications,
-          notify_deadlines: notifyDeadlines,
-          notify_documents: notifyDocuments,
-          notify_in_app: notifyInApp,
-        } as any).eq("user_id", user.id);
+      if (!user) return;
+
+      // Save notification prefs to profiles
+      const { error: profError } = await supabase.from("profiles").update({
+        email_notifications: emailNotifications,
+        notify_deadlines: notifyDeadlines,
+        notify_documents: notifyDocuments,
+        notify_in_app: notifyInApp,
+      } as any).eq("user_id", user.id);
+      if (profError) throw profError;
+
+      // Save UI/accessibility prefs to user_preferences (RF-013)
+      const prefsData = {
+        user_id: user.id,
+        interface: { compact: compactMode, date_format: dateFormat, default_view: defaultView },
+        accessibility: { high_contrast: highContrast, large_fonts: largeFonts, reduced_motion: reducedMotion },
+      } as any;
+
+      if (preferences) {
+        const { error } = await supabase.from("user_preferences" as any).update(prefsData).eq("user_id", user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("user_preferences" as any).insert(prefsData);
         if (error) throw error;
       }
+
+      // Also sync to localStorage for immediate effect
+      localStorage.setItem("lex-compact", String(compactMode));
+      localStorage.setItem("lex-view", defaultView);
+
+      // Audit
+      await supabase.from("audit_logs").insert({
+        action: "preferences_updated",
+        user_id: user.id,
+        resource_type: "user_preferences",
+        metadata: { user_agent: navigator.userAgent },
+      } as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["user-preferences"] });
       toast.success("Preferências salvas!");
     },
     onError: (e: any) => toast.error(e.message),
@@ -397,8 +450,79 @@ const Profile = () => {
               </Select>
             </div>
 
+            <Separator className="bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Formato de Datas</p>
+                  <p className="text-caption text-muted-foreground">Como datas são exibidas no sistema</p>
+                </div>
+              </div>
+              <Select value={dateFormat} onValueChange={setDateFormat}>
+                <SelectTrigger className="w-40 bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="relative">Relativa (há 2h)</SelectItem>
+                  <SelectItem value="absolute">Absoluta (12/02/2026)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button variant="outline" onClick={() => savePreferencesMutation.mutate()} disabled={savePreferencesMutation.isPending} className="mt-2">
               <Save className="h-4 w-4" /> {savePreferencesMutation.isPending ? "Salvando..." : "Salvar Interface"}
+            </Button>
+          </div>
+        </LexCard>
+      </motion.div>
+
+      {/* Accessibility (RF-013) */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+        <LexCard hover={false}>
+          <LexCardHeader>
+            <LexCardTitle className="flex items-center gap-2"><Eye className="h-5 w-5 text-accent" /> Acessibilidade</LexCardTitle>
+          </LexCardHeader>
+
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Alto Contraste</p>
+                  <p className="text-caption text-muted-foreground">Aumentar o contraste de cores</p>
+                </div>
+              </div>
+              <Switch checked={highContrast} onCheckedChange={setHighContrast} />
+            </div>
+
+            <Separator className="bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Type className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Fontes Maiores</p>
+                  <p className="text-caption text-muted-foreground">Aumentar o tamanho padrão do texto</p>
+                </div>
+              </div>
+              <Switch checked={largeFonts} onCheckedChange={setLargeFonts} />
+            </div>
+
+            <Separator className="bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Zap className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-body-sm font-medium">Animações Reduzidas</p>
+                  <p className="text-caption text-muted-foreground">Minimizar transições e animações</p>
+                </div>
+              </div>
+              <Switch checked={reducedMotion} onCheckedChange={setReducedMotion} />
+            </div>
+
+            <Button variant="outline" onClick={() => savePreferencesMutation.mutate()} disabled={savePreferencesMutation.isPending} className="mt-2">
+              <Save className="h-4 w-4" /> {savePreferencesMutation.isPending ? "Salvando..." : "Salvar Acessibilidade"}
             </Button>
           </div>
         </LexCard>
