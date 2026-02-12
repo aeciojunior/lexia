@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.movement-notifications]
 verify_jwt = false
+
+[functions.court-sync]
+verify_jwt = false

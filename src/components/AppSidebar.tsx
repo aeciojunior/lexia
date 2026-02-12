@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { title: "Documentos", url: "/documents", icon: FileText, permissions: ["VIEW_DOCUMENTS"] },
   { title: "Modelos", url: "/templates", icon: BookTemplate, permissions: ["VIEW_DOCUMENTS"] },
   { title: "Biblioteca", url: "/legal-references", icon: Library, permissions: ["VIEW_LEGAL_REFS"] },
+  { title: "Tribunais", url: "/court-integrations", icon: Building2, permissions: ["MANAGE_PROCESSES"] },
   { title: "Clientes", url: "/clients", icon: Users, permissions: ["VIEW_CLIENTS"] },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
   { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },
