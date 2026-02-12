@@ -14,8 +14,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-import { Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus } from "lucide-react";
-import { format, isPast, isToday } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp,
+} from "lucide-react";
+import { format, isPast, isToday, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -30,12 +35,19 @@ import { CSS } from "@dnd-kit/utilities";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 type PriorityFilter = "all" | Priority;
+type TaskStatus = "todo" | "in_progress" | "done";
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; dot: string }> = {
   urgent: { label: "Urgente", color: "text-destructive", dot: "bg-destructive" },
   high: { label: "Alta", color: "text-warning", dot: "bg-warning" },
   medium: { label: "Média", color: "text-muted-foreground", dot: "bg-muted-foreground" },
   low: { label: "Baixa", color: "text-muted-foreground/60", dot: "bg-muted-foreground/60" },
+};
+
+const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
+  todo: { label: "A fazer", color: "text-muted-foreground" },
+  in_progress: { label: "Em progresso", color: "text-warning" },
+  done: { label: "Concluído", color: "text-accent" },
 };
 
 interface TaskItem {
@@ -47,12 +59,23 @@ interface TaskItem {
   due_date: string | null;
   user_id: string;
   assigned_to: string | null;
+  status: TaskStatus;
 }
 
 interface OrgMember {
   user_id: string;
   full_name: string | null;
 }
+
+interface TaskComment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+/* ─── Sub-components ─── */
 
 const DueDateLabel = ({ dueDate }: { dueDate: string | null }) => {
   if (!dueDate) return null;
@@ -87,8 +110,102 @@ const MemberAvatar = ({ member, size = "xs" }: { member: OrgMember | undefined; 
   );
 };
 
+/* ─── Comments Section ─── */
+const TaskComments = ({ taskId, members }: { taskId: string; members: OrgMember[] }) => {
+  const { user } = useAuth();
+  const { activeOrgId } = useOrganization();
+  const queryClient = useQueryClient();
+  const [content, setContent] = useState("");
+
+  const { data: comments = [] } = useQuery({
+    queryKey: ["task-comments", taskId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quick_task_comments" as any)
+        .select("*")
+        .eq("task_id", taskId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data as any[] as TaskComment[]) || [];
+    },
+  });
+
+  const addComment = useMutation({
+    mutationFn: async (text: string) => {
+      const { error } = await supabase.from("quick_task_comments" as any).insert({
+        task_id: taskId,
+        user_id: user!.id,
+        organization_id: activeOrgId!,
+        content: text,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-comments", taskId] });
+      setContent("");
+    },
+  });
+
+  const deleteComment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("quick_task_comments" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task-comments", taskId] }),
+  });
+
+  return (
+    <div className="pl-8 pr-2 pb-2 space-y-2">
+      {comments.map(c => {
+        const author = members.find(m => m.user_id === c.user_id);
+        return (
+          <div key={c.id} className="flex items-start gap-2 group/comment">
+            <MemberAvatar member={author} size="xs" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-medium text-foreground">{author?.full_name || "Anônimo"}</span>
+                <span className="text-[9px] text-muted-foreground">
+                  {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">{c.content}</p>
+            </div>
+            {c.user_id === user?.id && (
+              <Button
+                variant="ghost" size="icon"
+                className="h-5 w-5 opacity-0 group-hover/comment:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => deleteComment.mutate(c.id)}
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+              </Button>
+            )}
+          </div>
+        );
+      })}
+      <form
+        className="flex items-center gap-1.5"
+        onSubmit={e => {
+          e.preventDefault();
+          if (content.trim()) addComment.mutate(content.trim());
+        }}
+      >
+        <Input
+          placeholder="Adicionar nota..."
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          className="h-7 text-[11px] flex-1"
+        />
+        <Button type="submit" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-primary" disabled={!content.trim()}>
+          <Send className="h-3 w-3" />
+        </Button>
+      </form>
+    </div>
+  );
+};
+
+/* ─── Sortable Task (list view) ─── */
 const SortableTask = ({
-  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign,
+  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange,
 }: {
   task: TaskItem;
   members: OrgMember[];
@@ -97,7 +214,9 @@ const SortableTask = ({
   onPriorityChange: (id: string, priority: Priority) => void;
   onDueDateChange: (id: string, date: string | null) => void;
   onAssign: (id: string, userId: string | null) => void;
+  onStatusChange: (id: string, status: TaskStatus) => void;
 }) => {
+  const [showComments, setShowComments] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -109,101 +228,230 @@ const SortableTask = ({
   const assignedMember = members.find(m => m.user_id === task.assigned_to);
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
+    <div ref={setNodeRef} style={style}>
+      <div className={cn(
         "flex items-center gap-2 p-2.5 rounded-lg transition-colors hover:bg-muted/30 group",
-        task.done && "opacity-50",
+        task.status === "done" && "opacity-50",
         isDragging && "bg-muted/40 shadow-lg",
-      )}
-    >
-      <button className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground touch-none shrink-0" {...attributes} {...listeners}>
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
+      )}>
+        <button className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground touch-none shrink-0" {...attributes} {...listeners}>
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
 
-      <Checkbox checked={task.done} onCheckedChange={(checked) => onToggle(task.id, !!checked)} />
+        <Checkbox
+          checked={task.status === "done"}
+          onCheckedChange={(checked) => {
+            const newStatus: TaskStatus = checked ? "done" : "todo";
+            onStatusChange(task.id, newStatus);
+            onToggle(task.id, !!checked);
+          }}
+        />
 
-      <span className={cn("flex-1 text-caption min-w-0 truncate", task.done ? "line-through text-muted-foreground" : "text-foreground")}>
-        {task.title}
-      </span>
+        <span className={cn("flex-1 text-caption min-w-0 truncate", task.status === "done" ? "line-through text-muted-foreground" : "text-foreground")}>
+          {task.title}
+        </span>
 
-      <DueDateLabel dueDate={task.due_date} />
+        <DueDateLabel dueDate={task.due_date} />
+        {assignedMember && <MemberAvatar member={assignedMember} />}
 
-      {/* Assigned member avatar */}
-      {assignedMember && <MemberAvatar member={assignedMember} />}
+        {/* Status selector */}
+        <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v as TaskStatus)}>
+          <SelectTrigger className="h-6 px-1.5 text-[10px] w-auto min-w-0 border-0 bg-transparent shadow-none gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className={STATUS_CONFIG[task.status]?.color}>{STATUS_CONFIG[task.status]?.label}</span>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+              <SelectItem key={key} value={key}>
+                <span className={cfg.color}>{cfg.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      {/* Assign popover */}
-      <Select
-        value={task.assigned_to || "__none__"}
-        onValueChange={(v) => onAssign(task.id, v === "__none__" ? null : v)}
-      >
-        <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent shadow-none [&>svg]:hidden shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <UserPlus className="h-3 w-3 text-muted-foreground" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">Sem atribuição</SelectItem>
-          {members.map(m => (
-            <SelectItem key={m.user_id} value={m.user_id}>
-              {m.full_name || "Sem nome"}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        {/* Comments toggle */}
+        <Button
+          variant="ghost" size="icon"
+          className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => setShowComments(!showComments)}
+        >
+          <MessageSquare className="h-3 w-3" />
+        </Button>
 
-      {/* Due date picker */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-            <CalendarIcon className="h-3 w-3" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
-          <Calendar
-            mode="single"
-            selected={task.due_date ? new Date(task.due_date + "T00:00:00") : undefined}
-            onSelect={(d) => onDueDateChange(task.id, d ? format(d, "yyyy-MM-dd") : null)}
-            initialFocus
-            className={cn("p-3 pointer-events-auto")}
-          />
-          {task.due_date && (
-            <div className="px-3 pb-3">
-              <Button variant="ghost" size="sm" className="w-full text-xs text-destructive" onClick={() => onDueDateChange(task.id, null)}>
-                Remover data
-              </Button>
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
+        {/* Assign */}
+        <Select value={task.assigned_to || "__none__"} onValueChange={(v) => onAssign(task.id, v === "__none__" ? null : v)}>
+          <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent shadow-none [&>svg]:hidden shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <UserPlus className="h-3 w-3 text-muted-foreground" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Sem atribuição</SelectItem>
+            {members.map(m => (
+              <SelectItem key={m.user_id} value={m.user_id}>{m.full_name || "Sem nome"}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      {/* Priority */}
-      <Select value={task.priority} onValueChange={(v) => onPriorityChange(task.id, v as Priority)}>
-        <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent shadow-none [&>svg]:hidden shrink-0">
-          <div className={`h-2 w-2 rounded-full ${prio.dot}`} title={prio.label} />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => (
-            <SelectItem key={key} value={key}>
-              <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
-                <span>{cfg.label}</span>
+        {/* Due date */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <CalendarIcon className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={task.due_date ? new Date(task.due_date + "T00:00:00") : undefined}
+              onSelect={(d) => onDueDateChange(task.id, d ? format(d, "yyyy-MM-dd") : null)}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+            {task.due_date && (
+              <div className="px-3 pb-3">
+                <Button variant="ghost" size="sm" className="w-full text-xs text-destructive" onClick={() => onDueDateChange(task.id, null)}>Remover data</Button>
               </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            )}
+          </PopoverContent>
+        </Popover>
 
-      <Button
-        variant="ghost" size="icon"
-        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
-        onClick={() => onDelete(task.id)}
-      >
-        <Trash2 className="h-3 w-3" />
-      </Button>
+        {/* Priority */}
+        <Select value={task.priority} onValueChange={(v) => onPriorityChange(task.id, v as Priority)}>
+          <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent shadow-none [&>svg]:hidden shrink-0">
+            <div className={`h-2 w-2 rounded-full ${prio.dot}`} title={prio.label} />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => (
+              <SelectItem key={key} value={key}>
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
+                  <span>{cfg.label}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="ghost" size="icon"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
+          onClick={() => onDelete(task.id)}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+
+      {showComments && <TaskComments taskId={task.id} members={members} />}
     </div>
   );
 };
 
+/* ─── Kanban Card ─── */
+const KanbanCard = ({
+  task, members, onDelete, onPriorityChange, onAssign, onStatusChange,
+}: {
+  task: TaskItem;
+  members: OrgMember[];
+  onDelete: (id: string) => void;
+  onPriorityChange: (id: string, priority: Priority) => void;
+  onAssign: (id: string, userId: string | null) => void;
+  onStatusChange: (id: string, status: TaskStatus) => void;
+}) => {
+  const [showComments, setShowComments] = useState(false);
+  const prio = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
+  const assignedMember = members.find(m => m.user_id === task.assigned_to);
+
+  return (
+    <div className="rounded-lg border border-border bg-card/60 p-2.5 space-y-1.5 group hover:border-primary/20 transition-colors">
+      <div className="flex items-start gap-2">
+        <div className={`h-2 w-2 rounded-full mt-1 shrink-0 ${prio.dot}`} />
+        <span className={cn("flex-1 text-caption leading-snug", task.status === "done" && "line-through text-muted-foreground")}>
+          {task.title}
+        </span>
+        <Button
+          variant="ghost" size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+          onClick={() => onDelete(task.id)}
+        >
+          <Trash2 className="h-2.5 w-2.5" />
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <DueDateLabel dueDate={task.due_date} />
+        {assignedMember && <MemberAvatar member={assignedMember} />}
+
+        {/* Move to other columns */}
+        <Select value={task.status} onValueChange={(v) => onStatusChange(task.id, v as TaskStatus)}>
+          <SelectTrigger className="h-5 px-1 text-[9px] w-auto min-w-0 border-0 bg-muted/40 shadow-none gap-0.5 shrink-0 ml-auto">
+            <span className={STATUS_CONFIG[task.status]?.color}>Mover</span>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+              <SelectItem key={key} value={key}>
+                <span className={cfg.color}>{cfg.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="ghost" size="icon"
+          className="h-5 w-5 shrink-0 text-muted-foreground/50 hover:text-primary"
+          onClick={() => setShowComments(!showComments)}
+        >
+          <MessageSquare className="h-2.5 w-2.5" />
+        </Button>
+      </div>
+
+      {showComments && <TaskComments taskId={task.id} members={members} />}
+    </div>
+  );
+};
+
+/* ─── Kanban Column ─── */
+const KanbanColumn = ({
+  status, tasks, members, onDelete, onPriorityChange, onAssign, onStatusChange,
+}: {
+  status: TaskStatus;
+  tasks: TaskItem[];
+  members: OrgMember[];
+  onDelete: (id: string) => void;
+  onPriorityChange: (id: string, priority: Priority) => void;
+  onAssign: (id: string, userId: string | null) => void;
+  onStatusChange: (id: string, status: TaskStatus) => void;
+}) => {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <div className="flex-1 min-w-[200px]">
+      <div className="flex items-center gap-2 mb-2 px-1">
+        <span className={cn("text-caption font-semibold", cfg.color)}>{cfg.label}</span>
+        <span className="text-[10px] text-muted-foreground bg-muted/50 rounded-full px-1.5">{tasks.length}</span>
+      </div>
+      <ScrollArea className="max-h-64">
+        <div className="space-y-1.5 pr-1">
+          {tasks.length === 0 ? (
+            <div className="text-center py-4 text-[10px] text-muted-foreground/50 border border-dashed border-border rounded-lg">
+              Nenhuma tarefa
+            </div>
+          ) : (
+            tasks.map(task => (
+              <KanbanCard
+                key={task.id}
+                task={task}
+                members={members}
+                onDelete={onDelete}
+                onPriorityChange={onPriorityChange}
+                onAssign={onAssign}
+                onStatusChange={onStatusChange}
+              />
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};
+
+/* ─── Main Widget ─── */
 const QuickTasksWidget = () => {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
@@ -213,13 +461,13 @@ const QuickTasksWidget = () => {
   const [newDueDate, setNewDueDate] = useState<Date | undefined>();
   const [newAssignee, setNewAssignee] = useState<string>("__none__");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Fetch org members for assignment
   const { data: orgMembers = [] } = useQuery({
     queryKey: ["org-members-for-tasks", activeOrgId],
     queryFn: async () => {
@@ -250,7 +498,7 @@ const QuickTasksWidget = () => {
         .or(`user_id.eq.${user!.id},assigned_to.eq.${user!.id}`)
         .order("position", { ascending: true })
         .order("created_at", { ascending: false })
-        .limit(30);
+        .limit(50);
       if (error) throw error;
       return (data as any[] as TaskItem[]) || [];
     },
@@ -262,7 +510,7 @@ const QuickTasksWidget = () => {
       const maxPos = quickTasks.length > 0 ? Math.max(...quickTasks.map(t => t.position || 0)) + 1 : 0;
       const { error } = await supabase.from("quick_tasks" as any).insert({
         title, priority, position: maxPos, due_date: due_date || null,
-        assigned_to: assigned_to || null,
+        assigned_to: assigned_to || null, status: "todo",
         user_id: user!.id, organization_id: activeOrgId!,
       } as any);
       if (error) throw error;
@@ -272,15 +520,19 @@ const QuickTasksWidget = () => {
 
   const toggleTask = useMutation({
     mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
-      const { error } = await supabase.from("quick_tasks" as any).update({ done } as any).eq("id", id);
+      const { error } = await supabase.from("quick_tasks" as any).update({ done, status: done ? "done" : "todo" } as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null }) => {
-      const { error } = await supabase.from("quick_tasks" as any).update(updates as any).eq("id", id);
+    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string }) => {
+      // If status changed to done, also set done=true; if not done, set done=false
+      const payload: any = { ...updates };
+      if (updates.status === "done") payload.done = true;
+      else if (updates.status) payload.done = false;
+      const { error } = await supabase.from("quick_tasks" as any).update(payload).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
@@ -311,7 +563,11 @@ const QuickTasksWidget = () => {
     ? quickTasks
     : quickTasks.filter(t => t.priority === priorityFilter);
 
-  const doneCount = quickTasks.filter(t => t.done).length;
+  const doneCount = quickTasks.filter(t => t.status === "done").length;
+
+  const handleStatusChange = (id: string, status: TaskStatus) => {
+    updateTask.mutate({ id, status });
+  };
 
   return (
     <LexCard hover={false}>
@@ -319,9 +575,28 @@ const QuickTasksWidget = () => {
         <LexCardTitle className="flex items-center gap-2">
           <ListTodo className="h-4 w-4 text-primary" /> Tarefas Rápidas
         </LexCardTitle>
-        <span className="text-caption text-muted-foreground">
-          {doneCount}/{quickTasks.length} concluídas
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-caption text-muted-foreground">
+            {doneCount}/{quickTasks.length} concluídas
+          </span>
+          {/* View toggle */}
+          <div className="flex items-center border border-border rounded-md">
+            <Button
+              variant="ghost" size="icon"
+              className={cn("h-7 w-7 rounded-r-none", viewMode === "list" && "bg-muted text-primary")}
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost" size="icon"
+              className={cn("h-7 w-7 rounded-l-none", viewMode === "kanban" && "bg-muted text-primary")}
+              onClick={() => setViewMode("kanban")}
+            >
+              <Columns3 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       </LexCardHeader>
 
       {/* Priority filter */}
@@ -354,14 +629,8 @@ const QuickTasksWidget = () => {
           setNewAssignee("__none__");
         }}
       >
-        <Input
-          placeholder="Nova tarefa..."
-          value={newTask}
-          onChange={e => setNewTask(e.target.value)}
-          className="h-9 text-sm flex-1"
-        />
+        <Input placeholder="Nova tarefa..." value={newTask} onChange={e => setNewTask(e.target.value)} className="h-9 text-sm flex-1" />
 
-        {/* Assign member */}
         <Select value={newAssignee} onValueChange={setNewAssignee}>
           <SelectTrigger className={cn("h-9 w-9 p-0 border-border bg-transparent shadow-none flex items-center justify-center [&>svg]:hidden shrink-0", newAssignee !== "__none__" && "border-secondary/40 text-secondary")}>
             <UserPlus className="h-3.5 w-3.5" />
@@ -374,7 +643,6 @@ const QuickTasksWidget = () => {
           </SelectContent>
         </Select>
 
-        {/* Due date */}
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="outline" size="icon" className={cn("h-9 w-9 shrink-0", newDueDate && "text-primary border-primary/40")}>
@@ -382,11 +650,10 @@ const QuickTasksWidget = () => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
-            <Calendar mode="single" selected={newDueDate} onSelect={setNewDueDate} initialFocus className={cn("p-3 pointer-events-auto")} />
+            <Calendar mode="single" selected={newDueDate} onSelect={setNewDueDate} initialFocus className="p-3 pointer-events-auto" />
           </PopoverContent>
         </Popover>
 
-        {/* Priority */}
         <Select value={newPriority} onValueChange={v => setNewPriority(v as Priority)}>
           <SelectTrigger className="h-9 w-9 p-0 border-border bg-transparent shadow-none flex items-center justify-center [&>svg]:hidden shrink-0">
             <Flag className={`h-3.5 w-3.5 ${PRIORITY_CONFIG[newPriority].color}`} />
@@ -408,7 +675,7 @@ const QuickTasksWidget = () => {
         </Button>
       </form>
 
-      {/* Metadata preview for new task */}
+      {/* Metadata preview */}
       {(newDueDate || newAssignee !== "__none__") && (
         <div className="flex items-center gap-3 mb-3 -mt-1 text-[10px] text-muted-foreground">
           {newDueDate && (
@@ -428,34 +695,56 @@ const QuickTasksWidget = () => {
         </div>
       )}
 
-      {filteredTasks.length === 0 ? (
-        <div className="py-8 text-center">
-          <ListTodo className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
-          <p className="text-caption text-muted-foreground">
-            {quickTasks.length === 0 ? "Nenhuma tarefa ainda. Adicione uma acima!" : "Nenhuma tarefa com essa prioridade."}
-          </p>
+      {/* ─── LIST VIEW ─── */}
+      {viewMode === "list" && (
+        filteredTasks.length === 0 ? (
+          <div className="py-8 text-center">
+            <ListTodo className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+            <p className="text-caption text-muted-foreground">
+              {quickTasks.length === 0 ? "Nenhuma tarefa ainda. Adicione uma acima!" : "Nenhuma tarefa com essa prioridade."}
+            </p>
+          </div>
+        ) : (
+          <ScrollArea className="max-h-80">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1">
+                  {filteredTasks.map(task => (
+                    <SortableTask
+                      key={task.id}
+                      task={task}
+                      members={orgMembers}
+                      onToggle={(id, done) => toggleTask.mutate({ id, done })}
+                      onDelete={(id) => deleteTask.mutate(id)}
+                      onPriorityChange={(id, priority) => updateTask.mutate({ id, priority })}
+                      onDueDateChange={(id, due_date) => updateTask.mutate({ id, due_date })}
+                      onAssign={(id, assigned_to) => updateTask.mutate({ id, assigned_to })}
+                      onStatusChange={handleStatusChange}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </ScrollArea>
+        )
+      )}
+
+      {/* ─── KANBAN VIEW ─── */}
+      {viewMode === "kanban" && (
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {(["todo", "in_progress", "done"] as TaskStatus[]).map(status => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              tasks={filteredTasks.filter(t => t.status === status)}
+              members={orgMembers}
+              onDelete={(id) => deleteTask.mutate(id)}
+              onPriorityChange={(id, priority) => updateTask.mutate({ id, priority })}
+              onAssign={(id, assigned_to) => updateTask.mutate({ id, assigned_to })}
+              onStatusChange={handleStatusChange}
+            />
+          ))}
         </div>
-      ) : (
-        <ScrollArea className="max-h-72">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-1">
-                {filteredTasks.map(task => (
-                  <SortableTask
-                    key={task.id}
-                    task={task}
-                    members={orgMembers}
-                    onToggle={(id, done) => toggleTask.mutate({ id, done })}
-                    onDelete={(id) => deleteTask.mutate(id)}
-                    onPriorityChange={(id, priority) => updateTask.mutate({ id, priority })}
-                    onDueDateChange={(id, due_date) => updateTask.mutate({ id, due_date })}
-                    onAssign={(id, assigned_to) => updateTask.mutate({ id, assigned_to })}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        </ScrollArea>
       )}
     </LexCard>
   );

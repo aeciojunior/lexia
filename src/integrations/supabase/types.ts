@@ -695,6 +695,41 @@ export type Database = {
           },
         ]
       }
+      quick_task_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          organization_id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "quick_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quick_tasks: {
         Row: {
           assigned_to: string | null
@@ -705,6 +740,7 @@ export type Database = {
           organization_id: string
           position: number
           priority: string
+          status: string
           title: string
           updated_at: string
           user_id: string
@@ -718,6 +754,7 @@ export type Database = {
           organization_id: string
           position?: number
           priority?: string
+          status?: string
           title: string
           updated_at?: string
           user_id: string
@@ -731,6 +768,7 @@ export type Database = {
           organization_id?: string
           position?: number
           priority?: string
+          status?: string
           title?: string
           updated_at?: string
           user_id?: string
