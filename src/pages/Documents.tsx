@@ -90,6 +90,18 @@ const Documents = () => {
     },
   });
 
+  const logAudit = async (action: string, resourceId: string, metadata: Record<string, any> = {}) => {
+    if (!user) return;
+    await supabase.from("audit_logs").insert({
+      action,
+      user_id: user.id,
+      organization_id: activeOrgId,
+      resource_type: "document",
+      resource_id: resourceId,
+      metadata,
+    } as any);
+  };
+
   // Upload mutation
   const handleUpload = async () => {
     if (!uploadFile || !user) return;
@@ -101,10 +113,9 @@ const Documents = () => {
       const { error: upErr } = await supabase.storage.from("documents").upload(path, uploadFile);
       if (upErr) throw upErr;
 
-      // Get signed URL (private bucket)
       const { data: urlData } = await supabase.storage.from("documents").createSignedUrl(path, 60 * 60 * 24 * 365);
 
-      const { error: dbErr } = await supabase.from("documents").insert({
+      const { data: inserted, error: dbErr } = await supabase.from("documents").insert({
         user_id: user.id,
         organization_id: activeOrgId,
         file_name: uploadFile.name,
@@ -114,8 +125,10 @@ const Documents = () => {
         category: uploadCategory,
         process_id: uploadProcessId === "none" ? null : uploadProcessId,
         notes: uploadNotes || null,
-      } as any);
+      } as any).select("id").single();
       if (dbErr) throw dbErr;
+
+      await logAudit("document_uploaded", inserted.id, { file_name: uploadFile.name, category: uploadCategory });
 
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       setUploadDialog(false);
@@ -138,12 +151,11 @@ const Documents = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (doc: any) => {
-      // Delete from storage
       const { error: stErr } = await supabase.storage.from("documents").remove([doc.file_url]);
       if (stErr) throw stErr;
-      // Delete from DB
       const { error: dbErr } = await supabase.from("documents").delete().eq("id", doc.id);
       if (dbErr) throw dbErr;
+      await logAudit("document_deleted", doc.id, { file_name: doc.file_name });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
@@ -158,6 +170,7 @@ const Documents = () => {
       toast.error("Erro ao gerar link de download");
       return;
     }
+    await logAudit("document_downloaded", doc.id, { file_name: doc.file_name });
     window.open(data.signedUrl, "_blank");
   };
 

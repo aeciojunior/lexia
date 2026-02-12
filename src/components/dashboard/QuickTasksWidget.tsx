@@ -1136,15 +1136,28 @@ const QuickTasksWidget = () => {
     });
   }, [user?.id, activeOrgId, orgMembers]);
 
+  const logTaskAudit = async (action: string, resourceId: string, metadata: Record<string, any> = {}) => {
+    if (!user) return;
+    await supabase.from("audit_logs").insert({
+      action,
+      user_id: user.id,
+      organization_id: activeOrgId,
+      resource_type: "quick_task",
+      resource_id: resourceId,
+      metadata,
+    } as any);
+  };
+
   const addTask = useMutation({
     mutationFn: async ({ title, priority, due_date, assigned_to }: { title: string; priority: Priority; due_date?: string | null; assigned_to?: string | null }) => {
       const maxPos = quickTasks.length > 0 ? Math.max(...quickTasks.map(t => t.position || 0)) + 1 : 0;
-      const { error } = await supabase.from("quick_tasks" as any).insert({
+      const { data: inserted, error } = await (supabase.from("quick_tasks" as any).insert({
         title, priority, position: maxPos, due_date: due_date || null,
         assigned_to: assigned_to || null, status: "todo",
         user_id: user!.id, organization_id: activeOrgId!,
-      } as any);
+      } as any).select("id").single() as any);
       if (error) throw error;
+      await logTaskAudit("task_created", inserted.id, { title, priority });
       if (assigned_to && assigned_to !== user!.id) {
         await sendAssignmentNotification(assigned_to, title);
       }
@@ -1156,6 +1169,7 @@ const QuickTasksWidget = () => {
     mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
       const { error } = await supabase.from("quick_tasks" as any).update({ done, status: done ? "done" : "todo" } as any).eq("id", id);
       if (error) throw error;
+      await logTaskAudit(done ? "task_completed" : "task_updated", id, { done });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
   });
@@ -1167,6 +1181,8 @@ const QuickTasksWidget = () => {
       else if (updates.status) payload.done = false;
       const { error } = await supabase.from("quick_tasks" as any).update(payload).eq("id", id);
       if (error) throw error;
+      const action = updates.status === "done" ? "task_completed" : "task_updated";
+      await logTaskAudit(action, id, { fields_changed: Object.keys(updates) });
       // Send notification if assigned_to changed
       if (updates.assigned_to && updates.assigned_to !== user!.id) {
         const task = quickTasks.find(t => t.id === id);
@@ -1180,8 +1196,10 @@ const QuickTasksWidget = () => {
 
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
+      const task = quickTasks.find(t => t.id === id);
       const { error } = await supabase.from("quick_tasks" as any).delete().eq("id", id);
       if (error) throw error;
+      await logTaskAudit("task_deleted", id, { title: task?.title });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dash-quick-tasks"] }),
   });
