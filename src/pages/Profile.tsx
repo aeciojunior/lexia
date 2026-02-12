@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,9 +10,38 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Phone, Camera, Save, Shield, Bell, Palette, FileText, CalendarDays, MonitorSmartphone } from "lucide-react";
+import { User, Mail, Phone, Camera, Save, Shield, Bell, Palette, FileText, CalendarDays, MonitorSmartphone, Globe, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+
+const SUPPORTED_LANGUAGES = [
+  { value: "pt-BR", label: "Português (Brasil)" },
+  { value: "en-US", label: "English (US)" },
+  { value: "es-ES", label: "Español (España)" },
+];
+
+const SUPPORTED_TIMEZONES = [
+  { value: "America/Sao_Paulo", label: "São Paulo (GMT-3)" },
+  { value: "America/Manaus", label: "Manaus (GMT-4)" },
+  { value: "America/Belem", label: "Belém (GMT-3)" },
+  { value: "America/Fortaleza", label: "Fortaleza (GMT-3)" },
+  { value: "America/Recife", label: "Recife (GMT-3)" },
+  { value: "America/Bahia", label: "Bahia (GMT-3)" },
+  { value: "America/Cuiaba", label: "Cuiabá (GMT-4)" },
+  { value: "America/Porto_Velho", label: "Porto Velho (GMT-4)" },
+  { value: "America/Rio_Branco", label: "Rio Branco (GMT-5)" },
+  { value: "America/Noronha", label: "Noronha (GMT-2)" },
+  { value: "America/New_York", label: "New York (GMT-5)" },
+  { value: "America/Chicago", label: "Chicago (GMT-6)" },
+  { value: "America/Los_Angeles", label: "Los Angeles (GMT-8)" },
+  { value: "Europe/London", label: "London (GMT+0)" },
+  { value: "Europe/Lisbon", label: "Lisboa (GMT+0)" },
+  { value: "Europe/Madrid", label: "Madrid (GMT+1)" },
+  { value: "UTC", label: "UTC" },
+];
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const Profile = () => {
   const { user } = useAuth();
@@ -20,6 +49,8 @@ const Profile = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [language, setLanguage] = useState("pt-BR");
+  const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [uploading, setUploading] = useState(false);
 
   // Notification preferences
@@ -47,6 +78,8 @@ const Profile = () => {
       setFullName(profile.full_name || "");
       setPhone(profile.phone || "");
       setAvatarUrl(profile.avatar_url || "");
+      setLanguage((profile as any).language || "pt-BR");
+      setTimezone((profile as any).timezone || "America/Sao_Paulo");
       setEmailNotifications((profile as any).email_notifications ?? true);
       setNotifyDeadlines((profile as any).notify_deadlines ?? true);
       setNotifyDocuments((profile as any).notify_documents ?? true);
@@ -54,23 +87,46 @@ const Profile = () => {
     }
   }, [profile]);
 
+  const nameValid = useMemo(() => fullName.trim().length >= 2 && fullName.trim().length <= 120, [fullName]);
+
   const updateMutation = useMutation({
     mutationFn: async () => {
+      if (!nameValid) throw new Error("Nome deve ter entre 2 e 120 caracteres.");
+
+      const updateData = {
+        full_name: fullName.trim(),
+        phone,
+        avatar_url: avatarUrl,
+        language,
+        timezone,
+      } as any;
+
       if (profile) {
-        const { error } = await supabase.from("profiles").update({
-          full_name: fullName,
-          phone,
-          avatar_url: avatarUrl,
-        }).eq("user_id", user!.id);
+        const { error } = await supabase.from("profiles").update(updateData).eq("user_id", user!.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("profiles").insert({
-          user_id: user!.id,
-          full_name: fullName,
-          phone,
-          avatar_url: avatarUrl,
-        });
+        const { error } = await supabase.from("profiles").insert({ ...updateData, user_id: user!.id });
         if (error) throw error;
+      }
+
+      // Detect changed fields for audit
+      const changedFields: string[] = [];
+      if (profile?.full_name !== fullName.trim()) changedFields.push("full_name");
+      if (profile?.phone !== phone) changedFields.push("phone");
+      if (profile?.avatar_url !== avatarUrl) changedFields.push("avatar_url");
+      if ((profile as any)?.language !== language) changedFields.push("language");
+      if ((profile as any)?.timezone !== timezone) changedFields.push("timezone");
+
+      if (changedFields.length > 0) {
+        await supabase.from("audit_logs").insert({
+          action: "profile_updated",
+          user_id: user!.id,
+          resource_type: "profile",
+          metadata: {
+            fields_changed: changedFields,
+            user_agent: navigator.userAgent,
+          },
+        } as any);
       }
     },
     onSuccess: () => {
@@ -83,6 +139,18 @@ const Profile = () => {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate type
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error("Formato inválido. Use JPG, PNG ou WEBP.");
+      return;
+    }
+    // Validate size
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error("Arquivo muito grande. Máximo 5MB.");
+      return;
+    }
+
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
@@ -90,7 +158,8 @@ const Profile = () => {
       const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
-      setAvatarUrl(urlData.publicUrl);
+      const newUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      setAvatarUrl(newUrl);
       toast.success("Avatar enviado!");
     } catch (err: any) {
       toast.error("Erro ao enviar avatar: " + err.message);
@@ -160,26 +229,63 @@ const Profile = () => {
                 </Avatar>
                 <label className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                   <Camera className="h-6 w-6 text-foreground" />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading} />
+                  <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={handleAvatarUpload} disabled={uploading} />
                 </label>
               </div>
-              <p className="text-caption text-muted-foreground">{uploading ? "Enviando..." : "Clique para alterar"}</p>
+              <p className="text-caption text-muted-foreground">{uploading ? "Enviando..." : "JPG, PNG ou WEBP (max 5MB)"}</p>
             </div>
 
             <div className="flex-1 space-y-4">
               <div>
                 <Label className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Nome Completo</Label>
-                <Input className="bg-muted border-border rounded-xl" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome completo" />
+                <Input
+                  className="bg-muted border-border rounded-xl"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Seu nome completo"
+                  minLength={2}
+                  maxLength={120}
+                />
+                {fullName && !nameValid && (
+                  <p className="text-caption text-destructive mt-1">Nome deve ter entre 2 e 120 caracteres.</p>
+                )}
               </div>
               <div>
                 <Label className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Email</Label>
                 <Input className="bg-muted border-border rounded-xl opacity-60" value={user?.email || ""} disabled />
+                <p className="text-caption text-muted-foreground mt-1">Gerenciado pelo sistema de autenticação.</p>
               </div>
               <div>
                 <Label className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Telefone</Label>
                 <Input className="bg-muted border-border rounded-xl" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
               </div>
-              <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending} className="mt-2">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Idioma</Label>
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-overline text-muted-foreground mb-1.5 flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Timezone</Label>
+                  <Select value={timezone} onValueChange={setTimezone}>
+                    <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_TIMEZONES.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending || !nameValid} className="mt-2">
                 <Save className="h-4 w-4" /> {updateMutation.isPending ? "Salvando..." : "Salvar Informações"}
               </Button>
             </div>
