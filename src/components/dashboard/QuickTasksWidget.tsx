@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X, Download, Settings, Palette, Pencil, Check,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -170,10 +170,13 @@ const TagEditor = ({ tags, onUpdate, predefinedTags }: { tags: string[]; onUpdat
 };
 
 /* ─── Tag Management Dialog ─── */
-const TagManager = ({ orgId, userId }: { orgId: string; userId: string }) => {
+const TagManager = ({ orgId, userId, tasks = [] }: { orgId: string; userId: string; tasks?: TaskItem[] }) => {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_HEX_COLORS[0]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("");
 
   const { data: tags = [] } = useQuery({
     queryKey: ["predefined-tags", orgId],
@@ -188,6 +191,8 @@ const TagManager = ({ orgId, userId }: { orgId: string; userId: string }) => {
     },
     enabled: !!orgId,
   });
+
+  const tagUsageCount = (tagName: string) => tasks.filter(t => (t.tags || []).includes(tagName)).length;
 
   const addTag = useMutation({
     mutationFn: async () => {
@@ -213,6 +218,25 @@ const TagManager = ({ orgId, userId }: { orgId: string; userId: string }) => {
     },
   });
 
+  const updateTag = useMutation({
+    mutationFn: async ({ id, name, color }: { id: string; name: string; color: string }) => {
+      const { error } = await supabase.from("quick_task_tags" as any).update({ name: name.trim().toLowerCase(), color } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["predefined-tags", orgId] });
+      setEditingId(null);
+      toast.success("Tag atualizada!");
+    },
+    onError: (err: any) => {
+      if (err.message?.includes("duplicate") || err.code === "23505") {
+        toast.error("Já existe uma tag com esse nome.");
+      } else {
+        toast.error("Erro ao atualizar tag.");
+      }
+    },
+  });
+
   const deleteTag = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("quick_task_tags" as any).delete().eq("id", id);
@@ -224,29 +248,88 @@ const TagManager = ({ orgId, userId }: { orgId: string; userId: string }) => {
     },
   });
 
+  const startEdit = (tag: PredefTag) => {
+    setEditingId(tag.id);
+    setEditName(tag.name);
+    setEditColor(tag.color);
+  };
+
+  const saveEdit = () => {
+    if (editingId && editName.trim()) {
+      updateTag.mutate({ id: editingId, name: editName, color: editColor });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         {tags.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-3">Nenhuma tag criada ainda.</p>
         ) : (
-          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-            {tags.map(tag => (
-              <div key={tag.id} className="flex items-center gap-2 group/tag">
-                <span
-                  className="h-3 w-3 rounded-full shrink-0 border"
-                  style={{ backgroundColor: tag.color, borderColor: `${tag.color}80` }}
-                />
-                <span className="text-sm flex-1">{tag.name}</span>
-                <Button
-                  variant="ghost" size="icon"
-                  className="h-6 w-6 opacity-0 group-hover/tag:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
-                  onClick={() => deleteTag.mutate(tag.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
+          <div className="space-y-1.5 max-h-56 overflow-y-auto">
+            {tags.map(tag => {
+              const count = tagUsageCount(tag.name);
+              const isEditing = editingId === tag.id;
+
+              if (isEditing) {
+                return (
+                  <div key={tag.id} className="space-y-1.5 rounded-md border border-primary/30 bg-muted/30 p-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        autoFocus
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-primary shrink-0" onClick={saveEdit} disabled={!editName.trim() || updateTag.isPending}>
+                        <Check className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground shrink-0" onClick={() => setEditingId(null)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESET_HEX_COLORS.map(c => (
+                        <button
+                          key={c} type="button"
+                          className={cn("h-4 w-4 rounded-full border-2 transition-all", editColor === c ? "border-foreground scale-110" : "border-transparent hover:scale-105")}
+                          style={{ backgroundColor: c }}
+                          onClick={() => setEditColor(c)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={tag.id} className="flex items-center gap-2 group/tag">
+                  <span
+                    className="h-3 w-3 rounded-full shrink-0 border"
+                    style={{ backgroundColor: tag.color, borderColor: `${tag.color}80` }}
+                  />
+                  <span className="text-sm flex-1">{tag.name}</span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums" title={`${count} tarefa(s) usando esta tag`}>
+                    {count}
+                  </span>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-6 w-6 opacity-0 group-hover/tag:opacity-100 text-muted-foreground hover:text-primary shrink-0"
+                    onClick={() => startEdit(tag)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-6 w-6 opacity-0 group-hover/tag:opacity-100 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => deleteTag.mutate(tag.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1170,7 +1253,7 @@ const QuickTasksWidget = () => {
                   <Tag className="h-4 w-4 text-primary" /> Gerenciar Tags
                 </DialogTitle>
               </DialogHeader>
-              {activeOrgId && user && <TagManager orgId={activeOrgId} userId={user.id} />}
+              {activeOrgId && user && <TagManager orgId={activeOrgId} userId={user.id} tasks={quickTasks} />}
             </DialogContent>
           </Dialog>
           <div className="flex items-center gap-1.5">
