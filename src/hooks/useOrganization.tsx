@@ -24,7 +24,7 @@ export const useOrganization = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_organizations" as any)
-        .select("organization_id, role, organizations(id, name)")
+        .select("organization_id, role, organizations(id, name, logo_url)")
         .eq("user_id", user!.id);
       if (error) throw error;
       return (data as any[]) || [];

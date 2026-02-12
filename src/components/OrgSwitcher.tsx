@@ -2,6 +2,7 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions, ROLE_LABELS, ROLE_BADGE_VARIANT } from "@/hooks/usePermissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, ChevronsUpDown } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ export const OrgSwitcher = ({ collapsed = false }: { collapsed?: boolean }) => {
     (o: any) => o.organization_id === activeOrgId
   );
   const activeOrgName = (activeOrg as any)?.organizations?.name || "Organização";
+  const activeOrgLogo = (activeOrg as any)?.organizations?.logo_url;
 
   const handleSwitch = async (orgId: string) => {
     if (orgId === activeOrgId || switching) return;
@@ -54,7 +56,7 @@ export const OrgSwitcher = ({ collapsed = false }: { collapsed?: boolean }) => {
             size="icon"
             className="h-9 w-9 text-sidebar-foreground hover:bg-sidebar-accent"
           >
-            <Building2 className="h-4 w-4" />
+            <OrgAvatar logoUrl={activeOrgLogo} name={activeOrgName} size="sm" />
           </Button>
         </PopoverTrigger>
         <PopoverContent side="right" align="start" className="w-64 p-2">
@@ -78,7 +80,7 @@ export const OrgSwitcher = ({ collapsed = false }: { collapsed?: boolean }) => {
           disabled={switching}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <OrgAvatar logoUrl={activeOrgLogo} name={activeOrgName} size="md" />
             <div className="min-w-0">
               <p className="text-xs font-semibold text-sidebar-foreground truncate">
                 {activeOrgName}
@@ -133,7 +135,7 @@ function OrgList({
                 : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
             } disabled:opacity-70`}
           >
-            <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <OrgAvatar logoUrl={o.organizations?.logo_url} name={o.organizations?.name} size="md" />
             <div className="flex-1 min-w-0 text-left">
               <p className="text-xs font-medium truncate">
                 {o.organizations?.name || "Organização"}
@@ -150,5 +152,18 @@ function OrgList({
         );
       })}
     </div>
+  );
+}
+
+function OrgAvatar({ logoUrl, name, size = "md" }: { logoUrl?: string | null; name?: string; size?: "sm" | "md" }) {
+  const initials = (name || "O").slice(0, 2).toUpperCase();
+  const cls = size === "sm" ? "h-5 w-5 text-[9px]" : "h-6 w-6 text-[10px]";
+  return (
+    <Avatar className={`${cls} shrink-0`}>
+      {logoUrl && <AvatarImage src={logoUrl} alt={name} />}
+      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
   );
 }
