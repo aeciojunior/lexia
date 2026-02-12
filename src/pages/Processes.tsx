@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -335,6 +336,20 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
     enabled: !!process.id,
   });
 
+  const { data: linkedDocs = [], isLoading: docsLoading } = useQuery({
+    queryKey: ["process-linked-docs", process.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("id, file_name, file_type, file_size, file_url, created_at, category")
+        .eq("process_id", process.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!process.id,
+  });
+
   const doneCount = linkedTasks.filter((t: any) => t.status === "done").length;
 
   return (
@@ -403,6 +418,51 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
                 </Badge>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Linked Documents */}
+      <div className="border-t border-border pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            <span className="text-overline text-muted-foreground">Documentos vinculados</span>
+          </div>
+          {linkedDocs.length > 0 && (
+            <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+              {linkedDocs.length} documento{linkedDocs.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        {docsLoading ? (
+          <p className="text-caption text-muted-foreground text-center py-4">Carregando documentos...</p>
+        ) : linkedDocs.length === 0 ? (
+          <p className="text-caption text-muted-foreground text-center py-4">Nenhum documento vinculado a este processo.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {linkedDocs.map((doc: any) => {
+              const sizeKB = doc.file_size ? (doc.file_size / 1024).toFixed(0) : null;
+              const sizeLabel = sizeKB ? (Number(sizeKB) > 1024 ? `${(Number(sizeKB) / 1024).toFixed(1)} MB` : `${sizeKB} KB`) : null;
+              return (
+                <div key={doc.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="flex-1 text-caption truncate text-foreground">{doc.file_name}</span>
+                  {doc.file_type && (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 uppercase">{doc.file_type.split("/").pop()}</Badge>
+                  )}
+                  {sizeLabel && <span className="text-[10px] text-muted-foreground shrink-0">{sizeLabel}</span>}
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {new Date(doc.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </span>
+                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary">
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </a>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
