@@ -19,8 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Trash2, ListTodo, GripVertical, Flag, CalendarIcon, UserPlus,
-  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks,
+  MessageSquare, Send, Columns3, List, ChevronDown, ChevronUp, ListChecks, Tag, X,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import TaskProgressChart from "./TaskProgressChart";
 import TaskSubtasks from "./TaskSubtasks";
 import { format, isPast, isToday, formatDistanceToNow } from "date-fns";
@@ -54,6 +55,63 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
   done: { label: "Concluído", color: "text-accent" },
 };
 
+const TAG_COLORS: { bg: string; text: string; border: string }[] = [
+  { bg: "bg-blue-500/15", text: "text-blue-700 dark:text-blue-300", border: "border-blue-500/30" },
+  { bg: "bg-emerald-500/15", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-500/30" },
+  { bg: "bg-amber-500/15", text: "text-amber-700 dark:text-amber-300", border: "border-amber-500/30" },
+  { bg: "bg-purple-500/15", text: "text-purple-700 dark:text-purple-300", border: "border-purple-500/30" },
+  { bg: "bg-rose-500/15", text: "text-rose-700 dark:text-rose-300", border: "border-rose-500/30" },
+  { bg: "bg-cyan-500/15", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-500/30" },
+  { bg: "bg-orange-500/15", text: "text-orange-700 dark:text-orange-300", border: "border-orange-500/30" },
+  { bg: "bg-pink-500/15", text: "text-pink-700 dark:text-pink-300", border: "border-pink-500/30" },
+];
+
+const getTagColor = (tag: string) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+};
+
+const TagBadge = ({ tag, onRemove }: { tag: string; onRemove?: () => void }) => {
+  const color = getTagColor(tag);
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0 text-[9px] font-medium border", color.bg, color.text, color.border)}>
+      {tag}
+      {onRemove && (
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="hover:opacity-70">
+          <X className="h-2 w-2" />
+        </button>
+      )}
+    </span>
+  );
+};
+
+const TagEditor = ({ tags, onUpdate }: { tags: string[]; onUpdate: (tags: string[]) => void }) => {
+  const [newTag, setNewTag] = useState("");
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1">
+        {tags.map(tag => (
+          <TagBadge key={tag} tag={tag} onRemove={() => onUpdate(tags.filter(t => t !== tag))} />
+        ))}
+      </div>
+      <form
+        className="flex gap-1"
+        onSubmit={e => {
+          e.preventDefault();
+          const t = newTag.trim().toLowerCase();
+          if (t && !tags.includes(t)) { onUpdate([...tags, t]); setNewTag(""); }
+        }}
+      >
+        <Input placeholder="Nova tag..." value={newTag} onChange={e => setNewTag(e.target.value)} className="h-6 text-[10px] flex-1" />
+        <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 text-primary shrink-0" disabled={!newTag.trim()}>
+          <Plus className="h-2.5 w-2.5" />
+        </Button>
+      </form>
+    </div>
+  );
+};
+
 interface TaskItem {
   id: string;
   title: string;
@@ -65,6 +123,7 @@ interface TaskItem {
   user_id: string;
   assigned_to: string | null;
   status: TaskStatus;
+  tags: string[];
 }
 
 interface OrgMember {
@@ -210,7 +269,7 @@ const TaskComments = ({ taskId, members }: { taskId: string; members: OrgMember[
 
 /* ─── Sortable Task (list view) ─── */
 const SortableTask = ({
-  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription,
+  task, members, onToggle, onDelete, onPriorityChange, onDueDateChange, onAssign, onStatusChange, onUpdateTitle, onUpdateDescription, onTagsChange,
 }: {
   task: TaskItem;
   members: OrgMember[];
@@ -222,9 +281,11 @@ const SortableTask = ({
   onStatusChange: (id: string, status: TaskStatus) => void;
   onUpdateTitle: (id: string, title: string) => void;
   onUpdateDescription: (id: string, description: string | null) => void;
+  onTagsChange: (id: string, tags: string[]) => void;
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [showTags, setShowTags] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [showDescription, setShowDescription] = useState(false);
@@ -285,6 +346,12 @@ const SortableTask = ({
         )}
 
         <DueDateLabel dueDate={task.due_date} />
+        {(task.tags || []).length > 0 && (
+          <div className="flex items-center gap-0.5 shrink-0">
+            {(task.tags || []).slice(0, 3).map(tag => <TagBadge key={tag} tag={tag} />)}
+            {(task.tags || []).length > 3 && <span className="text-[8px] text-muted-foreground">+{(task.tags || []).length - 3}</span>}
+          </div>
+        )}
         {assignedMember && <MemberAvatar member={assignedMember} />}
 
         {/* Status selector */}
@@ -301,7 +368,22 @@ const SortableTask = ({
           </SelectContent>
         </Select>
 
-        {/* Description toggle */}
+        {/* Tags toggle */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost" size="icon"
+              className={cn("h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity", (task.tags || []).length > 0 && "opacity-60")}
+              title="Tags"
+            >
+              <Tag className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-52 p-2" align="end">
+            <TagEditor tags={task.tags || []} onUpdate={(tags) => onTagsChange(task.id, tags)} />
+          </PopoverContent>
+        </Popover>
+
         <Button
           variant="ghost" size="icon"
           className={cn("h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity", task.description && "opacity-60")}
@@ -489,6 +571,13 @@ const DraggableKanbanCard = ({
         </Button>
       </div>
 
+      {/* Tags */}
+      {(task.tags || []).length > 0 && (
+        <div className="flex flex-wrap gap-0.5 pl-4">
+          {(task.tags || []).map(tag => <TagBadge key={tag} tag={tag} />)}
+        </div>
+      )}
+
       {task.description && !showDescription && (
         <p
           className="text-[10px] text-muted-foreground truncate pl-4 cursor-pointer"
@@ -498,7 +587,6 @@ const DraggableKanbanCard = ({
           {task.description}
         </p>
       )}
-
       <div className="flex items-center gap-1.5 flex-wrap">
         <DueDateLabel dueDate={task.due_date} />
         {assignedMember && <MemberAvatar member={assignedMember} />}
@@ -703,7 +791,7 @@ const QuickTasksWidget = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string; title?: string; description?: string | null }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; priority?: string; position?: number; due_date?: string | null; assigned_to?: string | null; status?: string; title?: string; description?: string | null; tags?: string[] }) => {
       const payload: any = { ...updates };
       if (updates.status === "done") payload.done = true;
       else if (updates.status) payload.done = false;
@@ -1009,6 +1097,7 @@ const QuickTasksWidget = () => {
                       onStatusChange={handleStatusChange}
                       onUpdateTitle={(id, title) => updateTask.mutate({ id, title })}
                       onUpdateDescription={(id, description) => updateTask.mutate({ id, description })}
+                      onTagsChange={(id, tags) => updateTask.mutate({ id, tags })}
                     />
                   ))}
                 </div>
