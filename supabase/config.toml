@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.send-signed-contract]
 verify_jwt = false
+
+[functions.movement-notifications]
+verify_jwt = false
