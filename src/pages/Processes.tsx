@@ -66,6 +66,7 @@ const Processes = () => {
   const [form, setForm] = useState<ProcessForm>(emptyForm);
   const [selectedProcess, setSelectedProcess] = useState<any>(null);
   const [dashboardFilter, setDashboardFilter] = useState<string | null>(null);
+  const [formTouched, setFormTouched] = useState(false);
 
   // Fetch org members for responsible selector
   const { data: orgMembers = [] } = useQuery({
@@ -220,7 +221,7 @@ const Processes = () => {
       queryClient.invalidateQueries({ queryKey: ["processes"] });
       queryClient.invalidateQueries({ queryKey: ["processes-summary"] });
       queryClient.invalidateQueries({ queryKey: ["processes-stats"] });
-      setDialogOpen(false); setEditingId(null); setForm(emptyForm);
+      setDialogOpen(false); setEditingId(null); setForm(emptyForm); setFormTouched(false);
       toast.success(editingId ? "Processo atualizado!" : "Processo criado!");
     },
     onError: (e: any) => toast.error(e.message),
@@ -247,6 +248,7 @@ const Processes = () => {
       description: p.description || "", tags: (p.tags || []).join(", "),
       responsible_id: p.responsible_id || "none",
     });
+    setFormTouched(false);
     setDialogOpen(true);
   };
 
@@ -261,7 +263,7 @@ const Processes = () => {
           <h1 className="text-display-lg">Processos</h1>
           <p className="text-body-sm text-muted-foreground mt-1">Gerencie todos os seus processos judiciais</p>
         </div>
-        <Button variant="hero" onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
+        <Button variant="hero" onClick={() => { setEditingId(null); setForm(emptyForm); setFormTouched(false); setDialogOpen(true); }}>
           <Plus className="h-4 w-4" /> Novo Processo
         </Button>
       </motion.div>
@@ -342,7 +344,7 @@ const Processes = () => {
             <div className="py-16 text-center">
               <Scale className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
               <p className="text-body-sm text-muted-foreground mb-3">Nenhum processo encontrado.</p>
-              <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
+              <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setForm(emptyForm); setFormTouched(false); setDialogOpen(true); }}>
                 Criar primeiro processo
               </Button>
             </div>
@@ -454,11 +456,31 @@ const Processes = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl bg-card border-border">
           <DialogHeader><DialogTitle className="text-display-sm">{editingId ? "Editar Processo" : "Novo Processo"}</DialogTitle></DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-4">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            setFormTouched(true);
+            if (!form.number.trim() || !form.client_name.trim() || !form.title.trim()) {
+              toast.error("Preencha todos os campos obrigatórios.");
+              return;
+            }
+            saveMutation.mutate(form);
+          }} className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Número</label><Input className="bg-muted border-border rounded-xl" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="0000000-00.0000.0.00.0000" required /></div>
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Cliente</label><Input className="bg-muted border-border rounded-xl" value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} required /></div>
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Título</label><Input className="bg-muted border-border rounded-xl" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Número <span className="text-destructive">*</span></label>
+                <Input className={`bg-muted border-border rounded-xl ${formTouched && !form.number.trim() ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="0000000-00.0000.0.00.0000" />
+                {formTouched && !form.number.trim() && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Cliente <span className="text-destructive">*</span></label>
+                <Input className={`bg-muted border-border rounded-xl ${formTouched && !form.client_name.trim() ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
+                {formTouched && !form.client_name.trim() && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Título <span className="text-destructive">*</span></label>
+                <Input className={`bg-muted border-border rounded-xl ${formTouched && !form.title.trim() ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                {formTouched && !form.title.trim() && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="text-overline text-muted-foreground block mb-1.5">Descrição</label><Textarea className="bg-muted border-border rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do processo..." /></div>
