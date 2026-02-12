@@ -1023,6 +1023,57 @@ const Financial = () => {
               )}
             </LexCard>
           </div>
+
+          {/* Default Rate Evolution */}
+          <LexCard hover={false}>
+            <LexCardHeader>
+              <LexCardTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /> Evolução da Inadimplência (12 meses)</LexCardTitle>
+            </LexCardHeader>
+            {defaultRateByMonth.some(m => m.faturado > 0) ? (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={defaultRateByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(228, 12%, 18%)" />
+                    <XAxis dataKey="name" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} />
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }}
+                      tickFormatter={(v) => `${v}%`}
+                      domain={[0, 'auto']}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }}
+                      tickFormatter={(v) => `R$${v.toLocaleString("pt-BR")}`}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: "hsl(228, 16%, 12%)", border: "1px solid hsl(228, 12%, 18%)", borderRadius: 8, color: "hsl(210, 20%, 95%)" }}
+                      formatter={(value: number, name: string) => {
+                        if (name === "inadimplencia") return [`${value.toFixed(1)}%`, "Taxa de Inadimplência"];
+                        if (name === "vencido") return [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Valor Vencido"];
+                        return [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Total Faturado"];
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ fontSize: 11, color: "hsl(220, 10%, 55%)" }}
+                      formatter={(value: string) => {
+                        const labels: Record<string, string> = { inadimplencia: "Inadimplência (%)", vencido: "Valor Vencido (R$)", faturado: "Total Faturado (R$)" };
+                        return labels[value] || value;
+                      }}
+                    />
+                    <Line yAxisId="left" type="monotone" dataKey="inadimplencia" stroke="hsl(0, 85%, 55%)" strokeWidth={2.5} dot={{ r: 4, fill: "hsl(0, 85%, 55%)" }} activeDot={{ r: 6 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="vencido" stroke="hsl(40, 95%, 55%)" strokeWidth={1.5} strokeDasharray="5 5" dot={{ r: 3 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="faturado" stroke="hsl(192, 95%, 55%)" strokeWidth={1.5} strokeDasharray="3 3" dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-72 flex items-center justify-center">
+                <p className="text-body-sm text-muted-foreground">Sem dados suficientes para exibir a evolução.</p>
+              </div>
+            )}
+          </LexCard>
         </TabsContent>
       </Tabs>
 
