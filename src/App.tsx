@@ -33,6 +33,9 @@ import DocumentTemplates from "./pages/DocumentTemplates";
 import LegalReferences from "./pages/LegalReferences";
 import CourtIntegrations from "./pages/CourtIntegrations";
 import Automations from "./pages/Automations";
+import Contracts from "./pages/Contracts";
+import Teams from "./pages/Teams";
+import Metrics from "./pages/Metrics";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -68,6 +71,9 @@ const App = () => (
               <Route path="/legal-references" element={<LegalReferences />} />
               <Route path="/court-integrations" element={<CourtIntegrations />} />
               <Route path="/automations" element={<Automations />} />
+              <Route path="/contracts" element={<Contracts />} />
+              <Route path="/teams" element={<Teams />} />
+              <Route path="/metrics" element={<Metrics />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
