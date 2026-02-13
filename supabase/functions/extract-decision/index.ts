@@ -253,7 +253,55 @@ Regras de prazos:
       user_id: user.id,
     });
 
-    return new Response(JSON.stringify(extraction), {
+    // RF-041: Auto-create deadlines for high-confidence extractions
+    const createdDeadlines: string[] = [];
+    if (Array.isArray(extraction.deadlines) && extraction.deadlines.length > 0 && extraction.confidence >= 0.8) {
+      // Get the extraction record id
+      const lookupQuery = event_id
+        ? supabaseAdmin.from("decision_extractions").select("id").eq("process_id", process_id).eq("event_id", event_id).maybeSingle()
+        : supabaseAdmin.from("decision_extractions").select("id").eq("process_id", process_id).is("event_id", null).maybeSingle();
+      const { data: extractionRecord } = await lookupQuery;
+
+      for (const dl of extraction.deadlines) {
+        if (!dl.days || dl.days <= 0) continue;
+
+        // Calculate due date from now
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + dl.days);
+        const dueDateStr = dueDate.toISOString().split("T")[0];
+
+        // Priority based on days
+        let priority = "low";
+        if (dl.days <= 3) priority = "critical";
+        else if (dl.days <= 7) priority = "high";
+        else if (dl.days <= 15) priority = "medium";
+
+        const typeLabels: Record<string, string> = {
+          manifestacao: "Manifestação",
+          recurso: "Recurso",
+          pagamento: "Pagamento",
+          cumprimento: "Cumprimento",
+          outro: "Outro",
+        };
+        const typeLabel = typeLabels[dl.type] || dl.type || "Prazo";
+
+        const { data: newDeadline } = await supabaseAdmin.from("deadlines").insert({
+          process_id,
+          organization_id: orgId,
+          user_id: user.id,
+          title: `${typeLabel} — ${dl.days} dias`,
+          description: dl.description || `Prazo extraído automaticamente da decisão (confiança ${Math.round(extraction.confidence * 100)}%).`,
+          due_date: dueDateStr,
+          priority,
+          status: "pending",
+          extraction_id: extractionRecord?.id || null,
+        }).select("id").maybeSingle();
+
+        if (newDeadline) createdDeadlines.push(newDeadline.id);
+      }
+    }
+
+    return new Response(JSON.stringify({ ...extraction, created_deadlines: createdDeadlines }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

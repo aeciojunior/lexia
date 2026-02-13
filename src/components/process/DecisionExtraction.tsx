@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import {
   Loader2, FileSearch, RefreshCcw, Edit, History, AlertTriangle,
   CheckCircle2, XCircle, MinusCircle, Gavel, Clock, Scale, BookOpen,
-  FileText, Plus, Trash2,
+  FileText, Plus, Trash2, CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -99,6 +99,60 @@ const DecisionExtraction = ({ processId, organizationId }: { processId: string; 
       return (data as any[]) || [];
     },
     enabled: showHistory,
+  });
+
+  // RF-041: Query linked deadlines
+  const { data: linkedDeadlines = [] } = useQuery({
+    queryKey: ["linked-deadlines", extraction?.id],
+    queryFn: async () => {
+      if (!extraction?.id) return [];
+      const { data, error } = await (supabase
+        .from("deadlines") as any)
+        .select("id, title, due_date, priority, status")
+        .eq("extraction_id", extraction.id)
+        .order("due_date", { ascending: true });
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+    enabled: !!extraction?.id,
+  });
+
+  // RF-041: Mutation to create deadlines from extracted data
+  const createDeadlinesMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !extraction || deadlines.length === 0) throw new Error("Sem prazos para criar.");
+      const results = [];
+      for (const dl of deadlines) {
+        if (!dl.days || dl.days <= 0) continue;
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + dl.days);
+        const dueDateStr = dueDate.toISOString().split("T")[0];
+        let priority = "low";
+        if (dl.days <= 3) priority = "critical";
+        else if (dl.days <= 7) priority = "high";
+        else if (dl.days <= 15) priority = "medium";
+        const typeLabel = DEADLINE_TYPE_LABELS[dl.type] || dl.type || "Prazo";
+        const { error } = await supabase.from("deadlines").insert({
+          process_id: processId,
+          organization_id: organizationId,
+          user_id: user.id,
+          title: `${typeLabel} — ${dl.days} dias`,
+          description: dl.description || `Prazo extraído da decisão (confiança ${Math.round((extraction.confidence || 0) * 100)}%).`,
+          due_date: dueDateStr,
+          priority,
+          status: "pending",
+          extraction_id: extraction.id,
+        } as any);
+        if (error) throw error;
+        results.push(dl);
+      }
+      return results;
+    },
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["linked-deadlines", extraction?.id] });
+      toast.success(`${r.length} prazo(s) criado(s) com sucesso!`);
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao criar prazos."),
   });
 
   const extractMutation = useMutation({
@@ -297,7 +351,23 @@ const DecisionExtraction = ({ processId, organizationId }: { processId: string; 
           {/* Deadlines */}
           {deadlines.length > 0 && (
             <div className="rounded-lg bg-muted/30 border border-border p-3">
-              <span className="text-[10px] text-muted-foreground block mb-1.5">Prazos ({deadlines.length})</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] text-muted-foreground">Prazos ({deadlines.length})</span>
+                {canEdit && (
+                  <Button
+                    variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 gap-1"
+                    onClick={() => createDeadlinesMutation.mutate()}
+                    disabled={createDeadlinesMutation.isPending}
+                  >
+                    {createDeadlinesMutation.isPending ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    ) : (
+                      <CalendarClock className="h-2.5 w-2.5" />
+                    )}
+                    Criar prazos
+                  </Button>
+                )}
+              </div>
               <div className="space-y-1.5">
                 {deadlines.map((d: any, i: number) => (
                   <div key={i} className="flex items-center gap-2">
@@ -308,6 +378,19 @@ const DecisionExtraction = ({ processId, organizationId }: { processId: string; 
                   </div>
                 ))}
               </div>
+              {linkedDeadlines.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <span className="text-[9px] text-muted-foreground block mb-1">Prazos criados ({linkedDeadlines.length})</span>
+                  {linkedDeadlines.map((ld: any) => (
+                    <div key={ld.id} className="flex items-center gap-2 text-[10px]">
+                      <CheckCircle2 className="h-2.5 w-2.5 text-primary shrink-0" />
+                      <span className="text-foreground">{ld.title}</span>
+                      <span className="text-muted-foreground">— {new Date(ld.due_date).toLocaleDateString("pt-BR")}</span>
+                      <Badge variant="outline" className="text-[8px] h-3.5 px-1">{ld.priority === "critical" ? "Crítica" : ld.priority === "high" ? "Alta" : ld.priority === "medium" ? "Média" : "Baixa"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

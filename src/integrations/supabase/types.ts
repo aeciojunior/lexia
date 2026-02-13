@@ -1411,6 +1411,7 @@ export type Database = {
           description: string | null
           due_date: string
           due_time: string | null
+          extraction_id: string | null
           id: string
           notified: boolean
           organization_id: string | null
@@ -1426,6 +1427,7 @@ export type Database = {
           description?: string | null
           due_date: string
           due_time?: string | null
+          extraction_id?: string | null
           id?: string
           notified?: boolean
           organization_id?: string | null
@@ -1441,6 +1443,7 @@ export type Database = {
           description?: string | null
           due_date?: string
           due_time?: string | null
+          extraction_id?: string | null
           id?: string
           notified?: boolean
           organization_id?: string | null
@@ -1452,6 +1455,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "deadlines_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "decision_extractions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deadlines_organization_id_fkey"
             columns: ["organization_id"]
