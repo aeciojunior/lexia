@@ -1419,6 +1419,125 @@ export type Database = {
           },
         ]
       }
+      integration_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          integration_id: string
+          organization_id: string
+          records_synced: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id: string
+          organization_id: string
+          records_synced?: number | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id?: string
+          organization_id?: string
+          records_synced?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          category: string
+          config: Json | null
+          created_at: string
+          created_by: string
+          credentials_encrypted: Json | null
+          field_mapping: Json | null
+          id: string
+          last_sync_at: string | null
+          name: string
+          organization_id: string
+          provider: string
+          status: string
+          sync_frequency: string | null
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          category?: string
+          config?: Json | null
+          created_at?: string
+          created_by: string
+          credentials_encrypted?: Json | null
+          field_mapping?: Json | null
+          id?: string
+          last_sync_at?: string | null
+          name: string
+          organization_id: string
+          provider: string
+          status?: string
+          sync_frequency?: string | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          category?: string
+          config?: Json | null
+          created_at?: string
+          created_by?: string
+          credentials_encrypted?: Json | null
+          field_mapping?: Json | null
+          id?: string
+          last_sync_at?: string | null
+          name?: string
+          organization_id?: string
+          provider?: string
+          status?: string
+          sync_frequency?: string | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount_cents: number
@@ -1543,6 +1662,110 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "legal_references_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_rule_logs: {
+        Row: {
+          channels_used: string[] | null
+          created_at: string
+          error_message: string | null
+          id: string
+          organization_id: string
+          rule_id: string
+          status: string
+          trigger_data: Json | null
+        }
+        Insert: {
+          channels_used?: string[] | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          organization_id: string
+          rule_id: string
+          status?: string
+          trigger_data?: Json | null
+        }
+        Update: {
+          channels_used?: string[] | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          organization_id?: string
+          rule_id?: string
+          status?: string
+          trigger_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_rule_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_rule_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "notification_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_rules: {
+        Row: {
+          actions: Json | null
+          channels: string[] | null
+          conditions: Json | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          template: string | null
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json | null
+          channels?: string[] | null
+          conditions?: Json | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          template?: string | null
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json | null
+          channels?: string[] | null
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          template?: string | null
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_rules_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1730,6 +1953,65 @@ export type Database = {
           },
           {
             foreignKeyName: "payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      predictions: {
+        Row: {
+          ai_explanation: string | null
+          confidence_score: number | null
+          created_at: string
+          generated_at: string | null
+          id: string
+          input_data: Json | null
+          organization_id: string
+          prediction_type: string
+          result: Json | null
+          status: string
+          target_id: string | null
+          target_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_explanation?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          input_data?: Json | null
+          organization_id: string
+          prediction_type?: string
+          result?: Json | null
+          status?: string
+          target_id?: string | null
+          target_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_explanation?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          input_data?: Json | null
+          organization_id?: string
+          prediction_type?: string
+          result?: Json | null
+          status?: string
+          target_id?: string | null
+          target_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "predictions_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
