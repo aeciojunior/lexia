@@ -22,15 +22,31 @@ const plans = [
     period: "/mês",
     description: "Para advogados individuais começando",
     features: [
-      { label: "Até 25 processos", included: true },
-      { label: "Até 100 documentos", included: true },
-      { label: "Até 3 membros", included: true },
+      { label: "1 usuário", included: true },
+      { label: "10 processos", included: true },
+      { label: "1 GB armazenamento", included: true },
       { label: "IA básica", included: true },
       { label: "IA avançada", included: false },
       { label: "Agentes de IA", included: false },
       { label: "Automações", included: false },
-      { label: "Módulo financeiro", included: false },
-      { label: "Logs de auditoria", included: false },
+      { label: "Integrações", included: false },
+    ],
+  },
+  {
+    id: "trial" as const,
+    icon: Crown,
+    price: "R$ 0",
+    period: "/ 14 dias",
+    description: "Experimente todos os recursos gratuitamente",
+    features: [
+      { label: "5 usuários", included: true },
+      { label: "50 processos", included: true },
+      { label: "5 GB armazenamento", included: true },
+      { label: "IA completa", included: true },
+      { label: "Automações", included: true },
+      { label: "Integrações", included: true },
+      { label: "Módulo financeiro", included: true },
+      { label: "Agentes de IA", included: false },
     ],
   },
   {
@@ -41,15 +57,14 @@ const plans = [
     description: "Para escritórios em crescimento",
     popular: true,
     features: [
-      { label: "Até 500 processos", included: true },
-      { label: "Até 5.000 documentos", included: true },
-      { label: "Até 20 membros", included: true },
-      { label: "IA básica + avançada", included: true },
-      { label: "Agentes de IA", included: true },
-      { label: "Automações", included: true },
+      { label: "20 usuários", included: true },
+      { label: "500 processos", included: true },
+      { label: "50 GB armazenamento", included: true },
+      { label: "IA completa + Agentes", included: true },
+      { label: "Automações ilimitadas", included: true },
+      { label: "Integrações completas", included: true },
       { label: "Módulo financeiro", included: true },
-      { label: "Logs de auditoria", included: true },
-      { label: "Branding personalizado", included: false },
+      { label: "Assinatura digital", included: true },
     ],
   },
   {
@@ -59,15 +74,14 @@ const plans = [
     period: "",
     description: "Para grandes escritórios e departamentos jurídicos",
     features: [
-      { label: "Processos ilimitados", included: true },
-      { label: "Documentos ilimitados", included: true },
-      { label: "Membros ilimitados", included: true },
-      { label: "IA completa", included: true },
-      { label: "Agentes de IA ilimitados", included: true },
+      { label: "Tudo ilimitado", included: true },
+      { label: "IA avançada + preditiva", included: true },
+      { label: "Agentes ilimitados", included: true },
       { label: "Automações ilimitadas", included: true },
-      { label: "Módulo financeiro completo", included: true },
-      { label: "Logs de auditoria", included: true },
+      { label: "Integrações ilimitadas", included: true },
+      { label: "Assinatura digital ilimitada", included: true },
       { label: "Branding personalizado", included: true },
+      { label: "SLA dedicado", included: true },
     ],
   },
 ];
@@ -75,7 +89,7 @@ const plans = [
 const Settings = () => {
   const { activeOrgId } = useOrganization();
   const { hasPermission } = usePermissions();
-  const { plan: currentPlan, limits, isLoading } = usePlanLimits();
+  const { plan: currentPlan, limits, isLoading, isTrial, trialDaysLeft, isTrialExpired } = usePlanLimits();
   const navigate = useNavigate();
 
   const { data: org } = useQuery({
@@ -133,10 +147,24 @@ const Settings = () => {
             <LexCardTitle className="flex items-center gap-2">
               <Crown className="h-5 w-5 text-primary" /> Plano Atual
             </LexCardTitle>
-            <LexBadge variant={currentPlan === "enterprise" ? "ai" : currentPlan === "pro" ? "success" : "default"}>
+            <LexBadge variant={currentPlan === "enterprise" ? "ai" : currentPlan === "pro" ? "success" : currentPlan === "trial" ? "warning" : "default"}>
               {PLAN_LABELS[currentPlan]}
             </LexBadge>
           </LexCardHeader>
+          {isTrial && trialDaysLeft !== null && (
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 mb-4">
+              <p className="text-body-sm text-warning font-medium">
+                ⏳ Seu trial expira em <strong>{trialDaysLeft} dias</strong>. Faça upgrade para não perder acesso aos recursos.
+              </p>
+            </div>
+          )}
+          {isTrialExpired && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 mb-4">
+              <p className="text-body-sm text-destructive font-medium">
+                Seu trial expirou. Faça upgrade para restaurar o acesso completo.
+              </p>
+            </div>
+          )}
           <p className="text-body-sm text-muted-foreground mb-4">
             {org?.name || "Sua organização"} está no plano <strong>{PLAN_LABELS[currentPlan]}</strong>.
           </p>
