@@ -453,6 +453,119 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_history: {
+        Row: {
+          action: string
+          asset_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          asset_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          asset_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_history_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          acquired_at: string | null
+          asset_type: string
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          location: string | null
+          metadata: Json | null
+          name: string
+          organization_id: string
+          responsible_id: string | null
+          status: string
+          tags: string[] | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          acquired_at?: string | null
+          asset_type?: string
+          category?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json | null
+          name: string
+          organization_id: string
+          responsible_id?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          acquired_at?: string | null
+          asset_type?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json | null
+          name?: string
+          organization_id?: string
+          responsible_id?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -638,6 +751,152 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "chat_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_configs: {
+        Row: {
+          can_open_tickets: boolean
+          can_query_processes: boolean
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          legal_areas: string[] | null
+          name: string
+          organization_id: string
+          system_prompt: string | null
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          can_open_tickets?: boolean
+          can_query_processes?: boolean
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          legal_areas?: string[] | null
+          name?: string
+          organization_id: string
+          system_prompt?: string | null
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          can_open_tickets?: boolean
+          can_query_processes?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          legal_areas?: string[] | null
+          name?: string
+          organization_id?: string
+          system_prompt?: string | null
+          tone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_conversations: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          status: string
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_conversations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          role?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_messages_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -4166,6 +4425,143 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "vault_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_contracts: {
+        Row: {
+          amount_cents: number
+          auto_renew: boolean
+          created_at: string
+          created_by: string
+          currency: string
+          description: string | null
+          end_date: string | null
+          file_url: string | null
+          id: string
+          organization_id: string
+          renewal_date: string | null
+          start_date: string | null
+          status: string
+          title: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          amount_cents?: number
+          auto_renew?: boolean
+          created_at?: string
+          created_by: string
+          currency?: string
+          description?: string | null
+          end_date?: string | null
+          file_url?: string | null
+          id?: string
+          organization_id: string
+          renewal_date?: string | null
+          start_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          amount_cents?: number
+          auto_renew?: boolean
+          created_at?: string
+          created_by?: string
+          currency?: string
+          description?: string | null
+          end_date?: string | null
+          file_url?: string | null
+          id?: string
+          organization_id?: string
+          renewal_date?: string | null
+          start_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_contracts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          business_area: string | null
+          cnpj: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          organization_id: string
+          phone: string | null
+          rating: number | null
+          responsible_id: string | null
+          sla_terms: string | null
+          status: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          business_area?: string | null
+          cnpj?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          organization_id: string
+          phone?: string | null
+          rating?: number | null
+          responsible_id?: string | null
+          sla_terms?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          business_area?: string | null
+          cnpj?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          phone?: string | null
+          rating?: number | null
+          responsible_id?: string | null
+          sla_terms?: string | null
+          status?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

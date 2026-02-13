@@ -85,7 +85,13 @@ export type Permission =
   | "MANAGE_GOVERNANCE"
   | "VIEW_GOVERNANCE"
   | "MANAGE_VAULT"
-  | "VIEW_VAULT";
+  | "VIEW_VAULT"
+  | "MANAGE_ASSETS"
+  | "VIEW_ASSETS"
+  | "MANAGE_VENDORS"
+  | "VIEW_VENDORS"
+  | "MANAGE_CHATBOTS"
+  | "USE_CHATBOT";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
@@ -131,6 +137,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_OKRS", "VIEW_OKRS",
     "MANAGE_GOVERNANCE", "VIEW_GOVERNANCE",
     "MANAGE_VAULT", "VIEW_VAULT",
+    "MANAGE_ASSETS", "VIEW_ASSETS",
+    "MANAGE_VENDORS", "VIEW_VENDORS",
+    "MANAGE_CHATBOTS", "USE_CHATBOT",
   ],
   admin: [
     "MANAGE_USERS", "VIEW_USERS",
@@ -172,6 +181,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_OKRS", "VIEW_OKRS",
     "MANAGE_GOVERNANCE", "VIEW_GOVERNANCE",
     "MANAGE_VAULT", "VIEW_VAULT",
+    "MANAGE_ASSETS", "VIEW_ASSETS",
+    "MANAGE_VENDORS", "VIEW_VENDORS",
+    "MANAGE_CHATBOTS", "USE_CHATBOT",
   ],
   user: [
     "MANAGE_PROCESSES", "VIEW_PROCESSES",
@@ -203,6 +215,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_AI_REPORTS",
     "VIEW_OKRS",
     "VIEW_GOVERNANCE",
+    "VIEW_ASSETS",
+    "VIEW_VENDORS",
+    "USE_CHATBOT",
   ],
   intern: [
     "VIEW_PROCESSES",
@@ -230,6 +245,8 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_AI_REPORTS",
     "VIEW_OKRS",
     "VIEW_GOVERNANCE",
+    "VIEW_ASSETS",
+    "USE_CHATBOT",
   ],
   client: [
     "VIEW_PROCESSES",
@@ -239,6 +256,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_CONTRACTS",
     "VIEW_AGENDA",
     "CREATE_TICKETS", "VIEW_TICKETS",
+    "USE_CHATBOT",
   ],
 };
 
