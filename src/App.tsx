@@ -42,6 +42,9 @@ import AITemplates from "./pages/AITemplates";
 import Reports from "./pages/Reports";
 import ACLPermissions from "./pages/ACLPermissions";
 import Compliance from "./pages/Compliance";
+import Integrations from "./pages/Integrations";
+import NotificationRules from "./pages/NotificationRules";
+import Predictions from "./pages/Predictions";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -86,6 +89,9 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/acl" element={<ACLPermissions />} />
               <Route path="/compliance" element={<Compliance />} />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/notification-rules" element={<NotificationRules />} />
+              <Route path="/predictions" element={<Predictions />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
