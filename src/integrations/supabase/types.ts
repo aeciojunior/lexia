@@ -3205,6 +3205,66 @@ export type Database = {
           },
         ]
       }
+      process_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          details: Json | null
+          event_date: string
+          event_type: string
+          id: string
+          organization_id: string
+          origin: string
+          process_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          details?: Json | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          organization_id: string
+          origin?: string
+          process_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          details?: Json | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          organization_id?: string
+          origin?: string
+          process_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_events_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_movements: {
         Row: {
           created_at: string
