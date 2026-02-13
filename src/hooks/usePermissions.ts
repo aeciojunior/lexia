@@ -61,7 +61,12 @@ export type Permission =
   | "VIEW_TICKETS"
   | "CREATE_TICKETS"
   | "MANAGE_WIKI"
-  | "VIEW_WIKI";
+  | "VIEW_WIKI"
+  | "MANAGE_SLA"
+  | "VIEW_SLA"
+  | "VIEW_AUDIT_ADVANCED"
+  | "MANAGE_RISKS"
+  | "VIEW_RISKS";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
@@ -95,6 +100,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_WORKFLOWS", "VIEW_WORKFLOWS", "EXECUTE_WORKFLOWS",
     "MANAGE_TICKETS", "VIEW_TICKETS", "CREATE_TICKETS",
     "MANAGE_WIKI", "VIEW_WIKI",
+    "MANAGE_SLA", "VIEW_SLA",
+    "VIEW_AUDIT_ADVANCED",
+    "MANAGE_RISKS", "VIEW_RISKS",
   ],
   admin: [
     "MANAGE_USERS", "VIEW_USERS",
@@ -124,6 +132,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_WORKFLOWS", "VIEW_WORKFLOWS", "EXECUTE_WORKFLOWS",
     "MANAGE_TICKETS", "VIEW_TICKETS", "CREATE_TICKETS",
     "MANAGE_WIKI", "VIEW_WIKI",
+    "MANAGE_SLA", "VIEW_SLA",
+    "VIEW_AUDIT_ADVANCED",
+    "MANAGE_RISKS", "VIEW_RISKS",
   ],
   user: [
     "MANAGE_PROCESSES", "VIEW_PROCESSES",
@@ -147,6 +158,8 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_WORKFLOWS", "EXECUTE_WORKFLOWS",
     "VIEW_TICKETS", "CREATE_TICKETS",
     "MANAGE_WIKI", "VIEW_WIKI",
+    "VIEW_SLA",
+    "VIEW_RISKS",
   ],
   intern: [
     "VIEW_PROCESSES",
@@ -169,6 +182,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_WORKFLOWS", "EXECUTE_WORKFLOWS",
     "VIEW_TICKETS", "CREATE_TICKETS",
     "VIEW_WIKI",
+    "VIEW_SLA",
   ],
   client: [
     "VIEW_PROCESSES",

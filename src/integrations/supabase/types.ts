@@ -2562,6 +2562,192 @@ export type Database = {
           },
         ]
       }
+      risks: {
+        Row: {
+          contract_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          impact: string
+          mitigation_plan: string | null
+          organization_id: string
+          probability: string
+          process_id: string | null
+          resolved_at: string | null
+          responsible_id: string | null
+          risk_level: string
+          risk_type: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          impact?: string
+          mitigation_plan?: string | null
+          organization_id: string
+          probability?: string
+          process_id?: string | null
+          resolved_at?: string | null
+          responsible_id?: string | null
+          risk_level?: string
+          risk_type?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          impact?: string
+          mitigation_plan?: string | null
+          organization_id?: string
+          probability?: string
+          process_id?: string | null
+          resolved_at?: string | null
+          responsible_id?: string | null
+          risk_level?: string
+          risk_type?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risks_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risks_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sla_policies: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          max_resolution_hours: number | null
+          max_response_hours: number | null
+          name: string
+          organization_id: string
+          priority_filter: string | null
+          resource_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_resolution_hours?: number | null
+          max_response_hours?: number | null
+          name: string
+          organization_id: string
+          priority_filter?: string | null
+          resource_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_resolution_hours?: number | null
+          max_response_hours?: number | null
+          name?: string
+          organization_id?: string
+          priority_filter?: string | null
+          resource_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_policies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sla_violations: {
+        Row: {
+          created_at: string
+          exceeded_by_hours: number | null
+          id: string
+          organization_id: string
+          resolved_at: string | null
+          resource_id: string
+          resource_type: string
+          sla_policy_id: string
+          violation_type: string
+        }
+        Insert: {
+          created_at?: string
+          exceeded_by_hours?: number | null
+          id?: string
+          organization_id: string
+          resolved_at?: string | null
+          resource_id: string
+          resource_type: string
+          sla_policy_id: string
+          violation_type?: string
+        }
+        Update: {
+          created_at?: string
+          exceeded_by_hours?: number | null
+          id?: string
+          organization_id?: string
+          resolved_at?: string | null
+          resource_id?: string
+          resource_type?: string
+          sla_policy_id?: string
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_violations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sla_violations_sla_policy_id_fkey"
+            columns: ["sla_policy_id"]
+            isOneToOne: false
+            referencedRelation: "sla_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           created_at: string

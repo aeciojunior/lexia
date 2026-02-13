@@ -48,6 +48,9 @@ import Predictions from "./pages/Predictions";
 import Workflows from "./pages/Workflows";
 import Tickets from "./pages/Tickets";
 import Wiki from "./pages/Wiki";
+import SLA from "./pages/SLA";
+import AuditLogs from "./pages/AuditLogs";
+import Risks from "./pages/Risks";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -98,6 +101,9 @@ const App = () => (
               <Route path="/workflows" element={<Workflows />} />
               <Route path="/tickets" element={<Tickets />} />
               <Route path="/wiki" element={<Wiki />} />
+              <Route path="/sla" element={<SLA />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/risks" element={<Risks />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
