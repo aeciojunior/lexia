@@ -601,6 +601,59 @@ export type Database = {
           },
         ]
       }
+      communication_templates: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          variables: string[] | null
+          version: number
+        }
+        Insert: {
+          channel?: string
+          content?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          variables?: string[] | null
+          version?: number
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          variables?: string[] | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_consents: {
         Row: {
           client_id: string | null
@@ -2640,6 +2693,91 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_requests: {
+        Row: {
+          canceled_at: string | null
+          completed_at: string | null
+          contract_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          document_id: string | null
+          external_key: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          provider: string
+          reminder_sent_at: string | null
+          signers: Json
+          signing_order: boolean
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          completed_at?: string | null
+          contract_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          document_id?: string | null
+          external_key?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          provider?: string
+          reminder_sent_at?: string | null
+          signers?: Json
+          signing_order?: boolean
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          completed_at?: string | null
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          document_id?: string | null
+          external_key?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          provider?: string
+          reminder_sent_at?: string | null
+          signers?: Json
+          signing_order?: boolean
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_requests_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
