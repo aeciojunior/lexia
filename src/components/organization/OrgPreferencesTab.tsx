@@ -8,14 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Settings, Save, Globe, Brain, Bell } from "lucide-react";
+import { Save, Globe, Brain, Bell, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
   activeOrgId: string;
   isOwnerOrAdmin: boolean;
 }
+
+const NOTIFICATION_EVENT_LABELS: Record<string, string> = {
+  deadlines: "Prazos",
+  movements: "Movimentações",
+  hearings: "Audiências",
+  invoices: "Faturas",
+  contracts: "Contratos",
+  security: "Segurança (obrigatório)",
+  invites: "Convites",
+};
 
 export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
   const { user } = useAuth();
@@ -35,14 +44,28 @@ export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
     enabled: !!activeOrgId,
   });
 
+  // Locale
   const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [locale, setLocale] = useState("pt-BR");
   const [currency, setCurrency] = useState("BRL");
   const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
+
+  // AI
   const [aiStyle, setAiStyle] = useState("formal");
   const [aiInstructions, setAiInstructions] = useState("");
+
+  // Notifications
   const [notifInternal, setNotifInternal] = useState(true);
   const [notifExternal, setNotifExternal] = useState(false);
+  const [notifFrequency, setNotifFrequency] = useState("immediate");
+  const [notifEvents, setNotifEvents] = useState<Record<string, boolean>>({
+    deadlines: true, movements: true, hearings: true,
+    invoices: true, contracts: true, security: true, invites: true,
+  });
+
+  // Communication
+  const [senderEmail, setSenderEmail] = useState("");
+  const [emailSignature, setEmailSignature] = useState("");
 
   useEffect(() => {
     if (settings) {
@@ -54,20 +77,34 @@ export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
       setAiInstructions(settings.ai_instructions || "");
       setNotifInternal(settings.notifications_internal ?? true);
       setNotifExternal(settings.notifications_external ?? false);
+      setNotifFrequency(settings.notification_frequency || "immediate");
+      setNotifEvents(settings.notification_events || {
+        deadlines: true, movements: true, hearings: true,
+        invoices: true, contracts: true, security: true, invites: true,
+      });
+      setSenderEmail(settings.sender_email || "");
+      setEmailSignature(settings.email_signature || "");
     }
   }, [settings]);
+
+  const toggleEvent = (key: string) => {
+    if (key === "security") return; // security notifications are mandatory
+    setNotifEvents((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const updateData: any = {
-        timezone,
-        locale,
-        currency,
+        timezone, locale, currency,
         date_format: dateFormat,
         ai_style: aiStyle,
         ai_instructions: aiInstructions || null,
         notifications_internal: notifInternal,
         notifications_external: notifExternal,
+        notification_frequency: notifFrequency,
+        notification_events: { ...notifEvents, security: true },
+        sender_email: senderEmail || null,
+        email_signature: emailSignature || null,
       };
 
       if (settings) {
@@ -97,7 +134,7 @@ export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["org-settings-detail"] });
-      toast.success("Preferências atualizadas!");
+      toast.success("Configurações gerais atualizadas!");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -116,7 +153,7 @@ export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
             <div>
-              <label className="text-overline text-muted-foreground block mb-1.5">Idioma</label>
+              <label className="text-overline text-muted-foreground block mb-1.5">Idioma padrão</label>
               <Select value={locale} onValueChange={setLocale} disabled={!isOwnerOrAdmin}>
                 <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -125,6 +162,7 @@ export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
                   <SelectItem value="es-ES">Español</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-caption text-muted-foreground mt-1">Aplicado a novos usuários automaticamente</p>
             </div>
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Timezone</label>
@@ -206,27 +244,93 @@ export const OrgPreferencesTab = ({ activeOrgId, isOwnerOrAdmin }: Props) => {
             <Bell className="h-5 w-5 text-primary" /> Notificações
           </LexCardTitle>
         </LexCardHeader>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between max-w-md">
-            <div>
-              <p className="text-body-sm font-medium">Notificações internas</p>
-              <p className="text-caption text-muted-foreground">Alertas dentro da plataforma</p>
+        <div className="space-y-5">
+          {/* Channels */}
+          <div className="space-y-3 max-w-md">
+            <p className="text-overline text-muted-foreground">Canais</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-body-sm font-medium">Notificações internas</p>
+                <p className="text-caption text-muted-foreground">Alertas dentro da plataforma</p>
+              </div>
+              <Switch checked={notifInternal} onCheckedChange={setNotifInternal} disabled={!isOwnerOrAdmin} />
             </div>
-            <Switch checked={notifInternal} onCheckedChange={setNotifInternal} disabled={!isOwnerOrAdmin} />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-body-sm font-medium">Notificações externas</p>
+                <p className="text-caption text-muted-foreground">E-mail e WhatsApp</p>
+              </div>
+              <Switch checked={notifExternal} onCheckedChange={setNotifExternal} disabled={!isOwnerOrAdmin} />
+            </div>
           </div>
-          <div className="flex items-center justify-between max-w-md">
-            <div>
-              <p className="text-body-sm font-medium">Notificações externas</p>
-              <p className="text-caption text-muted-foreground">E-mail e WhatsApp</p>
-            </div>
-            <Switch checked={notifExternal} onCheckedChange={setNotifExternal} disabled={!isOwnerOrAdmin} />
+
+          {/* Frequency */}
+          <div className="max-w-md">
+            <label className="text-overline text-muted-foreground block mb-1.5">Frequência</label>
+            <Select value={notifFrequency} onValueChange={setNotifFrequency} disabled={!isOwnerOrAdmin}>
+              <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="immediate">Imediata</SelectItem>
+                <SelectItem value="daily">Resumo diário</SelectItem>
+                <SelectItem value="weekly">Resumo semanal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Events */}
+          <div className="max-w-md space-y-2">
+            <p className="text-overline text-muted-foreground">Eventos que geram notificações</p>
+            {Object.entries(NOTIFICATION_EVENT_LABELS).map(([key, label]) => (
+              <div key={key} className="flex items-center justify-between py-1">
+                <span className="text-body-sm">{label}</span>
+                <Switch
+                  checked={notifEvents[key] ?? true}
+                  onCheckedChange={() => toggleEvent(key)}
+                  disabled={!isOwnerOrAdmin || key === "security"}
+                />
+              </div>
+            ))}
+            <p className="text-caption text-muted-foreground">Notificações de segurança não podem ser desativadas.</p>
+          </div>
+        </div>
+      </LexCard>
+
+      {/* Communication / Sender */}
+      <LexCard hover={false}>
+        <LexCardHeader>
+          <LexCardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" /> Comunicação
+          </LexCardTitle>
+        </LexCardHeader>
+        <div className="space-y-4 max-w-md">
+          <div>
+            <label className="text-overline text-muted-foreground block mb-1.5">E-mail remetente padrão</label>
+            <Input
+              className="bg-muted border-border rounded-xl"
+              value={senderEmail}
+              onChange={(e) => setSenderEmail(e.target.value)}
+              placeholder="no-reply@seuescritorio.com.br"
+              type="email"
+              disabled={!isOwnerOrAdmin}
+            />
+          </div>
+          <div>
+            <label className="text-overline text-muted-foreground block mb-1.5">Assinatura de e-mail</label>
+            <Textarea
+              className="bg-muted border-border rounded-xl"
+              value={emailSignature}
+              onChange={(e) => setEmailSignature(e.target.value)}
+              placeholder="Atenciosamente, Escritório XYZ..."
+              rows={3}
+              disabled={!isOwnerOrAdmin}
+            />
           </div>
         </div>
       </LexCard>
 
       {isOwnerOrAdmin && (
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          <Save className="h-4 w-4" /> {saveMutation.isPending ? "Salvando..." : "Salvar Preferências"}
+          <Save className="h-4 w-4" /> {saveMutation.isPending ? "Salvando..." : "Salvar Configurações"}
         </Button>
       )}
     </div>
