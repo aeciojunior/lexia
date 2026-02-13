@@ -54,6 +54,12 @@ import Risks from "./pages/Risks";
 import Signatures from "./pages/Signatures";
 import FinancialReports from "./pages/FinancialReports";
 import CommunicationTemplates from "./pages/CommunicationTemplates";
+import SecretManager from "./pages/SecretManager";
+import AIReports from "./pages/AIReports";
+import SecurityLogs from "./pages/SecurityLogs";
+import OKRs from "./pages/OKRs";
+import Governance from "./pages/Governance";
+import VaultDocuments from "./pages/VaultDocuments";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -110,6 +116,12 @@ const App = () => (
               <Route path="/signatures" element={<Signatures />} />
               <Route path="/financial-reports" element={<FinancialReports />} />
               <Route path="/communication-templates" element={<CommunicationTemplates />} />
+              <Route path="/secret-manager" element={<SecretManager />} />
+              <Route path="/ai-reports" element={<AIReports />} />
+              <Route path="/security-logs" element={<SecurityLogs />} />
+              <Route path="/okrs" element={<OKRs />} />
+              <Route path="/governance" element={<Governance />} />
+              <Route path="/vault" element={<VaultDocuments />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

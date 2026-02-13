@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.generate-contract-invoices]
 verify_jwt = false
+
+[functions.generate-ai-report]
+verify_jwt = false
+
+[functions.security-anomaly-detection]
+verify_jwt = false
