@@ -2790,35 +2790,162 @@ export type Database = {
           },
         ]
       }
-      organizations: {
+      organization_settings: {
         Row: {
+          ai_instructions: string | null
+          ai_style: string | null
           created_at: string
+          currency: string
+          date_format: string
           id: string
-          logo_url: string | null
-          name: string
-          plan: string
-          tax_id: string | null
+          locale: string
+          notifications_external: boolean
+          notifications_internal: boolean
+          onboarding_completed: boolean
+          onboarding_step: number
+          organization_id: string
+          timezone: string
           updated_at: string
         }
         Insert: {
+          ai_instructions?: string | null
+          ai_style?: string | null
           created_at?: string
+          currency?: string
+          date_format?: string
           id?: string
-          logo_url?: string | null
-          name: string
-          plan?: string
-          tax_id?: string | null
+          locale?: string
+          notifications_external?: boolean
+          notifications_internal?: boolean
+          onboarding_completed?: boolean
+          onboarding_step?: number
+          organization_id: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
+          ai_instructions?: string | null
+          ai_style?: string | null
           created_at?: string
+          currency?: string
+          date_format?: string
           id?: string
+          locale?: string
+          notifications_external?: boolean
+          notifications_internal?: boolean
+          onboarding_completed?: boolean
+          onboarding_step?: number
+          organization_id?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          cancellation_requested_at: string | null
+          created_at: string
+          deleted_at: string | null
+          endereco: string | null
+          id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          logo_url: string | null
+          name: string
+          plan: string
+          razao_social: string | null
+          responsavel_legal_cpf: string | null
+          responsavel_legal_nome: string | null
+          status: string
+          tax_id: string | null
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          cancellation_requested_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          endereco?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          logo_url?: string | null
+          name: string
+          plan?: string
+          razao_social?: string | null
+          responsavel_legal_cpf?: string | null
+          responsavel_legal_nome?: string | null
+          status?: string
+          tax_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cancellation_requested_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          endereco?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
           logo_url?: string | null
           name?: string
           plan?: string
+          razao_social?: string | null
+          responsavel_legal_cpf?: string | null
+          responsavel_legal_nome?: string | null
+          status?: string
           tax_id?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      ownership_transfers: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          id: string
+          organization_id: string
+          responded_at: string | null
+          status: string
+          to_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          id?: string
+          organization_id: string
+          responded_at?: string | null
+          status?: string
+          to_user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          organization_id?: string
+          responded_at?: string | null
+          status?: string
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ownership_transfers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {

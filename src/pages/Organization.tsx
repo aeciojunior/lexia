@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
+import { usePlanLimits, PLAN_LABELS } from "@/hooks/usePlanLimits";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
-  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, Camera, Loader2, UserX, UserCheck,
+  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, Camera, Loader2, UserX, UserCheck, Crown, ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -41,7 +42,10 @@ const Organization = () => {
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferTargetId, setTransferTargetId] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const { plan, trialDaysLeft, isTrial } = usePlanLimits();
 
   // Fetch org details
   const { data: org, isLoading: loadingOrg } = useQuery({
@@ -419,18 +423,42 @@ const Organization = () => {
               <label className="text-overline text-muted-foreground block mb-1.5">CNPJ</label>
               <Input className="bg-muted border-border rounded-xl max-w-md" value={orgTaxId} onChange={(e) => setOrgTaxId(e.target.value)} placeholder="00.000.000/0000-00" disabled={!isOwnerOrAdmin} />
             </div>
-            {isOwnerOrAdmin && (
-              <div className="flex items-center gap-3">
-                <Button onClick={() => updateOrgMutation.mutate()} disabled={updateOrgMutation.isPending}>
-                  <Save className="h-4 w-4" /> {updateOrgMutation.isPending ? "Salvando..." : "Salvar"}
-                </Button>
-                {currentUserRole === "owner" && (
-                  <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
-                    <Trash2 className="h-4 w-4" /> Excluir Organização
-                  </Button>
-                )}
+              <div className="space-y-4">
+                <Separator />
+                <div>
+                  <label className="text-overline text-muted-foreground block mb-1.5">Razão Social</label>
+                  <Input className="bg-muted border-border rounded-xl max-w-md" value={(org as any)?.razao_social || ""} disabled placeholder="Não informado" />
+                </div>
+                <div>
+                  <label className="text-overline text-muted-foreground block mb-1.5">Endereço</label>
+                  <Input className="bg-muted border-border rounded-xl max-w-md" value={(org as any)?.endereco || ""} disabled placeholder="Não informado" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <LexBadge variant={plan === "enterprise" ? "ai" : plan === "pro" ? "success" : plan === "trial" ? "warning" : "default"}>
+                    <Crown className="h-3 w-3" /> {PLAN_LABELS[plan]}
+                  </LexBadge>
+                  {isTrial && trialDaysLeft !== null && (
+                    <span className="text-caption text-warning">{trialDaysLeft} dias restantes</span>
+                  )}
+                </div>
               </div>
-            )}
+              {isOwnerOrAdmin && (
+                <div className="flex items-center gap-3">
+                  <Button onClick={() => updateOrgMutation.mutate()} disabled={updateOrgMutation.isPending}>
+                    <Save className="h-4 w-4" /> {updateOrgMutation.isPending ? "Salvando..." : "Salvar"}
+                  </Button>
+                  {currentUserRole === "owner" && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => setTransferDialogOpen(true)}>
+                        <ArrowRightLeft className="h-4 w-4" /> Transferir Propriedade
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                        <Trash2 className="h-4 w-4" /> Excluir
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
           </div>
         </LexCard>
       </motion.div>
@@ -676,6 +704,73 @@ const Organization = () => {
                 disabled={deleteOrgMutation.isPending || deleteConfirmName !== org?.name}
               >
                 {deleteOrgMutation.isPending ? "Excluindo..." : "Excluir permanentemente"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* RF-020.6: Ownership Transfer Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent className="max-w-sm bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-display-sm">Transferir Propriedade</DialogTitle>
+            <DialogDescription className="text-body-sm text-muted-foreground">
+              Selecione um membro ativo para se tornar o novo proprietário. Você será rebaixado para Admin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+              <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecione o novo Owner" /></SelectTrigger>
+              <SelectContent>
+                {members.filter((m: any) => m.user_id !== user?.id && m.role !== "owner" && m.status !== "disabled").map((m: any) => (
+                  <SelectItem key={m.user_id} value={m.user_id}>
+                    {m.profiles?.full_name || m.user_id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+              <p className="text-caption text-warning font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" /> Esta ação não pode ser revertida facilmente.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>Cancelar</Button>
+              <Button
+                disabled={!transferTargetId}
+                onClick={async () => {
+                  try {
+                    // Insert transfer record
+                    await supabase.from("ownership_transfers").insert({
+                      organization_id: activeOrgId,
+                      from_user_id: user!.id,
+                      to_user_id: transferTargetId,
+                      status: "accepted",
+                      responded_at: new Date().toISOString(),
+                    } as any);
+                    // Update roles
+                    await supabase.from("user_organizations").update({ role: "owner" } as any).eq("organization_id", activeOrgId).eq("user_id", transferTargetId);
+                    await supabase.from("user_organizations").update({ role: "admin" } as any).eq("organization_id", activeOrgId).eq("user_id", user!.id);
+                    // Audit
+                    await supabase.from("audit_logs").insert({
+                      action: "ownership_transferred",
+                      user_id: user!.id,
+                      organization_id: activeOrgId,
+                      resource_type: "organization",
+                      resource_id: activeOrgId,
+                      metadata: { from_user_id: user!.id, to_user_id: transferTargetId },
+                    } as any);
+                    queryClient.invalidateQueries({ queryKey: ["org-members"] });
+                    setTransferDialogOpen(false);
+                    setTransferTargetId("");
+                    toast.success("Propriedade transferida com sucesso!");
+                  } catch (err: any) {
+                    toast.error(err.message || "Erro ao transferir propriedade");
+                  }
+                }}
+              >
+                <ArrowRightLeft className="h-4 w-4" /> Transferir
               </Button>
             </DialogFooter>
           </div>
