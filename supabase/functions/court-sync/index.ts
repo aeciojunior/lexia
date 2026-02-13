@@ -36,7 +36,65 @@ Deno.serve(async (req) => {
     const datajudKey = Deno.env.get("DATAJUD_API_KEY");
 
     const body = await req.json().catch(() => ({}));
-    const { integration_id, sync_all } = body;
+    const { integration_id, sync_all, process_id } = body;
+
+    // If process_id is provided, find or create integration then sync
+    if (process_id && !integration_id && !sync_all) {
+      const { data: existingInteg } = await supabase
+        .from("court_integrations")
+        .select("id")
+        .eq("process_id", process_id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (existingInteg) {
+        const result = await syncIntegration(supabase, existingInteg.id, datajudKey, body);
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // No integration exists — try to auto-create from process data
+      const { data: proc } = await supabase
+        .from("processes")
+        .select("id, number, organization_id, user_id, court")
+        .eq("id", process_id)
+        .single();
+
+      if (!proc?.number) {
+        return new Response(
+          JSON.stringify({ error: "Processo não encontrado ou sem número." }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Detect court system from number
+      const courtSystem = detectCourtSystem(proc.number);
+
+      const { data: newInteg, error: createErr } = await supabase
+        .from("court_integrations")
+        .insert({
+          organization_id: proc.organization_id,
+          process_id: proc.id,
+          court_system: courtSystem,
+          court_process_id: proc.number,
+          status: "active",
+        })
+        .select("id")
+        .single();
+
+      if (createErr) {
+        return new Response(
+          JSON.stringify({ error: "Erro ao criar integração: " + createErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const result = await syncIntegration(supabase, newInteg.id, datajudKey, body);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // If sync_all is true, process all active integrations (called by pg_cron)
     if (sync_all) {
@@ -60,7 +118,7 @@ Deno.serve(async (req) => {
 
       for (const integ of integrations) {
         try {
-          const result = await syncIntegration(supabase, integ.id, datajudKey);
+          const result = await syncIntegration(supabase, integ.id, datajudKey, { source: "cron" });
           totalCreated += result.movements_created;
           synced++;
         } catch (e) {
@@ -83,12 +141,12 @@ Deno.serve(async (req) => {
     // Single integration sync
     if (!integration_id) {
       return new Response(
-        JSON.stringify({ error: "integration_id or sync_all required" }),
+        JSON.stringify({ error: "integration_id, process_id or sync_all required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const result = await syncIntegration(supabase, integration_id, datajudKey);
+    const result = await syncIntegration(supabase, integration_id, datajudKey, body);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,10 +160,35 @@ Deno.serve(async (req) => {
   }
 });
 
+/**
+ * Detect court system based on CNJ process number.
+ */
+function detectCourtSystem(processNumber: string): string {
+  const digits = processNumber.replace(/\D/g, "");
+  if (digits.length < 20) return "pje";
+  // CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO
+  // J = justice segment (position 13, 0-indexed)
+  // TR = tribunal code (positions 14-15)
+  const justiceSegment = digits[13];
+  // 5 = Trabalho (TRT), 4 = Militar, 3 = Eleitoral, 2 = Federal (TRF), 1 = STF, 6 = STJ, 8 = Estadual
+  // For most state courts, check if eproc/esaj/projudi based on the TR code
+  const trCode = digits.substring(14, 16);
+
+  // TRF4 uses eproc
+  if (justiceSegment === "4" || (justiceSegment === "5" && ["04"].includes(trCode))) return "eproc";
+  // TJSP mainly uses esaj
+  if (justiceSegment === "8" && trCode === "26") return "esaj";
+  // TJPR uses projudi
+  if (justiceSegment === "8" && trCode === "16") return "projudi";
+  // Default to PJe
+  return "pje";
+}
+
 async function syncIntegration(
   supabase: any,
   integrationId: string,
-  datajudKey: string | undefined
+  datajudKey: string | undefined,
+  reqBody?: any
 ) {
   const { data: integ, error: integErr } = await supabase
     .from("court_integrations")
@@ -179,6 +262,24 @@ async function syncIntegration(
       last_sync_source: datajudKey ? "datajud" : "none",
     },
   }).eq("id", integrationId);
+
+  // Write import log
+  const logStatus = movements.length === 0 ? "sem_novidades" : (movementsCreated > 0 ? "sucesso" : "sem_novidades");
+  const logMessage = movements.length === 0
+    ? "Nenhuma movimentação nova encontrada."
+    : `${movementsCreated} movimentação(ões) importada(s) de ${movements.length} encontrada(s).`;
+
+  await supabase.from("import_logs").insert({
+    process_id: integ.process_id,
+    organization_id: integ.organization_id,
+    court_system: integ.court_system,
+    tribunal: process?.court || null,
+    status: logStatus,
+    message: logMessage,
+    movements_found: movements.length,
+    movements_created: movementsCreated,
+    source: reqBody?.source || "manual",
+  });
 
   return {
     message: "Sync completed",
