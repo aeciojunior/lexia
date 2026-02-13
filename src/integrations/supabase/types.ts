@@ -1468,6 +1468,158 @@ export type Database = {
           },
         ]
       }
+      decision_extraction_logs: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          deadlines_extracted: Json | null
+          decision_type: string | null
+          dispositivo: string | null
+          event_id: string | null
+          fundamentals: Json | null
+          id: string
+          manual_reason: string | null
+          organization_id: string
+          origin: string
+          process_id: string
+          result: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          deadlines_extracted?: Json | null
+          decision_type?: string | null
+          dispositivo?: string | null
+          event_id?: string | null
+          fundamentals?: Json | null
+          id?: string
+          manual_reason?: string | null
+          organization_id: string
+          origin?: string
+          process_id: string
+          result?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          deadlines_extracted?: Json | null
+          decision_type?: string | null
+          dispositivo?: string | null
+          event_id?: string | null
+          fundamentals?: Json | null
+          id?: string
+          manual_reason?: string | null
+          organization_id?: string
+          origin?: string
+          process_id?: string
+          result?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_extraction_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "process_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_extraction_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_extraction_logs_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_extractions: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          deadlines_extracted: Json | null
+          decision_type: string
+          dispositivo: string | null
+          event_id: string | null
+          extracted_by: string | null
+          fundamentals: Json | null
+          id: string
+          justification: string | null
+          manual_reason: string | null
+          organization_id: string
+          origin: string
+          process_id: string
+          result: string | null
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          deadlines_extracted?: Json | null
+          decision_type?: string
+          dispositivo?: string | null
+          event_id?: string | null
+          extracted_by?: string | null
+          fundamentals?: Json | null
+          id?: string
+          justification?: string | null
+          manual_reason?: string | null
+          organization_id: string
+          origin?: string
+          process_id: string
+          result?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          deadlines_extracted?: Json | null
+          decision_type?: string
+          dispositivo?: string | null
+          event_id?: string | null
+          extracted_by?: string | null
+          fundamentals?: Json | null
+          id?: string
+          justification?: string | null
+          manual_reason?: string | null
+          organization_id?: string
+          origin?: string
+          process_id?: string
+          result?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_extractions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "process_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_extractions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_extractions_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_template_versions: {
         Row: {
           content: string

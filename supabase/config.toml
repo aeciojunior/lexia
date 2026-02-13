@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.classify-process]
 verify_jwt = false
+
+[functions.extract-decision]
+verify_jwt = false
