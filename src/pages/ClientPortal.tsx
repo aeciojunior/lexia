@@ -48,7 +48,10 @@ const ClientPortal = () => {
   const [signContractId, setSignContractId] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const isPreviewMode = !loadingPerms && !isClient;
+  // Redirect non-clients to dashboard
+  if (!loadingPerms && !isClient) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   // Fetch processes (RLS already scopes to org)
   const { data: processes = [], isLoading: loadingProcesses } = useQuery({
@@ -393,16 +396,8 @@ const ClientPortal = () => {
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-5xl">
-      {/* Preview mode banner */}
-      {isPreviewMode && (
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 flex items-center gap-3">
-          <Eye className="h-5 w-5 text-warning shrink-0" />
-          <p className="text-sm text-warning">
-            <span className="font-semibold">Modo Preview</span> — Você está visualizando o portal como um cliente veria. Os dados exibidos são da sua organização.
-          </p>
-        </motion.div>
-      )}
+
+
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
