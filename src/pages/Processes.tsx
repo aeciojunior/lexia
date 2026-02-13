@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import ProcessMovements from "@/components/process/ProcessMovements";
 import ProcessChat from "@/components/process/ProcessChat";
+import ProcessTimeline from "@/components/process/ProcessTimeline";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1466,8 +1467,14 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
       {/* Court Sync */}
       <CourtSyncSection processId={process.id} processNumber={process.number} />
 
+      {/* Linha do Tempo */}
+      <ProcessTimeline processId={process.id} />
+
       {/* Movimentações */}
       <ProcessMovements processId={process.id} />
+
+      {/* Chat */}
+      <ProcessChat processId={process.id} />
 
       {/* Chat */}
       <ProcessChat processId={process.id} />
