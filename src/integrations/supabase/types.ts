@@ -1409,6 +1409,201 @@ export type Database = {
           },
         ]
       }
+      governance_committees: {
+        Row: {
+          chair_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          members: string[] | null
+          name: string
+          organization_id: string
+          purpose: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          chair_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          members?: string[] | null
+          name: string
+          organization_id: string
+          purpose?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          chair_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          members?: string[] | null
+          name?: string
+          organization_id?: string
+          purpose?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_committees_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governance_decisions: {
+        Row: {
+          committee_id: string | null
+          created_at: string
+          created_by: string
+          deadline: string | null
+          decision_type: string
+          description: string | null
+          id: string
+          implementation_notes: string | null
+          meeting_id: string | null
+          organization_id: string
+          priority: string
+          responsible_ids: string[] | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          committee_id?: string | null
+          created_at?: string
+          created_by: string
+          deadline?: string | null
+          decision_type?: string
+          description?: string | null
+          id?: string
+          implementation_notes?: string | null
+          meeting_id?: string | null
+          organization_id: string
+          priority?: string
+          responsible_ids?: string[] | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          committee_id?: string | null
+          created_at?: string
+          created_by?: string
+          deadline?: string | null
+          decision_type?: string
+          description?: string | null
+          id?: string
+          implementation_notes?: string | null
+          meeting_id?: string | null
+          organization_id?: string
+          priority?: string
+          responsible_ids?: string[] | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_decisions_committee_id_fkey"
+            columns: ["committee_id"]
+            isOneToOne: false
+            referencedRelation: "governance_committees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governance_decisions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "governance_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governance_decisions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      governance_meetings: {
+        Row: {
+          attachments: Json | null
+          attendees: string[] | null
+          committee_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          location: string | null
+          meeting_date: string
+          minutes: string | null
+          organization_id: string
+          status: string
+          title: string
+          updated_at: string
+          video_link: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          attendees?: string[] | null
+          committee_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          meeting_date: string
+          minutes?: string | null
+          organization_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          video_link?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          attendees?: string[] | null
+          committee_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          meeting_date?: string
+          minutes?: string | null
+          organization_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          video_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "governance_meetings_committee_id_fkey"
+            columns: ["committee_id"]
+            isOneToOne: false
+            referencedRelation: "governance_committees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "governance_meetings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hearings: {
         Row: {
           created_at: string
@@ -1657,6 +1852,125 @@ export type Database = {
           },
         ]
       }
+      kpi_history: {
+        Row: {
+          id: string
+          kpi_id: string
+          notes: string | null
+          organization_id: string
+          recorded_at: string
+          recorded_by: string | null
+          value: number
+        }
+        Insert: {
+          id?: string
+          kpi_id: string
+          notes?: string | null
+          organization_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+          value: number
+        }
+        Update: {
+          id?: string
+          kpi_id?: string
+          notes?: string | null
+          organization_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_history_kpi_id_fkey"
+            columns: ["kpi_id"]
+            isOneToOne: false
+            referencedRelation: "kpis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kpis: {
+        Row: {
+          alert_threshold_critical: number | null
+          alert_threshold_warning: number | null
+          category: string
+          created_at: string
+          current_value: number
+          data_source: string | null
+          description: string | null
+          frequency: string
+          id: string
+          metadata: Json | null
+          metric_type: string
+          name: string
+          organization_id: string
+          owner_id: string | null
+          status: string
+          target_value: number | null
+          team_id: string | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          alert_threshold_critical?: number | null
+          alert_threshold_warning?: number | null
+          category?: string
+          created_at?: string
+          current_value?: number
+          data_source?: string | null
+          description?: string | null
+          frequency?: string
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          name: string
+          organization_id: string
+          owner_id?: string | null
+          status?: string
+          target_value?: number | null
+          team_id?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alert_threshold_critical?: number | null
+          alert_threshold_warning?: number | null
+          category?: string
+          created_at?: string
+          current_value?: number
+          data_source?: string | null
+          description?: string | null
+          frequency?: string
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          name?: string
+          organization_id?: string
+          owner_id?: string | null
+          status?: string
+          target_value?: number | null
+          team_id?: string | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpis_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_references: {
         Row: {
           category: string | null
@@ -1869,6 +2183,132 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      okr_key_results: {
+        Row: {
+          created_at: string
+          current_value: number
+          id: string
+          metric_type: string
+          notes: string | null
+          okr_id: string
+          organization_id: string
+          responsible_id: string | null
+          status: string
+          target_value: number
+          title: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          id?: string
+          metric_type?: string
+          notes?: string | null
+          okr_id: string
+          organization_id: string
+          responsible_id?: string | null
+          status?: string
+          target_value?: number
+          title: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          id?: string
+          metric_type?: string
+          notes?: string | null
+          okr_id?: string
+          organization_id?: string
+          responsible_id?: string | null
+          status?: string
+          target_value?: number
+          title?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "okr_key_results_okr_id_fkey"
+            columns: ["okr_id"]
+            isOneToOne: false
+            referencedRelation: "okrs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "okr_key_results_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      okrs: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          organization_id: string
+          owner_id: string
+          parent_id: string | null
+          period_end: string
+          period_start: string
+          progress: number
+          status: string
+          team_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          organization_id: string
+          owner_id: string
+          parent_id?: string | null
+          period_end: string
+          period_start: string
+          progress?: number
+          status?: string
+          team_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          organization_id?: string
+          owner_id?: string
+          parent_id?: string | null
+          period_end?: string
+          period_start?: string
+          progress?: number
+          status?: string
+          team_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "okrs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "okrs_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "okrs"
             referencedColumns: ["id"]
           },
         ]
@@ -3251,6 +3691,137 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vault_access_logs: {
+        Row: {
+          action: string
+          created_at: string
+          document_id: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          organization_id: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          document_id: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          organization_id: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_access_logs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "vault_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vault_access_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_documents: {
+        Row: {
+          access_level: string
+          allowed_teams: string[] | null
+          allowed_users: string[] | null
+          category: string
+          classification: string
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          uploaded_by: string
+          version: number
+          view_only: boolean
+        }
+        Insert: {
+          access_level?: string
+          allowed_teams?: string[] | null
+          allowed_users?: string[] | null
+          category?: string
+          classification?: string
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          uploaded_by: string
+          version?: number
+          view_only?: boolean
+        }
+        Update: {
+          access_level?: string
+          allowed_teams?: string[] | null
+          allowed_users?: string[] | null
+          category?: string
+          classification?: string
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string
+          version?: number
+          view_only?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wiki_article_versions: {
         Row: {
