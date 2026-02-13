@@ -2038,6 +2038,63 @@ export type Database = {
           },
         ]
       }
+      import_logs: {
+        Row: {
+          court_system: string
+          created_at: string
+          id: string
+          message: string | null
+          movements_created: number | null
+          movements_found: number | null
+          organization_id: string
+          process_id: string
+          source: string | null
+          status: string
+          tribunal: string | null
+        }
+        Insert: {
+          court_system?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          movements_created?: number | null
+          movements_found?: number | null
+          organization_id: string
+          process_id: string
+          source?: string | null
+          status?: string
+          tribunal?: string | null
+        }
+        Update: {
+          court_system?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          movements_created?: number | null
+          movements_found?: number | null
+          organization_id?: string
+          process_id?: string
+          source?: string | null
+          status?: string
+          tribunal?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_logs_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_logs: {
         Row: {
           action: string

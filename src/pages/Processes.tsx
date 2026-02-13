@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X, CalendarClock, AlertTriangle } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X, CalendarClock, AlertTriangle, RefreshCcw, Loader2, Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -1175,6 +1175,138 @@ const LinkedDeadlinesSection = ({ deadlines, loading, processId }: { deadlines: 
   );
 };
 
+/* ─── Court Sync Section ─── */
+const courtSystemLabels: Record<string, string> = { pje: "PJe", esaj: "e-SAJ", projudi: "PROJUDI", eproc: "e-Proc", tucujuris: "Tucujuris" };
+const importStatusLabels: Record<string, { label: string; className: string }> = {
+  sucesso: { label: "Sucesso", className: "text-accent" },
+  falha: { label: "Falha", className: "text-destructive" },
+  sem_novidades: { label: "Sem novidades", className: "text-muted-foreground" },
+  pending: { label: "Pendente", className: "text-warning" },
+};
+
+const CourtSyncSection = ({ processId, processNumber }: { processId: string; processNumber: string }) => {
+  const { activeOrgId } = useOrganization();
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+
+  // Check existing integration
+  const { data: integration } = useQuery({
+    queryKey: ["court-integration-for-process", processId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("court_integrations")
+        .select("id, court_system, status, last_sync_at, sync_config")
+        .eq("process_id", processId)
+        .eq("status", "active")
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!processId,
+  });
+
+  // Fetch import logs
+  const { data: importLogs = [] } = useQuery({
+    queryKey: ["import-logs-for-process", processId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("import_logs" as any)
+        .select("*")
+        .eq("process_id", processId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return (data as any[]) || [];
+    },
+    enabled: !!processId,
+  });
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("court-sync", {
+        body: { process_id: processId, source: "manual" },
+      });
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["court-integration-for-process", processId] });
+      queryClient.invalidateQueries({ queryKey: ["import-logs-for-process", processId] });
+      queryClient.invalidateQueries({ queryKey: ["process-movements", processId] });
+
+      if (data?.movements_created > 0) {
+        toast.success(`Processo atualizado com sucesso! ${data.movements_created} movimentação(ões) importada(s).`);
+      } else if (data?.movements_found === 0) {
+        toast.info("Consulta realizada. Nenhuma novidade encontrada.");
+      } else {
+        toast.info("Consulta realizada. Nenhuma movimentação nova.");
+      }
+    } catch (err: any) {
+      toast.error("Não foi possível consultar o tribunal: " + (err.message || "Tente novamente mais tarde."));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Check if number looks valid for sync (at least some digits)
+  const hasValidNumber = processNumber && processNumber.replace(/\D/g, "").length >= 10;
+
+  return (
+    <div className="border-t border-border pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-primary" />
+          <span className="text-overline text-muted-foreground">Importação do Tribunal</span>
+        </div>
+        {integration && (
+          <LexBadge variant="outline">{courtSystemLabels[integration.court_system] || integration.court_system}</LexBadge>
+        )}
+      </div>
+
+      {!hasValidNumber ? (
+        <p className="text-caption text-muted-foreground text-center py-4">
+          Número do processo inválido ou ausente para consulta automática.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-lg gap-1.5"
+              disabled={syncing}
+              onClick={handleSync}
+            >
+              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
+              {syncing ? "Consultando tribunal..." : "Atualizar do tribunal"}
+            </Button>
+            {integration?.last_sync_at && (
+              <span className="text-[10px] text-muted-foreground">
+                Última consulta: {new Date(integration.last_sync_at).toLocaleString("pt-BR")}
+              </span>
+            )}
+          </div>
+
+          {/* Import logs */}
+          {importLogs.length > 0 && (
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {importLogs.map((log: any) => {
+                const st = importStatusLabels[log.status] || importStatusLabels.pending;
+                return (
+                  <div key={log.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30">
+                    <span className={`text-caption font-medium ${st.className}`}>{st.label}</span>
+                    <span className="flex-1 text-caption text-muted-foreground truncate">{log.message}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {new Date(log.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ─── Process Details with Linked Tasks ─── */
 const TASK_STATUS_ICON: Record<string, React.ReactNode> = {
   todo: <Circle className="h-3.5 w-3.5 text-muted-foreground" />,
@@ -1330,6 +1462,9 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
 
       {/* Linked Documents */}
       <LinkedDocsSection docs={linkedDocs} loading={docsLoading} processId={process.id} />
+
+      {/* Court Sync */}
+      <CourtSyncSection processId={process.id} processNumber={process.number} />
 
       {/* Movimentações */}
       <ProcessMovements processId={process.id} />
