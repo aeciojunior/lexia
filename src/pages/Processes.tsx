@@ -4,6 +4,7 @@ import ProcessChat from "@/components/process/ProcessChat";
 import ProcessTimeline from "@/components/process/ProcessTimeline";
 import ProcessClassification from "@/components/process/ProcessClassification";
 import DecisionExtraction from "@/components/process/DecisionExtraction";
+import ProcessSummary360 from "@/components/process/ProcessSummary360";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1580,6 +1581,9 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
 
       {/* Linked Documents */}
       <LinkedDocsSection docs={linkedDocs} loading={docsLoading} processId={process.id} />
+
+      {/* Resumo 360 (RF-043) */}
+      <ProcessSummary360 processId={process.id} organizationId={activeOrgId || ""} />
 
       {/* AI Classification */}
       <ProcessClassification processId={process.id} organizationId={activeOrgId || ""} />

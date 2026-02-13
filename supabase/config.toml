@@ -69,5 +69,8 @@ verify_jwt = false
 [functions.extract-decision]
 verify_jwt = false
 
+[functions.generate-summary]
+verify_jwt = false
+
 [functions.classify-document]
 verify_jwt = false
