@@ -60,6 +60,9 @@ import SecurityLogs from "./pages/SecurityLogs";
 import OKRs from "./pages/OKRs";
 import Governance from "./pages/Governance";
 import VaultDocuments from "./pages/VaultDocuments";
+import Assets from "./pages/Assets";
+import Vendors from "./pages/Vendors";
+import LegalChatbot from "./pages/LegalChatbot";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -122,6 +125,9 @@ const App = () => (
               <Route path="/okrs" element={<OKRs />} />
               <Route path="/governance" element={<Governance />} />
               <Route path="/vault" element={<VaultDocuments />} />
+              <Route path="/assets" element={<Assets />} />
+              <Route path="/vendors" element={<Vendors />} />
+              <Route path="/legal-chatbot" element={<LegalChatbot />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

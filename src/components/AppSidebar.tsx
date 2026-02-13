@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText, KeyRound, Target, Landmark, Lock,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText, KeyRound, Target, Landmark, Lock, Package, Building, Bot,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,9 @@ const navItems: NavItem[] = [
   { title: "Secrets", url: "/secret-manager", icon: KeyRound, permissions: ["MANAGE_SECRETS"] },
   { title: "Relatórios IA", url: "/ai-reports", icon: Brain, accent: true, permissions: ["VIEW_AI_REPORTS"] },
   { title: "Logs Segurança", url: "/security-logs", icon: ShieldAlert, permissions: ["VIEW_SECURITY_LOGS"] },
+  { title: "Inventário", url: "/assets", icon: Package, permissions: ["VIEW_ASSETS"] },
+  { title: "Fornecedores", url: "/vendors", icon: Building, permissions: ["VIEW_VENDORS"] },
+  { title: "Chatbot IA", url: "/legal-chatbot", icon: Bot, accent: true, permissions: ["USE_CHATBOT"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },
