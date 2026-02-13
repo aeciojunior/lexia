@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,9 @@ const navItems: NavItem[] = [
   { title: "Comunicações", url: "/communications", icon: Mail, permissions: ["VIEW_EXTERNAL_MESSAGES"] },
   { title: "Templates IA", url: "/ai-templates", icon: Brain, accent: true, permissions: ["VIEW_AI_TEMPLATES"] },
   { title: "Automações", url: "/automations", icon: Zap, permissions: ["VIEW_AUTOMATIONS"] },
+  { title: "Relatórios", url: "/reports", icon: ClipboardList, permissions: ["VIEW_REPORTS"] },
+  { title: "ACL", url: "/acl", icon: ShieldCheck, permissions: ["MANAGE_ACL"] },
+  { title: "Compliance", url: "/compliance", icon: ShieldAlert, permissions: ["VIEW_COMPLIANCE"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },

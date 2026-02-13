@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      acl_rules: {
+        Row: {
+          action: string
+          conditions: Json | null
+          created_at: string
+          created_by: string
+          effect: string
+          id: string
+          organization_id: string
+          resource_id: string | null
+          resource_type: string
+          target_team_id: string | null
+          target_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          conditions?: Json | null
+          created_at?: string
+          created_by: string
+          effect?: string
+          id?: string
+          organization_id: string
+          resource_id?: string | null
+          resource_type: string
+          target_team_id?: string | null
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string
+          effect?: string
+          id?: string
+          organization_id?: string
+          resource_id?: string | null
+          resource_type?: string
+          target_team_id?: string | null
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acl_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agenda_events: {
         Row: {
           all_day: boolean
@@ -548,6 +601,178 @@ export type Database = {
           },
         ]
       }
+      compliance_consents: {
+        Row: {
+          client_id: string | null
+          consent_type: string
+          created_at: string
+          created_by: string
+          description: string | null
+          granted_at: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          revoked_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          consent_type?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          granted_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          revoked_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          consent_type?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          granted_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          revoked_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_consents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_consents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_incidents: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          impact: string | null
+          measures_taken: string | null
+          notified_authority: boolean
+          organization_id: string
+          reported_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact?: string | null
+          measures_taken?: string | null
+          notified_authority?: boolean
+          organization_id: string
+          reported_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact?: string | null
+          measures_taken?: string | null
+          notified_authority?: boolean
+          organization_id?: string
+          reported_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_incidents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_policies: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          policy_type: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          policy_type?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          policy_type?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_policies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_signatures: {
         Row: {
           accepted_terms: boolean
@@ -970,6 +1195,69 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dsar_requests: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          organization_id: string
+          request_type: string
+          requester_email: string
+          requester_name: string
+          responded_at: string | null
+          responded_by: string | null
+          response: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          organization_id: string
+          request_type?: string
+          requester_email: string
+          requester_name: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          organization_id?: string
+          request_type?: string
+          requester_email?: string
+          requester_name?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dsar_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dsar_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1876,6 +2164,118 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_schedules: {
+        Row: {
+          config: Json | null
+          created_at: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          organization_id: string
+          report_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          organization_id: string
+          report_type?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          organization_id?: string
+          report_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          ai_summary: string | null
+          config: Json | null
+          created_at: string
+          file_url: string | null
+          format: string
+          generated_at: string | null
+          id: string
+          organization_id: string
+          report_type: string
+          result_data: Json | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          config?: Json | null
+          created_at?: string
+          file_url?: string | null
+          format?: string
+          generated_at?: string | null
+          id?: string
+          organization_id: string
+          report_type?: string
+          result_data?: Json | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          config?: Json | null
+          created_at?: string
+          file_url?: string | null
+          format?: string
+          generated_at?: string | null
+          id?: string
+          organization_id?: string
+          report_type?: string
+          result_data?: Json | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
