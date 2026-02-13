@@ -1630,6 +1630,123 @@ export type Database = {
           },
         ]
       }
+      document_classification_logs: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          document_id: string
+          document_type: string | null
+          id: string
+          manual_reason: string | null
+          organization_id: string
+          origin: string
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          document_id: string
+          document_type?: string | null
+          id?: string
+          manual_reason?: string | null
+          organization_id: string
+          origin?: string
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          document_id?: string
+          document_type?: string | null
+          id?: string
+          manual_reason?: string | null
+          organization_id?: string
+          origin?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_classification_logs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_classification_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_classifications: {
+        Row: {
+          classified_by: string | null
+          confidence: number | null
+          created_at: string
+          document_id: string
+          document_type: string
+          id: string
+          justification: string | null
+          manual_reason: string | null
+          model: string | null
+          organization_id: string
+          origin: string
+          relevant_excerpts: Json | null
+          rules_activated: Json | null
+          updated_at: string
+        }
+        Insert: {
+          classified_by?: string | null
+          confidence?: number | null
+          created_at?: string
+          document_id: string
+          document_type?: string
+          id?: string
+          justification?: string | null
+          manual_reason?: string | null
+          model?: string | null
+          organization_id: string
+          origin?: string
+          relevant_excerpts?: Json | null
+          rules_activated?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          classified_by?: string | null
+          confidence?: number | null
+          created_at?: string
+          document_id?: string
+          document_type?: string
+          id?: string
+          justification?: string | null
+          manual_reason?: string | null
+          model?: string | null
+          organization_id?: string
+          origin?: string
+          relevant_excerpts?: Json | null
+          rules_activated?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_classifications_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_classifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_template_versions: {
         Row: {
           content: string
