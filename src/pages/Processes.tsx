@@ -3,6 +3,7 @@ import ProcessMovements from "@/components/process/ProcessMovements";
 import ProcessChat from "@/components/process/ProcessChat";
 import ProcessTimeline from "@/components/process/ProcessTimeline";
 import ProcessClassification from "@/components/process/ProcessClassification";
+import DecisionExtraction from "@/components/process/DecisionExtraction";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1582,6 +1583,9 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
 
       {/* AI Classification */}
       <ProcessClassification processId={process.id} organizationId={activeOrgId || ""} />
+
+      {/* Decision Extraction */}
+      <DecisionExtraction processId={process.id} organizationId={activeOrgId || ""} />
 
       {/* Court Sync */}
       <CourtSyncSection processId={process.id} processNumber={process.number} />
