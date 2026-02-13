@@ -51,6 +51,9 @@ import Wiki from "./pages/Wiki";
 import SLA from "./pages/SLA";
 import AuditLogs from "./pages/AuditLogs";
 import Risks from "./pages/Risks";
+import Signatures from "./pages/Signatures";
+import FinancialReports from "./pages/FinancialReports";
+import CommunicationTemplates from "./pages/CommunicationTemplates";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -104,6 +107,9 @@ const App = () => (
               <Route path="/sla" element={<SLA />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="/risks" element={<Risks />} />
+              <Route path="/signatures" element={<Signatures />} />
+              <Route path="/financial-reports" element={<FinancialReports />} />
+              <Route path="/communication-templates" element={<CommunicationTemplates />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

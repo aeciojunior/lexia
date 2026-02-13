@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,9 @@ const navItems: NavItem[] = [
   { title: "SLA", url: "/sla", icon: Timer, permissions: ["VIEW_SLA"] },
   { title: "Auditoria", url: "/audit-logs", icon: FileSearch, permissions: ["VIEW_AUDIT_ADVANCED"] },
   { title: "Riscos", url: "/risks", icon: AlertTriangle, permissions: ["VIEW_RISKS"] },
+  { title: "Assinaturas", url: "/signatures", icon: PenLine, permissions: ["VIEW_SIGNATURES"] },
+  { title: "Rel. Financeiros", url: "/financial-reports", icon: PieChart, permissions: ["VIEW_FINANCIAL_REPORTS"] },
+  { title: "Templates Msg", url: "/communication-templates", icon: MessageSquareText, permissions: ["VIEW_COMMUNICATION_TEMPLATES"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },
