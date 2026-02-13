@@ -151,11 +151,17 @@ const Movements = () => {
   const canDelete = hasPermission("MANAGE_PROCESSES") && !isIntern && !isClient;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Movimentações Processuais</h1>
-          <p className="text-muted-foreground text-sm">Registre e acompanhe o andamento dos processos</p>
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+            <GitCommitHorizontal className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-primary mb-0.5">Gestão</p>
+            <h1 className="text-2xl font-bold text-foreground">Movimentações Processuais</h1>
+          </div>
         </div>
         {canCreate && (
           <Button className="gap-2" onClick={() => { resetForm(); setOpen(true); }}>
@@ -166,34 +172,44 @@ const Movements = () => {
 
       {/* Filters */}
       <LexCard hover={false}>
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-9" placeholder="Buscar por título, descrição ou nº do processo..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
-              {MOVEMENT_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterProcess} onValueChange={setFilterProcess}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Processo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os processos</SelectItem>
-              {processes.map((p) => <SelectItem key={p.id} value={p.id}>{p.number}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                {MOVEMENT_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterProcess} onValueChange={setFilterProcess}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Processo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os processos</SelectItem>
+                {processes.map((p) => <SelectItem key={p.id} value={p.id}>{p.number}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </LexCard>
 
       {/* Timeline */}
       <div className="space-y-3">
         {isLoading ? (
-          <p className="text-muted-foreground text-center py-8">Carregando...</p>
+          <LexCard hover={false}>
+            <p className="text-muted-foreground text-center py-6">Carregando movimentações...</p>
+          </LexCard>
         ) : filtered.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">Nenhuma movimentação encontrada.</p>
+          <LexCard hover={false}>
+            <div className="text-center py-10 space-y-2">
+              <GitCommitHorizontal className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+              <p className="text-muted-foreground">Nenhuma movimentação encontrada.</p>
+              {canCreate && <p className="text-xs text-muted-foreground">Clique em "Nova Movimentação" para registrar.</p>}
+            </div>
+          </LexCard>
         ) : (
           filtered.map((m: any) => {
             const typeInfo = MOVEMENT_TYPES.find((t) => t.value === m.movement_type);
