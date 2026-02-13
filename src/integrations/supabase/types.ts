@@ -2797,16 +2797,20 @@ export type Database = {
           created_at: string
           currency: string
           date_format: string
+          email_signature: string | null
           id: string
           locale: string
           maintenance_admin_access: boolean
           maintenance_message: string | null
           maintenance_mode: boolean
+          notification_events: Json
+          notification_frequency: string
           notifications_external: boolean
           notifications_internal: boolean
           onboarding_completed: boolean
           onboarding_step: number
           organization_id: string
+          sender_email: string | null
           timezone: string
           updated_at: string
         }
@@ -2816,16 +2820,20 @@ export type Database = {
           created_at?: string
           currency?: string
           date_format?: string
+          email_signature?: string | null
           id?: string
           locale?: string
           maintenance_admin_access?: boolean
           maintenance_message?: string | null
           maintenance_mode?: boolean
+          notification_events?: Json
+          notification_frequency?: string
           notifications_external?: boolean
           notifications_internal?: boolean
           onboarding_completed?: boolean
           onboarding_step?: number
           organization_id: string
+          sender_email?: string | null
           timezone?: string
           updated_at?: string
         }
@@ -2835,16 +2843,20 @@ export type Database = {
           created_at?: string
           currency?: string
           date_format?: string
+          email_signature?: string | null
           id?: string
           locale?: string
           maintenance_admin_access?: boolean
           maintenance_message?: string | null
           maintenance_mode?: boolean
+          notification_events?: Json
+          notification_frequency?: string
           notifications_external?: boolean
           notifications_internal?: boolean
           onboarding_completed?: boolean
           onboarding_step?: number
           organization_id?: string
+          sender_email?: string | null
           timezone?: string
           updated_at?: string
         }
