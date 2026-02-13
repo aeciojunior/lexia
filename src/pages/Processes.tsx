@@ -49,11 +49,24 @@ const AnimatedNumber = ({ value }: { value: number }) => {
 const PAGE_SIZE = 10;
 const statusMap: Record<string, string> = { active: "Ativo", pending: "Pendente", closed: "Encerrado", suspended: "Suspenso" };
 const typeMap: Record<string, string> = { civil: "Cível", criminal: "Criminal", labor: "Trabalhista", tax: "Tributário", admin: "Administrativo" };
+const classeOptions = ["Cível", "Trabalhista", "Penal", "Família", "Tributário", "Administrativo", "Consumidor", "Ambiental"];
+const faseOptions = ["Inicial", "Citação", "Instrução", "Sentença", "Recurso", "Execução", "Arquivado"];
+const foroOptions = ["Foro Central", "Foro Regional I", "Foro Regional II", "Foro Regional III", "Foro Regional IV", "Foro Distrital"];
+const varasByForo: Record<string, string[]> = {
+  "Foro Central": ["1ª Vara Cível", "2ª Vara Cível", "3ª Vara Cível", "1ª Vara Criminal", "2ª Vara Criminal", "Vara de Família", "Vara do Trabalho"],
+  "Foro Regional I": ["1ª Vara Cível", "2ª Vara Cível", "Vara Criminal"],
+  "Foro Regional II": ["1ª Vara Cível", "Vara Criminal", "Vara de Família"],
+  "Foro Regional III": ["1ª Vara Cível", "Vara Criminal"],
+  "Foro Regional IV": ["Vara Cível", "Vara Criminal"],
+  "Foro Distrital": ["Vara Única"],
+};
+const assuntoOptions = ["Cobrança", "Indenização", "Contrato", "Trabalhista", "Divórcio", "Inventário", "Execução Fiscal", "Usucapião", "Despejo", "Alimentos", "Guarda", "Outro"];
 
 interface ProcessForm {
   number: string; title: string; client_name: string; type: string; status: string; risk_level: string; court: string; judge: string; notes: string; description: string; tags: string; responsible_id: string;
+  foro: string; vara: string; classe: string; assunto: string[]; fase: string; valor_causa: string; partes_autores: string; partes_reus: string;
 }
-const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "civil", status: "active", risk_level: "low", court: "", judge: "", notes: "", description: "", tags: "", responsible_id: "none" };
+const emptyForm: ProcessForm = { number: "", title: "", client_name: "", type: "civil", status: "active", risk_level: "low", court: "", judge: "", notes: "", description: "", tags: "", responsible_id: "none", foro: "", vara: "", classe: "", assunto: [], fase: "", valor_causa: "", partes_autores: "", partes_reus: "" };
 
 const Processes = () => {
   const { user } = useAuth();
@@ -210,6 +223,9 @@ const Processes = () => {
   const saveMutation = useMutation({
     mutationFn: async (formData: ProcessForm) => {
       const tagsArray = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
+      const autores = formData.partes_autores ? formData.partes_autores.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const reus = formData.partes_reus ? formData.partes_reus.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const valorNum = formData.valor_causa ? parseFloat(formData.valor_causa.replace(/[^\d,.-]/g, "").replace(",", ".")) : null;
       const payload = {
         number: formData.number,
         title: formData.title,
@@ -223,6 +239,13 @@ const Processes = () => {
         description: formData.description,
         tags: tagsArray,
         responsible_id: formData.responsible_id === "none" ? null : formData.responsible_id,
+        foro: formData.foro || null,
+        vara: formData.vara || null,
+        classe: formData.classe || null,
+        assunto: formData.assunto.length > 0 ? formData.assunto : null,
+        fase: formData.fase || null,
+        valor_causa: valorNum,
+        partes: { autores, reus },
       };
 
       if (editingId) {
@@ -265,6 +288,11 @@ const Processes = () => {
       risk_level: p.risk_level || "low", court: p.court || "", judge: p.judge || "", notes: p.notes || "",
       description: p.description || "", tags: (p.tags || []).join(", "),
       responsible_id: p.responsible_id || "none",
+      foro: p.foro || "", vara: p.vara || "", classe: p.classe || "",
+      assunto: p.assunto || [], fase: p.fase || "",
+      valor_causa: p.valor_causa ? String(p.valor_causa) : "",
+      partes_autores: (p.partes?.autores || []).join(", "),
+      partes_reus: (p.partes?.reus || []).join(", "),
     });
     setFormTouched(false);
     setDialogOpen(true);
@@ -478,18 +506,23 @@ const Processes = () => {
             e.preventDefault();
             setFormTouched(true);
             const cnjDigits = form.number.replace(/\D/g, "");
-            if (!form.number.trim() || !form.client_name.trim() || !form.title.trim() || cnjDigits.length !== 20) {
-              toast.error(!form.number.trim() || !form.client_name.trim() || !form.title.trim() ? "Preencha todos os campos obrigatórios." : "Número CNJ deve ter 20 dígitos.");
+            if (!form.number.trim() || !form.client_name.trim() || !form.title.trim() || cnjDigits.length !== 20 || !form.foro || !form.vara || !form.classe || !form.fase || !form.partes_autores.trim() || (form.responsible_id === "none")) {
+              toast.error(cnjDigits.length !== 20 && form.number.trim() ? "Número CNJ deve ter 20 dígitos." : "Preencha todos os campos obrigatórios.");
+              return;
+            }
+            if (form.valor_causa && isNaN(parseFloat(form.valor_causa.replace(/[^\d,.-]/g, "").replace(",", ".")))) {
+              toast.error("Valor da causa inválido. Insira apenas números.");
               return;
             }
             saveMutation.mutate(form);
           }} className="space-y-4">
+            {/* Row 1: Número, Cliente, Título */}
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="text-overline text-muted-foreground block mb-1.5">Número <span className="text-destructive">*</span></label>
+                <label className="text-overline text-muted-foreground block mb-1.5">Número CNJ <span className="text-destructive">*</span></label>
                 <Input className={`bg-muted border-border rounded-xl ${formTouched && (!form.number.trim() || form.number.replace(/\D/g, "").length !== 20) ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.number} onChange={(e) => { const digits = e.target.value.replace(/\D/g, "").slice(0, 20); let masked = ""; for (let i = 0; i < digits.length; i++) { if (i === 7) masked += "-"; if (i === 9) masked += "."; if (i === 13) masked += "."; if (i === 14) masked += "."; if (i === 16) masked += "."; masked += digits[i]; } setForm({ ...form, number: masked }); }} placeholder="0000000-00.0000.0.00.0000" maxLength={25} />
                 {formTouched && !form.number.trim() && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
-                {formTouched && form.number.trim() && form.number.replace(/\D/g, "").length !== 20 && <p className="text-[10px] text-destructive mt-1">Número CNJ incompleto ({form.number.replace(/\D/g, "").length}/20 dígitos)</p>}
+                {formTouched && form.number.trim() && form.number.replace(/\D/g, "").length !== 20 && <p className="text-[10px] text-destructive mt-1">CNJ incompleto ({form.number.replace(/\D/g, "").length}/20)</p>}
               </div>
               <div>
                 <label className="text-overline text-muted-foreground block mb-1.5">Cliente <span className="text-destructive">*</span></label>
@@ -502,18 +535,73 @@ const Processes = () => {
                 {formTouched && !form.title.trim() && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
               </div>
             </div>
+
+            {/* Row 2: Partes */}
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Descrição</label><Textarea className="bg-muted border-border rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do processo..." /></div>
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
-            </div>
-            <div className="grid grid-cols-4 gap-4">
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Tipo</label><Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(typeMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Status</label><Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(statusMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Risco</label><Select value={form.risk_level} onValueChange={(v) => setForm({ ...form, risk_level: v })}><SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Baixo</SelectItem><SelectItem value="medium">Médio</SelectItem><SelectItem value="high">Alto</SelectItem><SelectItem value="critical">Crítico</SelectItem></SelectContent></Select></div>
               <div>
-                <label className="text-overline text-muted-foreground block mb-1.5">Responsável</label>
+                <label className="text-overline text-muted-foreground block mb-1.5">Autor(es) <span className="text-destructive">*</span> <span className="text-[10px] text-muted-foreground font-normal">(separar por vírgula)</span></label>
+                <Input className={`bg-muted border-border rounded-xl ${formTouched && !form.partes_autores.trim() ? "border-destructive ring-1 ring-destructive/30" : ""}`} value={form.partes_autores} onChange={(e) => setForm({ ...form, partes_autores: e.target.value })} placeholder="Nome do autor 1, Nome do autor 2..." />
+                {formTouched && !form.partes_autores.trim() && <p className="text-[10px] text-destructive mt-1">Informe ao menos um autor</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Réu(s) <span className="text-[10px] text-muted-foreground font-normal">(separar por vírgula)</span></label>
+                <Input className="bg-muted border-border rounded-xl" value={form.partes_reus} onChange={(e) => setForm({ ...form, partes_reus: e.target.value })} placeholder="Nome do réu 1, Nome do réu 2..." />
+              </div>
+            </div>
+
+            {/* Row 3: Foro, Vara, Classe, Fase */}
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Foro <span className="text-destructive">*</span></label>
+                <Select value={form.foro} onValueChange={(v) => setForm({ ...form, foro: v, vara: "" })}>
+                  <SelectTrigger className={`bg-muted border-border rounded-xl ${formTouched && !form.foro ? "border-destructive ring-1 ring-destructive/30" : ""}`}><SelectValue placeholder="Selecionar foro" /></SelectTrigger>
+                  <SelectContent>{foroOptions.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+                {formTouched && !form.foro && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Vara <span className="text-destructive">*</span></label>
+                <Select value={form.vara} onValueChange={(v) => setForm({ ...form, vara: v })} disabled={!form.foro}>
+                  <SelectTrigger className={`bg-muted border-border rounded-xl ${formTouched && !form.vara ? "border-destructive ring-1 ring-destructive/30" : ""}`}><SelectValue placeholder={form.foro ? "Selecionar vara" : "Selecione o foro primeiro"} /></SelectTrigger>
+                  <SelectContent>{(varasByForo[form.foro] || []).map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+                {formTouched && !form.vara && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Classe <span className="text-destructive">*</span></label>
+                <Select value={form.classe} onValueChange={(v) => setForm({ ...form, classe: v })}>
+                  <SelectTrigger className={`bg-muted border-border rounded-xl ${formTouched && !form.classe ? "border-destructive ring-1 ring-destructive/30" : ""}`}><SelectValue placeholder="Selecionar classe" /></SelectTrigger>
+                  <SelectContent>{classeOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+                {formTouched && !form.classe && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Fase <span className="text-destructive">*</span></label>
+                <Select value={form.fase} onValueChange={(v) => setForm({ ...form, fase: v })}>
+                  <SelectTrigger className={`bg-muted border-border rounded-xl ${formTouched && !form.fase ? "border-destructive ring-1 ring-destructive/30" : ""}`}><SelectValue placeholder="Selecionar fase" /></SelectTrigger>
+                  <SelectContent>{faseOptions.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                </Select>
+                {formTouched && !form.fase && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+            </div>
+
+            {/* Row 4: Assunto, Valor, Responsável, Risco */}
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Assunto</label>
+                <Select value={form.assunto[0] || ""} onValueChange={(v) => setForm({ ...form, assunto: v ? [v] : [] })}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecionar assunto" /></SelectTrigger>
+                  <SelectContent>{assuntoOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Valor da Causa (R$)</label>
+                <Input className="bg-muted border-border rounded-xl" value={form.valor_causa} onChange={(e) => setForm({ ...form, valor_causa: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="0,00" />
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Responsável <span className="text-destructive">*</span></label>
                 <Select value={form.responsible_id} onValueChange={(v) => setForm({ ...form, responsible_id: v })}>
-                  <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectTrigger className={`bg-muted border-border rounded-xl ${formTouched && form.responsible_id === "none" ? "border-destructive ring-1 ring-destructive/30" : ""}`}><SelectValue placeholder="Selecionar" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Nenhum</SelectItem>
                     {orgMembers.map((m: any) => (
@@ -526,13 +614,44 @@ const Processes = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {formTouched && form.responsible_id === "none" && <p className="text-[10px] text-destructive mt-1">Campo obrigatório</p>}
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Risco</label>
+                <Select value={form.risk_level} onValueChange={(v) => setForm({ ...form, risk_level: v })}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="low">Baixo</SelectItem><SelectItem value="medium">Médio</SelectItem><SelectItem value="high">Alto</SelectItem><SelectItem value="critical">Crítico</SelectItem></SelectContent>
+                </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Vara/Tribunal</label><Input className="bg-muted border-border rounded-xl" value={form.court} onChange={(e) => setForm({ ...form, court: e.target.value })} /></div>
+
+            {/* Row 5: Tipo, Status, Juiz, Tags */}
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Tipo</label>
+                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(typeMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">Status</label>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(statusMap).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div><label className="text-overline text-muted-foreground block mb-1.5">Juiz</label><Input className="bg-muted border-border rounded-xl" value={form.judge} onChange={(e) => setForm({ ...form, judge: e.target.value })} /></div>
-              <div><label className="text-overline text-muted-foreground block mb-1.5">Tags (separadas por vírgula)</label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente..." /></div>
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Tags <span className="text-[10px] text-muted-foreground font-normal">(vírgula)</span></label><Input className="bg-muted border-border rounded-xl" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="cível, urgente..." /></div>
             </div>
+
+            {/* Row 6: Descrição, Observações */}
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Descrição</label><Textarea className="bg-muted border-border rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do processo..." /></div>
+              <div><label className="text-overline text-muted-foreground block mb-1.5">Observações</label><Textarea className="bg-muted border-border rounded-xl" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
+            </div>
+
+            {/* Row 7: Vincular Cliente */}
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Vincular Cliente</label>
               <Select value={(form as any).client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v } as any)}>
@@ -1127,9 +1246,35 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
             </div>
           </div>
         )}
+        {process.foro && <div><span className="text-overline text-muted-foreground block mb-0.5">Foro</span>{process.foro}</div>}
+        {process.vara && <div><span className="text-overline text-muted-foreground block mb-0.5">Vara</span>{process.vara}</div>}
+        {process.classe && <div><span className="text-overline text-muted-foreground block mb-0.5">Classe</span>{process.classe}</div>}
+        {process.fase && <div><span className="text-overline text-muted-foreground block mb-0.5">Fase</span><LexBadge variant="outline">{process.fase}</LexBadge></div>}
+        {process.valor_causa != null && <div><span className="text-overline text-muted-foreground block mb-0.5">Valor da Causa</span>R$ {Number(process.valor_causa).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>}
         {process.court && <div><span className="text-overline text-muted-foreground block mb-0.5">Vara/Tribunal</span>{process.court}</div>}
         {process.judge && <div><span className="text-overline text-muted-foreground block mb-0.5">Juiz</span>{process.judge}</div>}
       </div>
+      {/* Partes */}
+      {process.partes && ((process.partes as any).autores?.length > 0 || (process.partes as any).reus?.length > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          {(process.partes as any).autores?.length > 0 && (
+            <div><span className="text-overline text-muted-foreground block mb-1">Autor(es)</span>
+              <div className="flex flex-wrap gap-1.5">{(process.partes as any).autores.map((a: string) => <LexBadge key={a} variant="default">{a}</LexBadge>)}</div>
+            </div>
+          )}
+          {(process.partes as any).reus?.length > 0 && (
+            <div><span className="text-overline text-muted-foreground block mb-1">Réu(s)</span>
+              <div className="flex flex-wrap gap-1.5">{(process.partes as any).reus.map((r: string) => <LexBadge key={r} variant="outline">{r}</LexBadge>)}</div>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Assuntos */}
+      {process.assunto?.length > 0 && (
+        <div><span className="text-overline text-muted-foreground block mb-1">Assunto(s)</span>
+          <div className="flex flex-wrap gap-1.5">{process.assunto.map((a: string) => <LexBadge key={a} variant="outline">{a}</LexBadge>)}</div>
+        </div>
+      )}
       {process.description && <div><span className="text-overline text-muted-foreground block mb-1">Descrição</span><p className="text-body-sm rounded-xl bg-muted p-3">{process.description}</p></div>}
       {process.tags?.length > 0 && (
         <div><span className="text-overline text-muted-foreground block mb-1">Tags</span>

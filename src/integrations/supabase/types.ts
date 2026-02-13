@@ -3211,15 +3211,20 @@ export type Database = {
       processes: {
         Row: {
           archived: boolean
+          assunto: string[] | null
+          classe: string | null
           client_name: string
           court: string | null
           created_at: string
           description: string | null
+          fase: string | null
+          foro: string | null
           id: string
           judge: string | null
           notes: string | null
           number: string
           organization_id: string | null
+          partes: Json | null
           responsible_id: string | null
           risk_level: string | null
           status: string
@@ -3228,18 +3233,25 @@ export type Database = {
           type: string
           updated_at: string
           user_id: string
+          valor_causa: number | null
+          vara: string | null
         }
         Insert: {
           archived?: boolean
+          assunto?: string[] | null
+          classe?: string | null
           client_name: string
           court?: string | null
           created_at?: string
           description?: string | null
+          fase?: string | null
+          foro?: string | null
           id?: string
           judge?: string | null
           notes?: string | null
           number: string
           organization_id?: string | null
+          partes?: Json | null
           responsible_id?: string | null
           risk_level?: string | null
           status?: string
@@ -3248,18 +3260,25 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id: string
+          valor_causa?: number | null
+          vara?: string | null
         }
         Update: {
           archived?: boolean
+          assunto?: string[] | null
+          classe?: string | null
           client_name?: string
           court?: string | null
           created_at?: string
           description?: string | null
+          fase?: string | null
+          foro?: string | null
           id?: string
           judge?: string | null
           notes?: string | null
           number?: string
           organization_id?: string | null
+          partes?: Json | null
           responsible_id?: string | null
           risk_level?: string | null
           status?: string
@@ -3268,6 +3287,8 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+          valor_causa?: number | null
+          vara?: string | null
         }
         Relationships: [
           {
