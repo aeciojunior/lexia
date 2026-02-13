@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollText, Plus, Search, Pencil, Trash2, Users, Scale, Calendar, DollarSign, Tag, FileText, Eye } from "lucide-react";
+import { ScrollText, Plus, Search, Pencil, Trash2, Users, Scale, Calendar, DollarSign, Tag, FileText, Eye, PenTool, Receipt, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -46,14 +46,14 @@ const Contracts = () => {
   const [viewContract, setViewContract] = useState<any>(null);
   const [form, setForm] = useState(emptyForm);
   const [tagInput, setTagInput] = useState("");
+  const [signDialogOpen, setSignDialogOpen] = useState(false);
+  const [signContractId, setSignContractId] = useState<string | null>(null);
+  const [signers, setSigners] = useState([{ name: "", email: "", phone: "" }]);
 
   const { data: contracts = [], isLoading } = useQuery({
     queryKey: ["contracts", activeOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contracts")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("contracts").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -63,7 +63,7 @@ const Contracts = () => {
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-list", activeOrgId],
     queryFn: async () => {
-      const { data } = await supabase.from("clients").select("id, full_name").eq("status", "active");
+      const { data } = await supabase.from("clients").select("id, full_name, email").eq("status", "active");
       return data || [];
     },
     enabled: !!activeOrgId,
@@ -82,16 +82,11 @@ const Contracts = () => {
     queryKey: ["org-members", activeOrgId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("user_organizations")
-        .select("user_id, role")
-        .eq("organization_id", activeOrgId!)
-        .neq("role", "client");
+        .from("user_organizations").select("user_id, role")
+        .eq("organization_id", activeOrgId!).neq("role", "client");
       if (!data) return [];
       const userIds = data.map(d => d.user_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", userIds);
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
       return data.map(d => ({
         ...d,
         full_name: profiles?.find(p => p.user_id === d.user_id)?.full_name || d.user_id.slice(0, 8),
@@ -104,37 +99,22 @@ const Contracts = () => {
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Título obrigatório");
       const payload = {
-        ...form,
-        organization_id: activeOrgId!,
-        user_id: user!.id,
-        client_id: form.client_id || null,
-        process_id: form.process_id || null,
-        responsible_id: form.responsible_id || null,
-        start_date: form.start_date || null,
+        ...form, organization_id: activeOrgId!, user_id: user!.id,
+        client_id: form.client_id || null, process_id: form.process_id || null,
+        responsible_id: form.responsible_id || null, start_date: form.start_date || null,
         end_date: form.end_date || null,
       };
       if (editId) {
         const { error } = await supabase.from("contracts").update(payload as any).eq("id", editId);
         if (error) throw error;
-        await supabase.from("audit_logs").insert({
-          action: "contract_updated", user_id: user!.id, resource_type: "contract",
-          resource_id: editId, organization_id: activeOrgId,
-        } as any);
+        await supabase.from("audit_logs").insert({ action: "contract_updated", user_id: user!.id, resource_type: "contract", resource_id: editId, organization_id: activeOrgId } as any);
       } else {
         const { data, error } = await supabase.from("contracts").insert(payload as any).select("id").single();
         if (error) throw error;
-        await supabase.from("audit_logs").insert({
-          action: "contract_created", user_id: user!.id, resource_type: "contract",
-          resource_id: data.id, organization_id: activeOrgId,
-        } as any);
+        await supabase.from("audit_logs").insert({ action: "contract_created", user_id: user!.id, resource_type: "contract", resource_id: data.id, organization_id: activeOrgId } as any);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contracts"] });
-      setDialogOpen(false);
-      resetForm();
-      toast.success(editId ? "Contrato atualizado!" : "Contrato criado!");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts"] }); setDialogOpen(false); resetForm(); toast.success(editId ? "Contrato atualizado!" : "Contrato criado!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -142,15 +122,45 @@ const Contracts = () => {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("contracts").delete().eq("id", id);
       if (error) throw error;
-      await supabase.from("audit_logs").insert({
-        action: "contract_deleted", user_id: user!.id, resource_type: "contract",
-        resource_id: id, organization_id: activeOrgId,
-      } as any);
+      await supabase.from("audit_logs").insert({ action: "contract_deleted", user_id: user!.id, resource_type: "contract", resource_id: id, organization_id: activeOrgId } as any);
     },
-    onSuccess: () => {
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts"] }); setDeleteId(null); toast.success("Contrato excluído!"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Clicksign: send for signature
+  const signMutation = useMutation({
+    mutationFn: async () => {
+      const validSigners = signers.filter(s => s.name && s.email);
+      if (!validSigners.length) throw new Error("Adicione ao menos um signatário com nome e email");
+      const { data, error } = await supabase.functions.invoke("clicksign-send", {
+        body: { contract_id: signContractId, signers: validSigners },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
-      setDeleteId(null);
-      toast.success("Contrato excluído!");
+      setSignDialogOpen(false);
+      setSigners([{ name: "", email: "", phone: "" }]);
+      toast.success(`Contrato enviado para assinatura! ${data.signers_added} signatário(s) notificado(s).`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Generate invoice from contract
+  const invoiceMutation = useMutation({
+    mutationFn: async (contractId: string) => {
+      const { data, error } = await supabase.functions.invoke("generate-contract-invoices", {
+        body: { contract_id: contractId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Fatura gerada! Vencimento: ${data.due_date}. Valor: R$ ${(data.amount_cents / 100).toFixed(2)}`);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -165,24 +175,27 @@ const Contracts = () => {
       clauses: c.clauses || "", payment_method: c.payment_method || "other",
       responsible_id: c.responsible_id || "", tags: c.tags || [], notes: c.notes || "",
     });
-    setEditId(c.id);
-    setDialogOpen(true);
+    setEditId(c.id); setDialogOpen(true);
   };
 
-  const formatCurrency = (cents: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+  const openSignDialog = (c: any) => {
+    setSignContractId(c.id);
+    const client = clients.find((cl: any) => cl.id === c.client_id);
+    setSigners(client ? [{ name: client.full_name, email: client.email || "", phone: "" }] : [{ name: "", email: "", phone: "" }]);
+    setSignDialogOpen(true);
+  };
+
+  const formatCurrency = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
   const filtered = contracts.filter((c: any) => {
-    const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
-      (c.description || "").toLowerCase().includes(search.toLowerCase());
+    const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) || (c.description || "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
   const addTag = () => {
     if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
-      setForm(f => ({ ...f, tags: [...f.tags, tagInput.trim()] }));
-      setTagInput("");
+      setForm(f => ({ ...f, tags: [...f.tags, tagInput.trim()] })); setTagInput("");
     }
   };
 
@@ -220,9 +233,7 @@ const Contracts = () => {
           </SelectContent>
         </Select>
         <RoleGuard permissions={["MANAGE_CONTRACTS"]}>
-          <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />Novo Contrato
-          </Button>
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }}><Plus className="h-4 w-4 mr-2" />Novo Contrato</Button>
         </RoleGuard>
       </div>
 
@@ -259,9 +270,15 @@ const Contracts = () => {
             <LexCard key={c.id} className="hover:border-primary/30 transition-colors">
               <div className="p-4 flex flex-col md:flex-row md:items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h3 className="font-semibold truncate">{c.title}</h3>
                     <LexBadge variant={statusVariants[c.status] as any}>{statusLabels[c.status] || c.status}</LexBadge>
+                    {c.metadata?.clicksign_status && (
+                      <LexBadge variant="outline" className="text-xs">
+                        <PenTool className="h-3 w-3 mr-1" />
+                        {c.metadata.clicksign_status === "sent" ? "Enviado p/ assinatura" : c.metadata.clicksign_status}
+                      </LexBadge>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span>{typeLabels[c.contract_type] || c.contract_type}</span>
@@ -276,13 +293,19 @@ const Contracts = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => setViewContract(c)}><Eye className="h-4 w-4" /></Button>
+                <div className="flex gap-2 shrink-0 flex-wrap">
+                  <Button variant="ghost" size="icon" onClick={() => setViewContract(c)} title="Visualizar"><Eye className="h-4 w-4" /></Button>
                   <RoleGuard permissions={["MANAGE_CONTRACTS"]}>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => openSignDialog(c)} title="Enviar para assinatura digital">
+                      <PenTool className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => invoiceMutation.mutate(c.id)} title="Gerar fatura" disabled={invoiceMutation.isPending || c.status !== "active"}>
+                      <Receipt className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)} title="Editar"><Pencil className="h-4 w-4" /></Button>
                   </RoleGuard>
                   <RoleGuard permissions={["MANAGE_ORGANIZATION"]}>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)} title="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </RoleGuard>
                 </div>
               </div>
@@ -313,6 +336,13 @@ const Contracts = () => {
               {viewContract.clauses && <div><p className="text-muted-foreground mb-1">Cláusulas</p><p className="whitespace-pre-wrap">{viewContract.clauses}</p></div>}
               {viewContract.terms && <div><p className="text-muted-foreground mb-1">Termos</p><p className="whitespace-pre-wrap">{viewContract.terms}</p></div>}
               {viewContract.notes && <div><p className="text-muted-foreground mb-1">Observações Internas</p><p>{viewContract.notes}</p></div>}
+              {viewContract.metadata?.clicksign_document_key && (
+                <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                  <p className="text-muted-foreground text-xs mb-1">Assinatura Digital (Clicksign)</p>
+                  <p className="text-sm font-medium">Doc Key: {viewContract.metadata.clicksign_document_key}</p>
+                  <p className="text-xs text-muted-foreground">Status: {viewContract.metadata.clicksign_status}</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -419,6 +449,38 @@ const Contracts = () => {
             <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancelar</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? "Salvando..." : editId ? "Salvar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clicksign Sign Dialog */}
+      <Dialog open={signDialogOpen} onOpenChange={o => { if (!o) setSignDialogOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><PenTool className="h-5 w-5" /> Enviar para Assinatura Digital</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Adicione os signatários que receberão o contrato via Clicksign para assinatura digital.</p>
+            {signers.map((s, i) => (
+              <div key={i} className="space-y-2 p-3 rounded-lg border border-border">
+                <p className="text-xs font-medium text-muted-foreground">Signatário {i + 1}</p>
+                <Input placeholder="Nome *" value={s.name} onChange={e => { const n = [...signers]; n[i].name = e.target.value; setSigners(n); }} />
+                <Input placeholder="Email *" type="email" value={s.email} onChange={e => { const n = [...signers]; n[i].email = e.target.value; setSigners(n); }} />
+                <Input placeholder="Telefone (opcional)" value={s.phone} onChange={e => { const n = [...signers]; n[i].phone = e.target.value; setSigners(n); }} />
+                {signers.length > 1 && (
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setSigners(signers.filter((_, j) => j !== i))}>Remover</Button>
+                )}
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setSigners([...signers, { name: "", email: "", phone: "" }])}>
+              <Plus className="h-4 w-4 mr-1" /> Adicionar signatário
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={() => signMutation.mutate()} disabled={signMutation.isPending}>
+              {signMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</> : "Enviar para Clicksign"}
             </Button>
           </DialogFooter>
         </DialogContent>
