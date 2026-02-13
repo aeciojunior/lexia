@@ -39,6 +39,9 @@ import Metrics from "./pages/Metrics";
 import Agenda from "./pages/Agenda";
 import Communications from "./pages/Communications";
 import AITemplates from "./pages/AITemplates";
+import Reports from "./pages/Reports";
+import ACLPermissions from "./pages/ACLPermissions";
+import Compliance from "./pages/Compliance";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -80,6 +83,9 @@ const App = () => (
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/communications" element={<Communications />} />
               <Route path="/ai-templates" element={<AITemplates />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/acl" element={<ACLPermissions />} />
+              <Route path="/compliance" element={<Compliance />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
