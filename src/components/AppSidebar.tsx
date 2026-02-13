@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },
+  { title: "Portal Cliente", url: "/portal", icon: Shield, permissions: ["MANAGE_ORGANIZATION", "ACCESS_CLIENT_PORTAL"] },
   { title: "Perfil", url: "/profile", icon: UserCircle },
 ];
 
@@ -61,6 +62,8 @@ export const AppSidebar = () => {
       ? [{ title: "Portal", url: "/portal", icon: Shield } as NavItem]
       : []),
     ...navItems.filter((item) => {
+      // Clients already get portal injected above, skip the navItems version
+      if (isClient && item.url === "/portal") return false;
       if (!item.permissions) return !isClient || item.url === "/profile";
       return hasAnyPermission(...item.permissions);
     }),
