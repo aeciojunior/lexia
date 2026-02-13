@@ -30,7 +30,12 @@ export type Permission =
   | "MANAGE_HEARINGS"
   | "VIEW_HEARINGS"
   | "MANAGE_LEGAL_REFS"
-  | "VIEW_LEGAL_REFS";
+  | "VIEW_LEGAL_REFS"
+  | "MANAGE_CONTRACTS"
+  | "VIEW_CONTRACTS"
+  | "MANAGE_TEAMS"
+  | "VIEW_TEAMS"
+  | "VIEW_METRICS";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
@@ -49,6 +54,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_AUDIT_LOGS", "ACCESS_CLIENT_PORTAL",
     "MANAGE_HEARINGS", "VIEW_HEARINGS",
     "MANAGE_LEGAL_REFS", "VIEW_LEGAL_REFS",
+    "MANAGE_CONTRACTS", "VIEW_CONTRACTS",
+    "MANAGE_TEAMS", "VIEW_TEAMS",
+    "VIEW_METRICS",
   ],
   admin: [
     "MANAGE_USERS", "VIEW_USERS",
@@ -63,6 +71,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_AUDIT_LOGS", "ACCESS_CLIENT_PORTAL",
     "MANAGE_HEARINGS", "VIEW_HEARINGS",
     "MANAGE_LEGAL_REFS", "VIEW_LEGAL_REFS",
+    "MANAGE_CONTRACTS", "VIEW_CONTRACTS",
+    "MANAGE_TEAMS", "VIEW_TEAMS",
+    "VIEW_METRICS",
   ],
   user: [
     "MANAGE_PROCESSES", "VIEW_PROCESSES",
@@ -74,6 +85,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "ACCESS_CLIENT_PORTAL",
     "MANAGE_HEARINGS", "VIEW_HEARINGS",
     "MANAGE_LEGAL_REFS", "VIEW_LEGAL_REFS",
+    "MANAGE_CONTRACTS", "VIEW_CONTRACTS",
+    "VIEW_TEAMS",
+    "VIEW_METRICS",
   ],
   intern: [
     "VIEW_PROCESSES",
@@ -84,12 +98,16 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "ACCESS_CLIENT_PORTAL",
     "VIEW_HEARINGS",
     "VIEW_LEGAL_REFS",
+    "VIEW_CONTRACTS",
+    "VIEW_TEAMS",
+    "VIEW_METRICS",
   ],
   client: [
     "VIEW_PROCESSES",
     "VIEW_DOCUMENTS",
     "ACCESS_CLIENT_PORTAL",
     "VIEW_HEARINGS",
+    "VIEW_CONTRACTS",
   ],
 };
 

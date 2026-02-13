@@ -420,6 +420,7 @@ export type Database = {
       contracts: {
         Row: {
           amount_cents: number
+          clauses: string | null
           client_id: string | null
           contract_type: string
           created_at: string
@@ -428,11 +429,15 @@ export type Database = {
           end_date: string | null
           id: string
           metadata: Json | null
+          notes: string | null
           organization_id: string
+          payment_method: string | null
           periodicity: string | null
           process_id: string | null
+          responsible_id: string | null
           start_date: string | null
           status: string
+          tags: string[] | null
           terms: string | null
           title: string
           updated_at: string
@@ -440,6 +445,7 @@ export type Database = {
         }
         Insert: {
           amount_cents?: number
+          clauses?: string | null
           client_id?: string | null
           contract_type?: string
           created_at?: string
@@ -448,11 +454,15 @@ export type Database = {
           end_date?: string | null
           id?: string
           metadata?: Json | null
+          notes?: string | null
           organization_id: string
+          payment_method?: string | null
           periodicity?: string | null
           process_id?: string | null
+          responsible_id?: string | null
           start_date?: string | null
           status?: string
+          tags?: string[] | null
           terms?: string | null
           title: string
           updated_at?: string
@@ -460,6 +470,7 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          clauses?: string | null
           client_id?: string | null
           contract_type?: string
           created_at?: string
@@ -468,11 +479,15 @@ export type Database = {
           end_date?: string | null
           id?: string
           metadata?: Json | null
+          notes?: string | null
           organization_id?: string
+          payment_method?: string | null
           periodicity?: string | null
           process_id?: string | null
+          responsible_id?: string | null
           start_date?: string | null
           status?: string
+          tags?: string[] | null
           terms?: string | null
           title?: string
           updated_at?: string
@@ -1582,6 +1597,92 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          leader_id: string | null
+          legal_area: string | null
+          name: string
+          organization_id: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          leader_id?: string | null
+          legal_area?: string | null
+          name: string
+          organization_id: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          leader_id?: string | null
+          legal_area?: string | null
+          name?: string
+          organization_id?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

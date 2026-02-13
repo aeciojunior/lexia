@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -34,13 +34,15 @@ const navItems: NavItem[] = [
   { title: "Clientes", url: "/clients", icon: Users, permissions: ["VIEW_CLIENTS"] },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
   { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },
+  { title: "Contratos", url: "/contracts", icon: ScrollText, permissions: ["VIEW_CONTRACTS"] },
   { title: "Financeiro", url: "/financial", icon: DollarSign, permissions: ["VIEW_FINANCIAL"] },
   { title: "Horas", url: "/timesheet", icon: Clock, permissions: ["VIEW_PROCESSES"] },
+  { title: "Times", url: "/teams", icon: UsersRound, permissions: ["VIEW_TEAMS"] },
+  { title: "Produtividade", url: "/metrics", icon: BarChart3, permissions: ["VIEW_METRICS"] },
   { title: "Automações", url: "/automations", icon: Zap, permissions: ["VIEW_AUTOMATIONS"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },
-  { title: "Perfil", url: "/profile", icon: UserCircle },
   { title: "Perfil", url: "/profile", icon: UserCircle },
 ];
 
