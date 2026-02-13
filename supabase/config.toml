@@ -44,3 +44,12 @@ verify_jwt = false
 
 [functions.execute-automations]
 verify_jwt = false
+
+[functions.clicksign-send]
+verify_jwt = false
+
+[functions.metrics-ai-analysis]
+verify_jwt = false
+
+[functions.generate-contract-invoices]
+verify_jwt = false

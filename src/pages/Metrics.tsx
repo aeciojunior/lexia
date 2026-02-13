@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -8,22 +8,24 @@ import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Scale, FileText, CalendarDays, Users, Gavel, Clock, TrendingUp, AlertTriangle, CheckCircle, Target } from "lucide-react";
+import { BarChart3, Scale, FileText, CalendarDays, Users, Gavel, Clock, TrendingUp, AlertTriangle, CheckCircle, Target, Brain, Loader2, ArrowRight, ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "recharts";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16"];
+const severityColors: Record<string, string> = { high: "destructive", medium: "warning", low: "default" };
+const trendIcons: Record<string, any> = { up: ArrowUp, down: ArrowDown, stable: Minus };
 
 const Metrics = () => {
   const { activeOrgId } = useOrganization();
   const { isAdmin } = usePermissions();
   const [period, setPeriod] = useState("6m");
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
 
   const startDate = period === "1m" ? subMonths(new Date(), 1) : period === "3m" ? subMonths(new Date(), 3) : period === "6m" ? subMonths(new Date(), 6) : subMonths(new Date(), 12);
 
-  // Fetch all data in parallel
   const { data: processes = [] } = useQuery({
     queryKey: ["metrics-processes", activeOrgId],
     queryFn: async () => { const { data } = await supabase.from("processes").select("id, status, type, created_at, updated_at").eq("archived", false); return data || []; },
@@ -83,7 +85,6 @@ const Metrics = () => {
   const futureHearings = hearings.filter(h => new Date(h.hearing_date) > new Date()).length;
   const pastHearings = hearings.filter(h => new Date(h.hearing_date) <= new Date()).length;
 
-  // Monthly trend data
   const monthlyData = Array.from({ length: 6 }, (_, i) => {
     const month = subMonths(new Date(), 5 - i);
     const start = startOfMonth(month);
@@ -97,11 +98,39 @@ const Metrics = () => {
     };
   });
 
-  // Task productivity by assignee
   const tasksByUser = Object.entries(tasks.filter(t => t.assigned_to && t.done).reduce((acc: any, t: any) => { acc[t.assigned_to] = (acc[t.assigned_to] || 0) + 1; return acc; }, {}))
     .map(([user_id, count]) => ({ user_id, count: count as number }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
+
+  // Teams data for AI
+  const teamsData = teams.map((t: any) => {
+    const members = teamMembers.filter((m: any) => m.team_id === t.id);
+    const memberUserIds = members.map((m: any) => m.user_id);
+    const memberTasks = tasks.filter((task: any) => memberUserIds.includes(task.assigned_to));
+    return { name: t.name, members: members.length, total: memberTasks.length, done: memberTasks.filter((tk: any) => tk.done).length, pending: memberTasks.filter((tk: any) => !tk.done).length };
+  });
+
+  // AI Analysis mutation
+  const aiMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("metrics-ai-analysis", {
+        body: {
+          metrics: {
+            activeProcesses, processByStatus, processByType,
+            completedTasks, pendingTasks, overdueTasks, tasksByUser: tasksByUser.slice(0, 5),
+            pendingDeadlines, overdueDeadlines, complianceRate,
+            futureHearings, pastHearings, teamsData, monthlyData,
+          },
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data.analysis;
+    },
+    onSuccess: (data) => setAiAnalysis(data),
+    onError: (e: any) => { console.error(e); },
+  });
 
   const KPICard = ({ icon: Icon, label, value, sub, color = "primary" }: any) => (
     <LexCard>
@@ -132,17 +161,100 @@ const Metrics = () => {
               <h1 className="text-display-lg">Produtividade & Métricas</h1>
             </div>
           </div>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1m">1 mês</SelectItem>
-              <SelectItem value="3m">3 meses</SelectItem>
-              <SelectItem value="6m">6 meses</SelectItem>
-              <SelectItem value="12m">12 meses</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => aiMutation.mutate()} disabled={aiMutation.isPending} className="gap-2">
+              {aiMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+              Análise IA
+            </Button>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1m">1 mês</SelectItem>
+                <SelectItem value="3m">3 meses</SelectItem>
+                <SelectItem value="6m">6 meses</SelectItem>
+                <SelectItem value="12m">12 meses</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </motion.div>
+
+      {/* AI Analysis Panel */}
+      {aiAnalysis && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+          <LexCard className="border-primary/30 bg-primary/5">
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Análise de IA</h3>
+                  {aiAnalysis.score != null && (
+                    <LexBadge variant={aiAnalysis.score >= 70 ? "success" : aiAnalysis.score >= 40 ? "warning" : "destructive"}>
+                      Score: {aiAnalysis.score}/100
+                    </LexBadge>
+                  )}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setAiAnalysis(null)}>✕</Button>
+              </div>
+
+              {aiAnalysis.summary && <p className="text-sm text-muted-foreground">{aiAnalysis.summary}</p>}
+
+              {aiAnalysis.bottlenecks?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Gargalos Identificados</h4>
+                  <div className="space-y-2">
+                    {aiAnalysis.bottlenecks.map((b: any, i: number) => (
+                      <div key={i} className="p-3 rounded-lg bg-background border border-border">
+                        <div className="flex items-center gap-2 mb-1">
+                          <LexBadge variant={severityColors[b.severity] as any}>{b.severity}</LexBadge>
+                          <span className="font-medium text-sm">{b.area}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{b.description}</p>
+                        <p className="text-xs text-primary mt-1"><ArrowRight className="h-3 w-3 inline mr-1" />{b.suggestion}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {aiAnalysis.redistribution?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><Users className="h-4 w-4" /> Sugestões de Redistribuição</h4>
+                  <div className="space-y-2">
+                    {aiAnalysis.redistribution.map((r: any, i: number) => (
+                      <div key={i} className="p-3 rounded-lg bg-background border border-border text-sm">
+                        <p><span className="text-muted-foreground">De:</span> {r.from}</p>
+                        <p><span className="text-muted-foreground">Para:</span> {r.to}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{r.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {aiAnalysis.predictions?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> Previsões</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {aiAnalysis.predictions.map((p: any, i: number) => {
+                      const TrendIcon = trendIcons[p.trend] || Minus;
+                      return (
+                        <div key={i} className="p-3 rounded-lg bg-background border border-border text-sm">
+                          <div className="flex items-center gap-1 mb-1">
+                            <TrendIcon className={`h-3 w-3 ${p.trend === "up" ? "text-success" : p.trend === "down" ? "text-destructive" : "text-muted-foreground"}`} />
+                            <span className="font-medium">{p.metric}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{p.description}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </LexCard>
+        </motion.div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -163,7 +275,6 @@ const Metrics = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
-          {/* Trend chart */}
           <LexCard>
             <div className="p-5">
               <h3 className="font-semibold mb-4">Evolução Mensal</h3>
@@ -181,18 +292,13 @@ const Metrics = () => {
               </ResponsiveContainer>
             </div>
           </LexCard>
-
-          {/* Documents stats */}
           <div className="grid md:grid-cols-2 gap-4">
             <LexCard>
               <div className="p-5">
                 <h3 className="font-semibold mb-4">Documentos por Período</h3>
                 <div className="flex items-center gap-3">
                   <FileText className="h-8 w-8 text-primary" />
-                  <div>
-                    <p className="text-2xl font-bold">{documents.length}</p>
-                    <p className="text-sm text-muted-foreground">documentos totais</p>
-                  </div>
+                  <div><p className="text-2xl font-bold">{documents.length}</p><p className="text-sm text-muted-foreground">documentos totais</p></div>
                 </div>
               </div>
             </LexCard>
@@ -201,10 +307,7 @@ const Metrics = () => {
                 <h3 className="font-semibold mb-4">Audiências</h3>
                 <div className="flex items-center gap-3">
                   <Gavel className="h-8 w-8 text-primary" />
-                  <div>
-                    <p className="text-2xl font-bold">{hearings.length}</p>
-                    <p className="text-sm text-muted-foreground">{futureHearings} futuras / {pastHearings} realizadas</p>
-                  </div>
+                  <div><p className="text-2xl font-bold">{hearings.length}</p><p className="text-sm text-muted-foreground">{futureHearings} futuras / {pastHearings} realizadas</p></div>
                 </div>
               </div>
             </LexCard>
@@ -221,8 +324,7 @@ const Metrics = () => {
                     <Pie data={processByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                       {processByStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <RechartsTooltip />
-                    <Legend />
+                    <RechartsTooltip /><Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
