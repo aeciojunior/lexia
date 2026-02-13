@@ -2648,6 +2648,124 @@ export type Database = {
           },
         ]
       }
+      ticket_messages: {
+        Row: {
+          attachments: Json | null
+          content: string
+          created_at: string
+          id: string
+          is_internal: boolean
+          organization_id: string
+          sender_id: string
+          ticket_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          organization_id: string
+          sender_id: string
+          ticket_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          organization_id?: string
+          sender_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          client_id: string | null
+          closed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          organization_id: string
+          priority: string
+          process_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          organization_id: string
+          priority?: string
+          process_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          organization_id?: string
+          priority?: string
+          process_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_entries: {
         Row: {
           billable: boolean
@@ -2809,6 +2927,259 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      wiki_article_versions: {
+        Row: {
+          article_id: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          version: number
+        }
+        Insert: {
+          article_id: string
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          version: number
+        }
+        Update: {
+          article_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_article_versions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_articles: {
+        Row: {
+          category_id: string | null
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_published: boolean
+          organization_id: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          category_id?: string | null
+          content?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_published?: boolean
+          organization_id: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          category_id?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_published?: boolean
+          organization_id?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_articles_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wiki_articles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          parent_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wiki_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_runs: {
+        Row: {
+          context: Json | null
+          created_at: string
+          current_node: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          organization_id: string
+          started_at: string
+          status: string
+          triggered_by: string
+          workflow_id: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          current_node?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id: string
+          started_at?: string
+          status?: string
+          triggered_by: string
+          workflow_id: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          current_node?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_runs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflows: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          edges: Json | null
+          id: string
+          name: string
+          nodes: Json | null
+          organization_id: string
+          status: string
+          trigger_config: Json | null
+          trigger_type: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          edges?: Json | null
+          id?: string
+          name: string
+          nodes?: Json | null
+          organization_id: string
+          status?: string
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          edges?: Json | null
+          id?: string
+          name?: string
+          nodes?: Json | null
+          organization_id?: string
+          status?: string
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflows_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

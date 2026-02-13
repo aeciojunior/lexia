@@ -45,6 +45,9 @@ import Compliance from "./pages/Compliance";
 import Integrations from "./pages/Integrations";
 import NotificationRules from "./pages/NotificationRules";
 import Predictions from "./pages/Predictions";
+import Workflows from "./pages/Workflows";
+import Tickets from "./pages/Tickets";
+import Wiki from "./pages/Wiki";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -92,6 +95,9 @@ const App = () => (
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/notification-rules" element={<NotificationRules />} />
               <Route path="/predictions" element={<Predictions />} />
+              <Route path="/workflows" element={<Workflows />} />
+              <Route path="/tickets" element={<Tickets />} />
+              <Route path="/wiki" element={<Wiki />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,9 @@ const navItems: NavItem[] = [
   { title: "Integrações", url: "/integrations", icon: Plug, permissions: ["MANAGE_INTEGRATIONS"] },
   { title: "Regras Notif.", url: "/notification-rules", icon: BellRing, permissions: ["MANAGE_NOTIFICATION_RULES"] },
   { title: "IA Preditiva", url: "/predictions", icon: TrendingUp, accent: true, permissions: ["VIEW_PREDICTIONS"] },
+  { title: "Workflows", url: "/workflows", icon: GitBranch, permissions: ["VIEW_WORKFLOWS"] },
+  { title: "Tickets", url: "/tickets", icon: Ticket, permissions: ["VIEW_TICKETS"] },
+  { title: "Wiki", url: "/wiki", icon: BookOpen, permissions: ["VIEW_WIKI"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },
