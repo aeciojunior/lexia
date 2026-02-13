@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText, KeyRound, Target, Landmark, Lock,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,12 @@ const navItems: NavItem[] = [
   { title: "Assinaturas", url: "/signatures", icon: PenLine, permissions: ["VIEW_SIGNATURES"] },
   { title: "Rel. Financeiros", url: "/financial-reports", icon: PieChart, permissions: ["VIEW_FINANCIAL_REPORTS"] },
   { title: "Templates Msg", url: "/communication-templates", icon: MessageSquareText, permissions: ["VIEW_COMMUNICATION_TEMPLATES"] },
+  { title: "OKRs & KPIs", url: "/okrs", icon: Target, permissions: ["VIEW_OKRS"] },
+  { title: "Governança", url: "/governance", icon: Landmark, permissions: ["VIEW_GOVERNANCE"] },
+  { title: "Cofre Seguro", url: "/vault", icon: Lock, permissions: ["MANAGE_VAULT"] },
+  { title: "Secrets", url: "/secret-manager", icon: KeyRound, permissions: ["MANAGE_SECRETS"] },
+  { title: "Relatórios IA", url: "/ai-reports", icon: Brain, accent: true, permissions: ["VIEW_AI_REPORTS"] },
+  { title: "Logs Segurança", url: "/security-logs", icon: ShieldAlert, permissions: ["VIEW_SECURITY_LOGS"] },
   { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
   { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
   { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },

@@ -226,6 +226,118 @@ export type Database = {
           },
         ]
       }
+      ai_report_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          prompt_template: string
+          report_type: string
+          sections: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          prompt_template: string
+          report_type?: string
+          sections?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          prompt_template?: string
+          report_type?: string
+          sections?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_report_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_reports: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          data_snapshot: Json | null
+          delivery_channel: string | null
+          generated_at: string | null
+          id: string
+          is_scheduled: boolean
+          organization_id: string
+          recipients: string[] | null
+          report_type: string
+          scheduled_cron: string | null
+          status: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          data_snapshot?: Json | null
+          delivery_channel?: string | null
+          generated_at?: string | null
+          id?: string
+          is_scheduled?: boolean
+          organization_id: string
+          recipients?: string[] | null
+          report_type?: string
+          scheduled_cron?: string | null
+          status?: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          data_snapshot?: Json | null
+          delivery_channel?: string | null
+          generated_at?: string | null
+          id?: string
+          is_scheduled?: boolean
+          organization_id?: string
+          recipients?: string[] | null
+          report_type?: string
+          scheduled_cron?: string | null
+          status?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_reports_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_template_versions: {
         Row: {
           content: string
@@ -2313,6 +2425,65 @@ export type Database = {
           },
         ]
       }
+      org_secrets: {
+        Row: {
+          allowed_users: string[] | null
+          created_at: string
+          created_by: string
+          description: string | null
+          encrypted_value: string
+          expires_at: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          organization_id: string
+          rotated_at: string | null
+          secret_type: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          allowed_users?: string[] | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          encrypted_value: string
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          organization_id: string
+          rotated_at?: string | null
+          secret_type?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          allowed_users?: string[] | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          encrypted_value?: string
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          organization_id?: string
+          rotated_at?: string | null
+          secret_type?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_secrets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_invites: {
         Row: {
           accepted_at: string | null
@@ -3133,6 +3304,185 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      secret_access_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          organization_id: string
+          secret_id: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          organization_id: string
+          secret_id: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          organization_id?: string
+          secret_id?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secret_access_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "secret_access_logs_secret_id_fkey"
+            columns: ["secret_id"]
+            isOneToOne: false
+            referencedRelation: "org_secrets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_type: string
+          created_at: string
+          description: string | null
+          event_id: string | null
+          id: string
+          organization_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type: string
+          created_at?: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          organization_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type?: string
+          created_at?: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          organization_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "security_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "security_alerts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          is_anomaly: boolean
+          metadata: Json | null
+          organization_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resource_id: string | null
+          resource_type: string | null
+          severity: string
+          source: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          is_anomaly?: boolean
+          metadata?: Json | null
+          organization_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          severity?: string
+          source?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          is_anomaly?: boolean
+          metadata?: Json | null
+          organization_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          severity?: string
+          source?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
