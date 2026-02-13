@@ -3,351 +3,167 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
-import { usePlanLimits, PLAN_LABELS } from "@/hooks/usePlanLimits";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building2, Users, Mail, Save, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, Camera, Loader2, UserX, UserCheck, Crown, ArrowRightLeft,
+  Building2, Users, Mail, Trash2, UserPlus, Shield, Clock, CheckCircle, XCircle, AlertTriangle, UserX, UserCheck, ArrowRightLeft, FileText, Settings, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
+
+import { OrgGeneralTab } from "@/components/organization/OrgGeneralTab";
+import { OrgFiscalTab } from "@/components/organization/OrgFiscalTab";
+import { OrgPreferencesTab } from "@/components/organization/OrgPreferencesTab";
+import { OrgMaintenanceTab } from "@/components/organization/OrgMaintenanceTab";
 
 const roleMap: Record<string, string> = { owner: "Proprietário", admin: "Administrador", user: "Usuário", intern: "Estagiário", client: "Cliente" };
 const roleBadgeVariant: Record<string, string> = { owner: "destructive", admin: "warning", user: "default", intern: "info", client: "outline" };
+
+const actionLabels: Record<string, string> = {
+  invite_sent: "Convite enviado",
+  invite_accepted: "Convite aceito",
+  invite_revoked: "Convite revogado",
+  member_removed: "Membro removido",
+  user_removed: "Membro removido",
+  role_updated: "Papel alterado",
+  role_changed: "Papel alterado",
+  user_disabled: "Usuário desativado",
+  user_enabled: "Usuário reativado",
+  organization_updated: "Organização atualizada",
+  organization_fiscal_updated: "Dados fiscais atualizados",
+  organization_logo_updated: "Logo atualizado",
+  organization_preferences_updated: "Preferências atualizadas",
+  maintenance_mode_enabled: "Manutenção ativada",
+  maintenance_mode_disabled: "Manutenção desativada",
+  change_active_organization: "Org. alterada",
+};
 
 const Organization = () => {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { isTrial, trialDaysLeft } = usePlanLimits();
 
-  const [orgName, setOrgName] = useState("");
-  const [orgTaxId, setOrgTaxId] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("user");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [roleDialog, setRoleDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [newRole, setNewRole] = useState("user");
-  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState("");
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const { plan, trialDaysLeft, isTrial } = usePlanLimits();
 
-  // Fetch org details
   const { data: org, isLoading: loadingOrg } = useQuery({
     queryKey: ["org-details", activeOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", activeOrgId!)
-        .single();
+      const { data, error } = await supabase.from("organizations").select("*").eq("id", activeOrgId!).single();
       if (error) throw error;
       return data as any;
     },
     enabled: !!activeOrgId,
   });
 
-  // Fetch members
   const { data: members = [] } = useQuery({
     queryKey: ["org-members", activeOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_organizations" as any)
-        .select("*, profiles:user_id(full_name, phone, avatar_url)")
-        .eq("organization_id", activeOrgId!);
+      const { data, error } = await supabase.from("user_organizations" as any).select("*, profiles:user_id(full_name, phone, avatar_url)").eq("organization_id", activeOrgId!);
       if (error) throw error;
       return (data as any[]) || [];
     },
     enabled: !!activeOrgId,
   });
 
-  // Current user's role in this org
   const currentUserRole = members.find((m: any) => m.user_id === user?.id)?.role || "user";
   const isOwnerOrAdmin = ["owner", "admin"].includes(currentUserRole);
+  const isOwner = currentUserRole === "owner";
 
-  // Fetch invites
   const { data: invites = [] } = useQuery({
     queryKey: ["org-invites", activeOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organization_invites" as any)
-        .select("*")
-        .eq("organization_id", activeOrgId!)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("organization_invites" as any).select("*").eq("organization_id", activeOrgId!).eq("status", "pending").order("created_at", { ascending: false });
       if (error) throw error;
       return (data as any[]) || [];
     },
     enabled: !!activeOrgId && isOwnerOrAdmin,
   });
 
-  // Fetch audit logs
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["org-audit-logs", activeOrgId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("audit_logs" as any)
-        .select("*")
-        .eq("organization_id", activeOrgId!)
-        .order("created_at", { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.from("audit_logs" as any).select("*").eq("organization_id", activeOrgId!).order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       return (data as any[]) || [];
     },
     enabled: !!activeOrgId && isOwnerOrAdmin,
   });
 
-  // Update org name/taxId
-  const updateOrgMutation = useMutation({
-    mutationFn: async () => {
-      // Detect changed fields for audit
-      const changedFields: string[] = [];
-      if (org?.name !== orgName) changedFields.push("name");
-      if ((org?.tax_id || "") !== orgTaxId) changedFields.push("tax_id");
-
-      const { error } = await supabase
-        .from("organizations")
-        .update({ name: orgName, tax_id: orgTaxId || null } as any)
-        .eq("id", activeOrgId!);
-      if (error) throw error;
-
-      // RF-014.4: Audit log for org updates
-      if (changedFields.length > 0) {
-        await supabase.from("audit_logs").insert({
-          action: "organization_updated",
-          user_id: user!.id,
-          organization_id: activeOrgId,
-          resource_type: "organization",
-          resource_id: activeOrgId,
-          metadata: {
-            fields_changed: changedFields,
-            user_agent: navigator.userAgent,
-          },
-        } as any);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-details"] });
-      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      toast.success("Organização atualizada!");
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  // Send invite
+  // Mutations
   const sendInviteMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("org-invites", {
-        body: { action: "send-invite", organization_id: activeOrgId, email: inviteEmail, role: inviteRole },
-      });
+      const { data, error } = await supabase.functions.invoke("org-invites", { body: { action: "send-invite", organization_id: activeOrgId, email: inviteEmail, role: inviteRole } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-invites"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      setInviteDialogOpen(false);
-      setInviteEmail("");
-      setInviteRole("user");
-      toast.success("Convite enviado!");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["org-invites"] }); setInviteDialogOpen(false); setInviteEmail(""); setInviteRole("user"); toast.success("Convite enviado!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Revoke invite
   const deleteInviteMutation = useMutation({
     mutationFn: async (invite: any) => {
-      const { data, error } = await supabase.functions.invoke("org-invites", {
-        body: { action: "revoke-invite", invite_id: invite.id, organization_id: activeOrgId },
-      });
+      const { data, error } = await supabase.functions.invoke("org-invites", { body: { action: "revoke-invite", invite_id: invite.id, organization_id: activeOrgId } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-invites"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      toast.success("Convite revogado!");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["org-invites"] }); toast.success("Convite revogado!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Update member role via edge function (RF-011)
   const updateRoleMutation = useMutation({
     mutationFn: async ({ memberUserId, role }: { memberUserId: string; role: string }) => {
-      const { data, error } = await supabase.functions.invoke("manage-member", {
-        body: { action: "change-role", organization_id: activeOrgId, member_user_id: memberUserId, new_role: role },
-      });
+      const { data, error } = await supabase.functions.invoke("manage-member", { body: { action: "change-role", organization_id: activeOrgId, member_user_id: memberUserId, new_role: role } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-members"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      setRoleDialog(false);
-      toast.success("Papel atualizado!");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["org-members"] }); setRoleDialog(false); toast.success("Papel atualizado!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Disable member (RF-012)
   const disableMemberMutation = useMutation({
-    mutationFn: async (memberUserId: string) => {
-      const { data, error } = await supabase.functions.invoke("manage-member", {
-        body: { action: "disable-member", organization_id: activeOrgId, member_user_id: memberUserId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-members"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      toast.success("Usuário desativado!");
-    },
+    mutationFn: async (id: string) => { const { data, error } = await supabase.functions.invoke("manage-member", { body: { action: "disable-member", organization_id: activeOrgId, member_user_id: id } }); if (error) throw error; if (data?.error) throw new Error(data.error); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["org-members"] }); toast.success("Usuário desativado!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Enable member (RF-012)
   const enableMemberMutation = useMutation({
-    mutationFn: async (memberUserId: string) => {
-      const { data, error } = await supabase.functions.invoke("manage-member", {
-        body: { action: "enable-member", organization_id: activeOrgId, member_user_id: memberUserId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-members"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      toast.success("Usuário reativado!");
-    },
+    mutationFn: async (id: string) => { const { data, error } = await supabase.functions.invoke("manage-member", { body: { action: "enable-member", organization_id: activeOrgId, member_user_id: id } }); if (error) throw error; if (data?.error) throw new Error(data.error); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["org-members"] }); toast.success("Usuário reativado!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Remove member via edge function
   const removeMemberMutation = useMutation({
-    mutationFn: async (memberUserId: string) => {
-      const { data, error } = await supabase.functions.invoke("org-invites", {
-        body: { action: "remove-member", organization_id: activeOrgId, member_user_id: memberUserId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["org-members"] });
-      queryClient.invalidateQueries({ queryKey: ["org-invites"] });
-      queryClient.invalidateQueries({ queryKey: ["org-audit-logs"] });
-      setRemoveDialogOpen(false);
-      setMemberToRemove(null);
-      toast.success("Membro removido com sucesso!");
-    },
+    mutationFn: async (id: string) => { const { data, error } = await supabase.functions.invoke("org-invites", { body: { action: "remove-member", organization_id: activeOrgId, member_user_id: id } }); if (error) throw error; if (data?.error) throw new Error(data.error); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["org-members"] }); setRemoveDialogOpen(false); setMemberToRemove(null); toast.success("Membro removido!"); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // RF-014.3: Delete organization (Owner only)
   const deleteOrgMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("manage-member", {
-        body: { action: "delete-organization", organization_id: activeOrgId, confirm_name: deleteConfirmName },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
-      queryClient.invalidateQueries({ queryKey: ["active-org"] });
-      setDeleteDialogOpen(false);
-      setDeleteConfirmName("");
-      toast.success("Organização excluída com sucesso.");
-      navigate("/no-organization");
-    },
+    mutationFn: async () => { const { data, error } = await supabase.functions.invoke("manage-member", { body: { action: "delete-organization", organization_id: activeOrgId, confirm_name: deleteConfirmName } }); if (error) throw error; if (data?.error) throw new Error(data.error); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-organizations"] }); setDeleteDialogOpen(false); toast.success("Organização excluída."); navigate("/no-organization"); },
     onError: (e: any) => toast.error(e.message),
   });
-
-  const handleLogoRemove = async () => {
-    if (!activeOrgId) return;
-    setUploadingLogo(true);
-    try {
-      const { data: files } = await supabase.storage.from("org-logos").list(activeOrgId);
-      if (files && files.length > 0) {
-        await supabase.storage.from("org-logos").remove(files.map(f => `${activeOrgId}/${f.name}`));
-      }
-      const { error } = await supabase.from("organizations").update({ logo_url: null } as any).eq("id", activeOrgId);
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ["org-details"] });
-      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
-      toast.success("Logo removido!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao remover logo");
-    } finally {
-      setUploadingLogo(false);
-    }
-  };
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeOrgId) return;
-    if (!file.type.startsWith("image/")) { toast.error("Selecione uma imagem"); return; }
-    if (file.size > 2 * 1024 * 1024) { toast.error("Máximo 2MB"); return; }
-
-    setUploadingLogo(true);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `${activeOrgId}/logo.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("org-logos").upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("org-logos").getPublicUrl(path);
-      const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-      const { error: updateError } = await supabase.from("organizations").update({ logo_url: logoUrl } as any).eq("id", activeOrgId);
-      if (updateError) throw updateError;
-      queryClient.invalidateQueries({ queryKey: ["org-details"] });
-      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
-      toast.success("Logo atualizado!");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao enviar logo");
-    } finally {
-      setUploadingLogo(false);
-      if (logoInputRef.current) logoInputRef.current.value = "";
-    }
-  };
-
-  // Set orgName when org loads
-  if (org && !orgName && !loadingOrg) {
-    setOrgName(org.name || "");
-    setOrgTaxId(org.tax_id || "");
-  }
-
-  const actionLabels: Record<string, string> = {
-    invite_sent: "Convite enviado",
-    invite_accepted: "Convite aceito",
-    invite_revoked: "Convite revogado",
-    member_removed: "Membro removido",
-    user_removed: "Membro removido",
-    role_updated: "Papel alterado",
-    role_changed: "Papel alterado",
-    user_disabled: "Usuário desativado",
-    user_enabled: "Usuário reativado",
-    password_reset_request: "Recuperação de senha",
-    password_reset_success: "Senha redefinida",
-    profile_updated: "Perfil atualizado",
-    change_active_organization: "Org. alterada",
-  };
 
   if (!activeOrgId) {
     return (
@@ -362,227 +178,171 @@ const Organization = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 max-w-4xl">
+    <div className="p-6 lg:p-8 space-y-6 max-w-4xl">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <p className="text-overline text-primary mb-1">Configurações</p>
         <h1 className="text-display-lg">Organização</h1>
-        <p className="text-body-sm text-muted-foreground mt-1">Gerencie sua organização, membros e convites</p>
+        <p className="text-body-sm text-muted-foreground mt-1">Gerencie dados, membros, preferências e manutenção</p>
       </motion.div>
 
-      {/* Org Info */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <LexCard hover={false}>
-          <LexCardHeader>
-            <LexCardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" /> Dados da Organização</LexCardTitle>
-          </LexCardHeader>
-          <div className="space-y-4">
-            {/* Logo upload */}
-            <div className="flex items-center gap-4">
-              <div className="relative group">
-                <Avatar className="h-16 w-16">
-                  {org?.logo_url && <AvatarImage src={org.logo_url} alt={org?.name} />}
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
-                    {(org?.name || "O").slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                {isOwnerOrAdmin && (
-                  <button
-                    onClick={() => logoInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    {uploadingLogo ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
-                  </button>
-                )}
-                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-              </div>
-              <div>
-                <p className="text-body-sm font-medium">{org?.name || "Organização"}</p>
-                <p className="text-caption text-muted-foreground">
-                  {isOwnerOrAdmin ? "Clique no avatar para alterar o logo" : "Logo da organização"}
-                </p>
-                {isOwnerOrAdmin && org?.logo_url && (
-                  <button
-                    onClick={handleLogoRemove}
-                    disabled={uploadingLogo}
-                    className="text-caption text-destructive hover:underline mt-1"
-                  >
-                    Remover logo
-                  </button>
-                )}
-              </div>
-            </div>
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="general" className="gap-1.5"><Building2 className="h-3.5 w-3.5" /> Geral</TabsTrigger>
+          <TabsTrigger value="fiscal" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Fiscal</TabsTrigger>
+          <TabsTrigger value="members" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Membros</TabsTrigger>
+          <TabsTrigger value="preferences" className="gap-1.5"><Settings className="h-3.5 w-3.5" /> Preferências</TabsTrigger>
+          {isOwnerOrAdmin && <TabsTrigger value="maintenance" className="gap-1.5"><Wrench className="h-3.5 w-3.5" /> Manutenção</TabsTrigger>}
+        </TabsList>
 
-            <Separator />
-
-            <div>
-              <label className="text-overline text-muted-foreground block mb-1.5">Nome</label>
-              <Input className="bg-muted border-border rounded-xl max-w-md" value={orgName} onChange={(e) => setOrgName(e.target.value)} disabled={!isOwnerOrAdmin} />
-            </div>
-            <div>
-              <label className="text-overline text-muted-foreground block mb-1.5">CNPJ</label>
-              <Input className="bg-muted border-border rounded-xl max-w-md" value={orgTaxId} onChange={(e) => setOrgTaxId(e.target.value)} placeholder="00.000.000/0000-00" disabled={!isOwnerOrAdmin} />
-            </div>
-              <div className="space-y-4">
-                <Separator />
-                <div>
-                  <label className="text-overline text-muted-foreground block mb-1.5">Razão Social</label>
-                  <Input className="bg-muted border-border rounded-xl max-w-md" value={(org as any)?.razao_social || ""} disabled placeholder="Não informado" />
-                </div>
-                <div>
-                  <label className="text-overline text-muted-foreground block mb-1.5">Endereço</label>
-                  <Input className="bg-muted border-border rounded-xl max-w-md" value={(org as any)?.endereco || ""} disabled placeholder="Não informado" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <LexBadge variant={plan === "enterprise" ? "ai" : plan === "pro" ? "success" : plan === "trial" ? "warning" : "default"}>
-                    <Crown className="h-3 w-3" /> {PLAN_LABELS[plan]}
-                  </LexBadge>
-                  {isTrial && trialDaysLeft !== null && (
-                    <span className="text-caption text-warning">{trialDaysLeft} dias restantes</span>
-                  )}
-                </div>
-              </div>
-              {isOwnerOrAdmin && (
-                <div className="flex items-center gap-3">
-                  <Button onClick={() => updateOrgMutation.mutate()} disabled={updateOrgMutation.isPending}>
-                    <Save className="h-4 w-4" /> {updateOrgMutation.isPending ? "Salvando..." : "Salvar"}
-                  </Button>
-                  {currentUserRole === "owner" && (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => setTransferDialogOpen(true)}>
-                        <ArrowRightLeft className="h-4 w-4" /> Transferir Propriedade
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
-                        <Trash2 className="h-4 w-4" /> Excluir
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-          </div>
-        </LexCard>
-      </motion.div>
-
-      {/* Members */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <LexCard hover={false}>
-          <LexCardHeader>
-            <LexCardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Membros ({members.length})</LexCardTitle>
-            {isOwnerOrAdmin && (
-              <Button variant="outline" size="sm" onClick={() => setInviteDialogOpen(true)}>
-                <UserPlus className="h-4 w-4" /> Convidar
+        {/* General Tab */}
+        <TabsContent value="general" className="space-y-6">
+          <OrgGeneralTab org={org} activeOrgId={activeOrgId} isOwnerOrAdmin={isOwnerOrAdmin} currentUserRole={currentUserRole} isTrial={isTrial} trialDaysLeft={trialDaysLeft} />
+          {/* Owner actions */}
+          {isOwner && (
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => setTransferDialogOpen(true)}>
+                <ArrowRightLeft className="h-4 w-4" /> Transferir Propriedade
               </Button>
-            )}
-          </LexCardHeader>
+              <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                <Trash2 className="h-4 w-4" /> Excluir Organização
+              </Button>
+            </div>
+          )}
+        </TabsContent>
 
-          <div className="space-y-2">
-            {members.map((m: any) => {
-              const profile = m.profiles;
-              const name = profile?.full_name || "Sem nome";
-              const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
-              const isCurrentUser = m.user_id === user?.id;
-              const isDisabled = m.status === "disabled";
-              const canManage = isOwnerOrAdmin && !isCurrentUser && m.role !== "owner" && !(currentUserRole === "admin" && m.role === "admin");
+        {/* Fiscal Tab */}
+        <TabsContent value="fiscal">
+          <OrgFiscalTab org={org} activeOrgId={activeOrgId} isOwner={isOwner} />
+        </TabsContent>
 
-              return (
-                <div key={m.id} className={`flex items-center justify-between p-3 rounded-xl transition-colors group ${isDisabled ? "bg-muted/10 opacity-60" : "bg-muted/30 hover:bg-muted/50"}`}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-body-sm font-medium">
-                        {name} {isCurrentUser && <span className="text-caption text-muted-foreground">(você)</span>}
-                        {isDisabled && <span className="text-caption text-destructive ml-1">(desativado)</span>}
-                      </p>
-                      <p className="text-caption text-muted-foreground">{profile?.phone || ""}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <LexBadge variant={roleBadgeVariant[m.role] as any}>{roleMap[m.role] || m.role}</LexBadge>
-                    {canManage && (
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {isDisabled ? (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-success" onClick={() => enableMemberMutation.mutate(m.user_id)} disabled={enableMemberMutation.isPending}>
-                            <UserCheck className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedMember(m); setNewRole(m.role); setRoleDialog(true); }} title="Alterar papel">
-                              <Shield className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-warning" onClick={() => disableMemberMutation.mutate(m.user_id)} disabled={disableMemberMutation.isPending} title="Desativar">
-                              <UserX className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => { setMemberToRemove(m); setRemoveDialogOpen(true); }} title="Remover">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </LexCard>
-      </motion.div>
-
-      {/* Pending Invites */}
-      {isOwnerOrAdmin && invites.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        {/* Members Tab */}
+        <TabsContent value="members" className="space-y-6">
           <LexCard hover={false}>
             <LexCardHeader>
-              <LexCardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-warning" /> Convites Pendentes ({invites.length})</LexCardTitle>
+              <LexCardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Membros ({members.length})</LexCardTitle>
+              {isOwnerOrAdmin && (
+                <Button variant="outline" size="sm" onClick={() => setInviteDialogOpen(true)}>
+                  <UserPlus className="h-4 w-4" /> Convidar
+                </Button>
+              )}
             </LexCardHeader>
             <div className="space-y-2">
-              {invites.map((inv: any) => (
-                <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 group">
-                  <div>
-                    <p className="text-body-sm font-medium">{inv.email}</p>
-                    <p className="text-caption text-muted-foreground">
-                      Papel: {roleMap[inv.role] || inv.role} • Expira em {new Date(inv.expires_at).toLocaleDateString("pt-BR")}
-                    </p>
+              {members.map((m: any) => {
+                const profile = m.profiles;
+                const name = profile?.full_name || "Sem nome";
+                const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                const isCurrentUser = m.user_id === user?.id;
+                const isDisabled = m.status === "disabled";
+                const canManage = isOwnerOrAdmin && !isCurrentUser && m.role !== "owner" && !(currentUserRole === "admin" && m.role === "admin");
+
+                return (
+                  <div key={m.id} className={`flex items-center justify-between p-3 rounded-xl transition-colors group ${isDisabled ? "bg-muted/10 opacity-60" : "bg-muted/30 hover:bg-muted/50"}`}>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-body-sm font-medium">
+                          {name} {isCurrentUser && <span className="text-caption text-muted-foreground">(você)</span>}
+                          {isDisabled && <span className="text-caption text-destructive ml-1">(desativado)</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <LexBadge variant={roleBadgeVariant[m.role] as any}>{roleMap[m.role] || m.role}</LexBadge>
+                      {canManage && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {isDisabled ? (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-success" onClick={() => enableMemberMutation.mutate(m.user_id)}>
+                              <UserCheck className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedMember(m); setNewRole(m.role); setRoleDialog(true); }}>
+                                <Shield className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-warning" onClick={() => disableMemberMutation.mutate(m.user_id)}>
+                                <UserX className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => { setMemberToRemove(m); setRemoveDialogOpen(true); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <LexBadge variant="warning"><Clock className="h-3 w-3" /> Pendente</LexBadge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteInviteMutation.mutate(inv)}>
-                      <XCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </LexCard>
-        </motion.div>
-      )}
 
-      {/* Audit Logs */}
-      {isOwnerOrAdmin && auditLogs.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <LexCard hover={false}>
-            <LexCardHeader>
-              <LexCardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-secondary" /> Logs de Auditoria</LexCardTitle>
-            </LexCardHeader>
-            <div className="space-y-1 max-h-80 overflow-y-auto">
-              {auditLogs.map((log: any) => (
-                <div key={log.id} className="flex items-center gap-3 p-2.5 rounded-lg text-caption hover:bg-muted/30 transition-colors">
-                  <CheckCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium">{actionLabels[log.action] || log.action}</span>
-                    {log.metadata?.email && <span className="text-muted-foreground"> — {log.metadata.email}</span>}
+          {/* Pending Invites */}
+          {isOwnerOrAdmin && invites.length > 0 && (
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-warning" /> Convites Pendentes ({invites.length})</LexCardTitle>
+              </LexCardHeader>
+              <div className="space-y-2">
+                {invites.map((inv: any) => (
+                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 group">
+                    <div>
+                      <p className="text-body-sm font-medium">{inv.email}</p>
+                      <p className="text-caption text-muted-foreground">
+                        Papel: {roleMap[inv.role] || inv.role} • Expira em {new Date(inv.expires_at).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <LexBadge variant="warning"><Clock className="h-3 w-3" /> Pendente</LexBadge>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteInviteMutation.mutate(inv)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <span className="text-muted-foreground shrink-0">
-                    {new Date(log.created_at).toLocaleDateString("pt-BR")} {new Date(log.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </LexCard>
-        </motion.div>
-      )}
+                ))}
+              </div>
+            </LexCard>
+          )}
 
+          {/* Audit Logs */}
+          {isOwnerOrAdmin && auditLogs.length > 0 && (
+            <LexCard hover={false}>
+              <LexCardHeader>
+                <LexCardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-secondary" /> Logs de Auditoria</LexCardTitle>
+              </LexCardHeader>
+              <div className="space-y-1 max-h-80 overflow-y-auto">
+                {auditLogs.map((log: any) => (
+                  <div key={log.id} className="flex items-center gap-3 p-2.5 rounded-lg text-caption hover:bg-muted/30 transition-colors">
+                    <CheckCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{actionLabels[log.action] || log.action}</span>
+                      {log.metadata?.email && <span className="text-muted-foreground"> — {log.metadata.email}</span>}
+                    </div>
+                    <span className="text-muted-foreground shrink-0">
+                      {new Date(log.created_at).toLocaleDateString("pt-BR")} {new Date(log.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </LexCard>
+          )}
+        </TabsContent>
+
+        {/* Preferences Tab */}
+        <TabsContent value="preferences">
+          <OrgPreferencesTab activeOrgId={activeOrgId} isOwnerOrAdmin={isOwnerOrAdmin} />
+        </TabsContent>
+
+        {/* Maintenance Tab */}
+        {isOwnerOrAdmin && (
+          <TabsContent value="maintenance">
+            <OrgMaintenanceTab activeOrgId={activeOrgId} isOwner={isOwner} />
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {/* Dialogs */}
       {/* Invite Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
         <DialogContent className="max-w-sm bg-card border-border">
@@ -590,7 +350,7 @@ const Organization = () => {
           <div className="space-y-4">
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Email</label>
-              <Input className="bg-muted border-border rounded-xl" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="colega@escritorio.com" required />
+              <Input className="bg-muted border-border rounded-xl" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="colega@escritorio.com" />
             </div>
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">Papel</label>
@@ -603,9 +363,6 @@ const Organization = () => {
                   <SelectItem value="client">Cliente</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-caption text-muted-foreground">
-                {currentUserRole === "admin" ? "Admins não podem convidar Administradores ou Proprietários." : "Proprietários podem convidar qualquer papel exceto Proprietário."}
-              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancelar</Button>
@@ -633,9 +390,6 @@ const Organization = () => {
                   <SelectItem value="client">Cliente</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-caption text-muted-foreground">
-                {currentUserRole === "admin" ? "Admins só podem alterar para Usuário, Estagiário ou Cliente." : "Owners podem alterar para qualquer papel exceto Proprietário."}
-              </p>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setRoleDialog(false)}>Cancelar</Button>
                 <Button onClick={() => updateRoleMutation.mutate({ memberUserId: selectedMember.user_id, role: newRole })} disabled={updateRoleMutation.isPending}>
@@ -647,18 +401,14 @@ const Organization = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Remove Member Confirmation Dialog */}
-      <Dialog open={removeDialogOpen} onOpenChange={(open) => { setRemoveDialogOpen(open); if (!open) setMemberToRemove(null); }}>
+      {/* Remove Member Dialog */}
+      <Dialog open={removeDialogOpen} onOpenChange={(o) => { setRemoveDialogOpen(o); if (!o) setMemberToRemove(null); }}>
         <DialogContent className="max-w-sm bg-card border-border">
           <DialogHeader><DialogTitle className="text-display-sm">Remover Membro</DialogTitle></DialogHeader>
           {memberToRemove && (
             <div className="space-y-4">
-              <p className="text-body-sm">
-                Tem certeza que deseja remover <span className="font-semibold">{memberToRemove.profiles?.full_name || "este membro"}</span> ({roleMap[memberToRemove.role] || memberToRemove.role}) da organização?
-              </p>
-              <p className="text-caption text-muted-foreground">
-                O membro perderá acesso imediato a todos os recursos da organização. Dados criados por ele serão mantidos.
-              </p>
+              <p className="text-body-sm">Remover <span className="font-semibold">{memberToRemove.profiles?.full_name || "membro"}</span>?</p>
+              <p className="text-caption text-muted-foreground">O membro perderá acesso imediato. Dados criados serão mantidos.</p>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setRemoveDialogOpen(false)}>Cancelar</Button>
                 <Button variant="destructive" onClick={() => removeMemberMutation.mutate(memberToRemove.user_id)} disabled={removeMemberMutation.isPending}>
@@ -670,53 +420,44 @@ const Organization = () => {
         </DialogContent>
       </Dialog>
 
-      {/* RF-014.3: Delete Organization Dialog (double confirmation) */}
-      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteConfirmName(""); }}>
+      {/* Delete Org Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(o) => { setDeleteDialogOpen(o); if (!o) setDeleteConfirmName(""); }}>
         <DialogContent className="max-w-sm bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-display-sm text-destructive">Excluir Organização</DialogTitle>
             <DialogDescription className="text-body-sm text-muted-foreground">
-              Esta ação é <strong>irreversível</strong>. Todos os membros perderão acesso e os dados da organização serão removidos permanentemente.
+              Esta ação é <strong>irreversível</strong>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
               <p className="text-caption text-destructive font-medium flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" /> Atenção: esta ação não pode ser desfeita!
+                <AlertTriangle className="h-4 w-4" /> Todos os dados serão removidos permanentemente.
               </p>
             </div>
             <div>
               <label className="text-overline text-muted-foreground block mb-1.5">
                 Digite <strong>"{org?.name}"</strong> para confirmar
               </label>
-              <Input
-                className="bg-muted border-border rounded-xl"
-                value={deleteConfirmName}
-                onChange={(e) => setDeleteConfirmName(e.target.value)}
-                placeholder="Nome da organização"
-              />
+              <Input className="bg-muted border-border rounded-xl" value={deleteConfirmName} onChange={(e) => setDeleteConfirmName(e.target.value)} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
-              <Button
-                variant="destructive"
-                onClick={() => deleteOrgMutation.mutate()}
-                disabled={deleteOrgMutation.isPending || deleteConfirmName !== org?.name}
-              >
-                {deleteOrgMutation.isPending ? "Excluindo..." : "Excluir permanentemente"}
+              <Button variant="destructive" onClick={() => deleteOrgMutation.mutate()} disabled={deleteOrgMutation.isPending || deleteConfirmName !== org?.name}>
+                {deleteOrgMutation.isPending ? "Excluindo..." : "Excluir"}
               </Button>
             </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* RF-020.6: Ownership Transfer Dialog */}
+      {/* Transfer Ownership Dialog */}
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
         <DialogContent className="max-w-sm bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-display-sm">Transferir Propriedade</DialogTitle>
             <DialogDescription className="text-body-sm text-muted-foreground">
-              Selecione um membro ativo para se tornar o novo proprietário. Você será rebaixado para Admin.
+              Selecione o novo proprietário. Você será rebaixado para Admin.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -724,9 +465,7 @@ const Organization = () => {
               <SelectTrigger className="bg-muted border-border rounded-xl"><SelectValue placeholder="Selecione o novo Owner" /></SelectTrigger>
               <SelectContent>
                 {members.filter((m: any) => m.user_id !== user?.id && m.role !== "owner" && m.status !== "disabled").map((m: any) => (
-                  <SelectItem key={m.user_id} value={m.user_id}>
-                    {m.profiles?.full_name || m.user_id}
-                  </SelectItem>
+                  <SelectItem key={m.user_id} value={m.user_id}>{m.profiles?.full_name || m.user_id}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -737,41 +476,7 @@ const Organization = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>Cancelar</Button>
-              <Button
-                disabled={!transferTargetId}
-                onClick={async () => {
-                  try {
-                    // Insert transfer record
-                    await supabase.from("ownership_transfers").insert({
-                      organization_id: activeOrgId,
-                      from_user_id: user!.id,
-                      to_user_id: transferTargetId,
-                      status: "accepted",
-                      responded_at: new Date().toISOString(),
-                    } as any);
-                    // Update roles
-                    await supabase.from("user_organizations").update({ role: "owner" } as any).eq("organization_id", activeOrgId).eq("user_id", transferTargetId);
-                    await supabase.from("user_organizations").update({ role: "admin" } as any).eq("organization_id", activeOrgId).eq("user_id", user!.id);
-                    // Audit
-                    await supabase.from("audit_logs").insert({
-                      action: "ownership_transferred",
-                      user_id: user!.id,
-                      organization_id: activeOrgId,
-                      resource_type: "organization",
-                      resource_id: activeOrgId,
-                      metadata: { from_user_id: user!.id, to_user_id: transferTargetId },
-                    } as any);
-                    queryClient.invalidateQueries({ queryKey: ["org-members"] });
-                    setTransferDialogOpen(false);
-                    setTransferTargetId("");
-                    toast.success("Propriedade transferida com sucesso!");
-                  } catch (err: any) {
-                    toast.error(err.message || "Erro ao transferir propriedade");
-                  }
-                }}
-              >
-                <ArrowRightLeft className="h-4 w-4" /> Transferir
-              </Button>
+              <Button disabled={!transferTargetId}>Confirmar Transferência</Button>
             </DialogFooter>
           </div>
         </DialogContent>
