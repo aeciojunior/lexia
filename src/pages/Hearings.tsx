@@ -170,26 +170,31 @@ const Hearings = () => {
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" /> Nova Audiência</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editId ? "Editar Audiência" : "Nova Audiência"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }} className="space-y-4">
-                <div>
-                  <Label>Processo *</Label>
-                  <Select value={form.process_id} onValueChange={(v) => setForm({ ...form, process_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar processo" /></SelectTrigger>
-                    <SelectContent>
-                      {processes.map((p) => <SelectItem key={p.id} value={p.id}>{p.number} — {p.title}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label>Processo *</Label>
+                    <Select value={form.process_id} onValueChange={(v) => setForm({ ...form, process_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar processo" /></SelectTrigger>
+                      <SelectContent>
+                        {processes.map((p) => <SelectItem key={p.id} value={p.id}>{p.number} — {p.title}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div><Label>Data *</Label><Input type="date" value={form.hearing_date} onChange={(e) => setForm({ ...form, hearing_date: e.target.value })} required /></div>
                   <div><Label>Hora *</Label><Input type="time" value={form.hearing_time} onChange={(e) => setForm({ ...form, hearing_time: e.target.value })} required /></div>
-                </div>
-                <div><Label>Local *</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Fórum, sala, ou link virtual" required /></div>
-                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Local *</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Fórum, sala, ou link virtual" required /></div>
+                  <div>
+                    <Label>Responsável</Label>
+                    <Select value={form.responsible_id} onValueChange={(v) => setForm({ ...form, responsible_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                      <SelectContent>{members.map((m: any) => <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label>Tipo</Label>
                     <Select value={form.hearing_type} onValueChange={(v) => setForm({ ...form, hearing_type: v })}>
@@ -204,16 +209,9 @@ const Hearings = () => {
                       <SelectContent>{HEARING_STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
+                  <div className="md:col-span-2"><Label>Link de Videoconferência</Label><Input value={form.video_link} onChange={(e) => setForm({ ...form, video_link: e.target.value })} placeholder="https://..." /></div>
+                  <div className="md:col-span-2"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
                 </div>
-                <div>
-                  <Label>Responsável</Label>
-                  <Select value={form.responsible_id} onValueChange={(v) => setForm({ ...form, responsible_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>{members.map((m: any) => <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Link de Videoconferência</Label><Input value={form.video_link} onChange={(e) => setForm({ ...form, video_link: e.target.value })} placeholder="https://..." /></div>
-                <div><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
                 <Button type="submit" className="w-full" disabled={saveMutation.isPending || !form.process_id || !form.hearing_date || !form.location}>
                   {saveMutation.isPending ? "Salvando..." : editId ? "Atualizar" : "Criar Audiência"}
                 </Button>
