@@ -3746,6 +3746,86 @@ export type Database = {
           },
         ]
       }
+      process_summaries: {
+        Row: {
+          confidence: number | null
+          config: Json
+          created_at: string
+          created_by: string | null
+          decision_id: string | null
+          document_id: string | null
+          id: string
+          organization_id: string
+          origin: string
+          process_id: string | null
+          relevant_excerpts: Json | null
+          summary_text: string
+          summary_type: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          decision_id?: string | null
+          document_id?: string | null
+          id?: string
+          organization_id: string
+          origin?: string
+          process_id?: string | null
+          relevant_excerpts?: Json | null
+          summary_text?: string
+          summary_type?: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          decision_id?: string | null
+          document_id?: string | null
+          id?: string
+          organization_id?: string
+          origin?: string
+          process_id?: string | null
+          relevant_excerpts?: Json | null
+          summary_text?: string
+          summary_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_summaries_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decision_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_summaries_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_summaries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_summaries_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processes: {
         Row: {
           archived: boolean
