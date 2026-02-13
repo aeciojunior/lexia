@@ -44,6 +44,7 @@ const actionLabels: Record<string, string> = {
   maintenance_mode_enabled: "Manutenção ativada",
   maintenance_mode_disabled: "Manutenção desativada",
   change_active_organization: "Org. alterada",
+  organization_deleted: "Organização excluída",
 };
 
 const Organization = () => {
@@ -63,6 +64,7 @@ const Organization = () => {
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState("");
 
@@ -420,34 +422,74 @@ const Organization = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Org Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={(o) => { setDeleteDialogOpen(o); if (!o) setDeleteConfirmName(""); }}>
-        <DialogContent className="max-w-sm bg-card border-border">
+      {/* Delete Org Dialog — RF-022 */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(o) => { setDeleteDialogOpen(o); if (!o) { setDeleteConfirmName(""); setDeleteStep(1); } }}>
+        <DialogContent className="max-w-md bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-display-sm text-destructive">Excluir Organização</DialogTitle>
+            <DialogTitle className="text-display-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Excluir Organização
+            </DialogTitle>
             <DialogDescription className="text-body-sm text-muted-foreground">
-              Esta ação é <strong>irreversível</strong>.
+              Esta ação é <strong>permanente</strong> e <strong>não poderá ser desfeita</strong>.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-caption text-destructive font-medium flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" /> Todos os dados serão removidos permanentemente.
-              </p>
+
+          {deleteStep === 1 && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
+                <p className="text-body-sm font-semibold text-destructive">Impactos da exclusão:</p>
+                <ul className="space-y-2 text-caption text-destructive/90">
+                  <li className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Todos os dados cadastrais da organização serão removidos permanentemente</li>
+                  <li className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> <strong>{members.length}</strong> membro(s) perderão acesso imediato</li>
+                  <li className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Processos, documentos, contratos e integrações serão apagados</li>
+                  <li className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Automações, agentes de IA e configurações serão removidos</li>
+                  <li className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Logs históricos de auditoria podem ser preservados para conformidade</li>
+                </ul>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={() => setDeleteStep(2)}>
+                  Entendo os riscos, continuar
+                </Button>
+              </DialogFooter>
             </div>
-            <div>
-              <label className="text-overline text-muted-foreground block mb-1.5">
-                Digite <strong>"{org?.name}"</strong> para confirmar
-              </label>
-              <Input className="bg-muted border-border rounded-xl" value={deleteConfirmName} onChange={(e) => setDeleteConfirmName(e.target.value)} />
+          )}
+
+          {deleteStep === 2 && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                <p className="text-body-sm text-muted-foreground">
+                  Você está prestes a excluir a organização:
+                </p>
+                <p className="text-body-sm font-bold mt-1">{org?.name}</p>
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1.5">
+                  Digite <strong className="text-foreground">"{org?.name}"</strong> para confirmar a exclusão
+                </label>
+                <Input
+                  className="bg-muted border-border rounded-xl"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  placeholder="Digite o nome da organização"
+                  autoComplete="off"
+                />
+                {deleteConfirmName.length > 0 && deleteConfirmName !== org?.name && (
+                  <p className="text-caption text-destructive mt-1">O nome digitado não corresponde ao nome da organização.</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setDeleteStep(1); setDeleteConfirmName(""); }}>Voltar</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteOrgMutation.mutate()}
+                  disabled={deleteOrgMutation.isPending || deleteConfirmName !== org?.name}
+                >
+                  {deleteOrgMutation.isPending ? "Excluindo..." : "Confirmar Exclusão"}
+                </Button>
+              </DialogFooter>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
-              <Button variant="destructive" onClick={() => deleteOrgMutation.mutate()} disabled={deleteOrgMutation.isPending || deleteConfirmName !== org?.name}>
-                {deleteOrgMutation.isPending ? "Excluindo..." : "Excluir"}
-              </Button>
-            </DialogFooter>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
