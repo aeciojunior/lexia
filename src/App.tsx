@@ -36,6 +36,9 @@ import Automations from "./pages/Automations";
 import Contracts from "./pages/Contracts";
 import Teams from "./pages/Teams";
 import Metrics from "./pages/Metrics";
+import Agenda from "./pages/Agenda";
+import Communications from "./pages/Communications";
+import AITemplates from "./pages/AITemplates";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -74,6 +77,9 @@ const App = () => (
               <Route path="/contracts" element={<Contracts />} />
               <Route path="/teams" element={<Teams />} />
               <Route path="/metrics" element={<Metrics />} />
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/communications" element={<Communications />} />
+              <Route path="/ai-templates" element={<AITemplates />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

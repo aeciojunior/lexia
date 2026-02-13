@@ -35,7 +35,13 @@ export type Permission =
   | "VIEW_CONTRACTS"
   | "MANAGE_TEAMS"
   | "VIEW_TEAMS"
-  | "VIEW_METRICS";
+  | "VIEW_METRICS"
+  | "MANAGE_AGENDA"
+  | "VIEW_AGENDA"
+  | "SEND_EXTERNAL_MESSAGES"
+  | "VIEW_EXTERNAL_MESSAGES"
+  | "MANAGE_AI_TEMPLATES"
+  | "VIEW_AI_TEMPLATES";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
@@ -57,6 +63,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_CONTRACTS", "VIEW_CONTRACTS",
     "MANAGE_TEAMS", "VIEW_TEAMS",
     "VIEW_METRICS",
+    "MANAGE_AGENDA", "VIEW_AGENDA",
+    "SEND_EXTERNAL_MESSAGES", "VIEW_EXTERNAL_MESSAGES",
+    "MANAGE_AI_TEMPLATES", "VIEW_AI_TEMPLATES",
   ],
   admin: [
     "MANAGE_USERS", "VIEW_USERS",
@@ -74,6 +83,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_CONTRACTS", "VIEW_CONTRACTS",
     "MANAGE_TEAMS", "VIEW_TEAMS",
     "VIEW_METRICS",
+    "MANAGE_AGENDA", "VIEW_AGENDA",
+    "SEND_EXTERNAL_MESSAGES", "VIEW_EXTERNAL_MESSAGES",
+    "MANAGE_AI_TEMPLATES", "VIEW_AI_TEMPLATES",
   ],
   user: [
     "MANAGE_PROCESSES", "VIEW_PROCESSES",
@@ -88,6 +100,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "MANAGE_CONTRACTS", "VIEW_CONTRACTS",
     "VIEW_TEAMS",
     "VIEW_METRICS",
+    "MANAGE_AGENDA", "VIEW_AGENDA",
+    "SEND_EXTERNAL_MESSAGES", "VIEW_EXTERNAL_MESSAGES",
+    "VIEW_AI_TEMPLATES",
   ],
   intern: [
     "VIEW_PROCESSES",
@@ -101,6 +116,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_CONTRACTS",
     "VIEW_TEAMS",
     "VIEW_METRICS",
+    "VIEW_AGENDA",
+    "VIEW_EXTERNAL_MESSAGES",
+    "VIEW_AI_TEMPLATES",
   ],
   client: [
     "VIEW_PROCESSES",
@@ -108,6 +126,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "ACCESS_CLIENT_PORTAL",
     "VIEW_HEARINGS",
     "VIEW_CONTRACTS",
+    "VIEW_AGENDA",
   ],
 };
 

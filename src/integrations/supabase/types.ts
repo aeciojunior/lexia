@@ -14,6 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
+      agenda_events: {
+        Row: {
+          all_day: boolean
+          client_id: string | null
+          created_at: string
+          description: string | null
+          end_at: string | null
+          event_type: string
+          id: string
+          location: string | null
+          metadata: Json | null
+          organization_id: string
+          participants: string[] | null
+          priority: string
+          process_id: string | null
+          reminders: Json | null
+          source: string
+          start_at: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          video_link: string | null
+        }
+        Insert: {
+          all_day?: boolean
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          metadata?: Json | null
+          organization_id: string
+          participants?: string[] | null
+          priority?: string
+          process_id?: string | null
+          reminders?: Json | null
+          source?: string
+          start_at: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          video_link?: string | null
+        }
+        Update: {
+          all_day?: boolean
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          metadata?: Json | null
+          organization_id?: string
+          participants?: string[] | null
+          priority?: string
+          process_id?: string | null
+          reminders?: Json | null
+          source?: string
+          start_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          video_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_events_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           config: Json | null
@@ -72,6 +166,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "agents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_template_versions: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          template_id: string
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          template_id: string
+          version: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          template_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ai_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_templates: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          tags: string[] | null
+          template_type: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          tags?: string[] | null
+          template_type?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          tags?: string[] | null
+          template_type?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_templates_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -782,6 +967,100 @@ export type Database = {
           },
           {
             foreignKeyName: "documents_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_messages: {
+        Row: {
+          attachments: Json | null
+          body: string
+          channel: string
+          client_id: string | null
+          created_at: string
+          direction: string
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string
+          process_id: string | null
+          read_at: string | null
+          recipient_email: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          sent_at: string | null
+          status: string
+          subject: string | null
+          template_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          body: string
+          channel?: string
+          client_id?: string | null
+          created_at?: string
+          direction?: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          process_id?: string | null
+          read_at?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          body?: string
+          channel?: string
+          client_id?: string | null
+          created_at?: string
+          direction?: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          process_id?: string | null
+          read_at?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_messages_process_id_fkey"
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
