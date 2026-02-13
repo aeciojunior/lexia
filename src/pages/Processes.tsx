@@ -690,11 +690,17 @@ const Processes = () => {
 /* ─── Linked Documents with Filters ─── */
 const CATEGORY_OPTIONS = [
   { value: "__all__", label: "Todas categorias" },
-  { value: "petition", label: "Petição" },
+  { value: "petition", label: "Petição Inicial" },
+  { value: "contestation", label: "Contestação" },
   { value: "contract", label: "Contrato" },
-  { value: "evidence", label: "Prova" },
-  { value: "correspondence", label: "Correspondência" },
+  { value: "evidence", label: "Provas" },
   { value: "court_order", label: "Decisão Judicial" },
+  { value: "hearing_doc", label: "Audiência (ata/termo)" },
+  { value: "recurso", label: "Recurso" },
+  { value: "correspondence", label: "Correspondência" },
+  { value: "power_of_attorney", label: "Procuração" },
+  { value: "internal", label: "Documento Interno" },
+  { value: "report", label: "Relatório" },
   { value: "other", label: "Outro" },
 ];
 
@@ -706,8 +712,38 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
   const [docSearch, setDocSearch] = useState("");
   const [docCategory, setDocCategory] = useState("__all__");
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  // Upload form state
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCategory, setUploadCategory] = useState("other");
+  const [uploadEventId, setUploadEventId] = useState("none");
+  const [uploadName, setUploadName] = useState("");
+  const [uploadNotes, setUploadNotes] = useState("");
+
+  const resetUploadForm = () => {
+    setUploadFile(null);
+    setUploadCategory("other");
+    setUploadEventId("none");
+    setUploadName("");
+    setUploadNotes("");
+  };
+
+  // Fetch events for linking
+  const { data: processEvents = [] } = useQuery({
+    queryKey: ["process-events-for-docs", processId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("process_events" as any)
+        .select("id, title, event_type, event_date")
+        .eq("process_id", processId)
+        .order("event_date", { ascending: false });
+      return (data as any[]) || [];
+    },
+    enabled: showUploadDialog,
+  });
 
   // Fetch unlinked docs for the link dialog
   const { data: unlinkedDocs = [] } = useQuery({
@@ -751,36 +787,47 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
     onError: (e: any) => toast.error(e.message),
   });
 
-  const handleUpload = async (file: File) => {
-    if (!user) return;
+  const handleUpload = async () => {
+    if (!uploadFile || !user) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
+      const ext = uploadFile.name.split(".").pop();
       const orgPath = activeOrgId || user.id;
       const path = `${orgPath}/${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("documents").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, uploadFile);
       if (upErr) throw upErr;
 
       const { error: dbErr } = await supabase.from("documents").insert({
         user_id: user.id,
         organization_id: activeOrgId,
-        file_name: file.name,
+        file_name: uploadName.trim() || uploadFile.name,
         file_url: path,
-        file_size: file.size,
-        file_type: file.type,
-        category: "other",
+        file_size: uploadFile.size,
+        file_type: uploadFile.type,
+        category: uploadCategory,
         process_id: processId,
+        event_id: uploadEventId === "none" ? null : uploadEventId,
+        notes: uploadNotes.trim() || null,
+        origin: "manual",
       } as any);
       if (dbErr) throw dbErr;
 
       queryClient.invalidateQueries({ queryKey: ["process-linked-docs", processId] });
       queryClient.invalidateQueries({ queryKey: ["documents"] });
-      toast.success("Documento enviado e vinculado!");
+      setShowUploadDialog(false);
+      resetUploadForm();
+      toast.success("Documento anexado com sucesso!");
     } catch (err: any) {
-      toast.error("Erro ao enviar: " + err.message);
+      toast.error("Não foi possível anexar o documento: " + err.message);
     } finally {
       setUploading(false);
     }
+  };
+
+  const downloadFile = async (doc: any) => {
+    const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.file_url, 60);
+    if (error) { toast.error("Erro ao gerar link de download"); return; }
+    window.open(data.signedUrl, "_blank");
   };
 
   const filtered = useMemo(() => {
@@ -811,36 +858,25 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
             variant="ghost"
             size="icon"
             className="h-6 w-6"
-            title="Enviar novo documento"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
+            title="Anexar novo documento"
+            onClick={() => { resetUploadForm(); setShowUploadDialog(true); }}
           >
             <Upload className="h-3.5 w-3.5" />
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleUpload(f);
-              e.target.value = "";
-            }}
-          />
         </div>
       </div>
 
       {loading ? (
         <p className="text-caption text-muted-foreground text-center py-4">Carregando documentos...</p>
-      ) : docs.length === 0 && !uploading ? (
+      ) : docs.length === 0 ? (
         <div className="text-center py-4">
           <p className="text-caption text-muted-foreground mb-2">Nenhum documento vinculado.</p>
           <div className="flex gap-2 justify-center">
             <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setShowLinkDialog(true)}>
               <Link2 className="h-3 w-3 mr-1" /> Vincular existente
             </Button>
-            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-3 w-3 mr-1" /> Enviar novo
+            <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => { resetUploadForm(); setShowUploadDialog(true); }}>
+              <Upload className="h-3 w-3 mr-1" /> Anexar novo
             </Button>
           </div>
         </div>
@@ -862,7 +898,6 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
               </Select>
             </div>
           )}
-          {uploading && <p className="text-caption text-primary text-center py-2 animate-pulse">Enviando documento...</p>}
           {filtered.length === 0 ? (
             <p className="text-caption text-muted-foreground text-center py-3">Nenhum documento encontrado com os filtros aplicados.</p>
           ) : (
@@ -874,18 +909,19 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
                   <div key={doc.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                     <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
                     <span className="flex-1 text-caption truncate text-foreground">{doc.file_name}</span>
-                    {doc.file_type && (
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 uppercase">{doc.file_type.split("/").pop()}</Badge>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
+                      {CATEGORY_OPTIONS.find((c) => c.value === doc.category)?.label || doc.category}
+                    </Badge>
+                    {doc.event_id && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 text-info">Evento</Badge>
                     )}
                     {sizeLabel && <span className="text-[10px] text-muted-foreground shrink-0">{sizeLabel}</span>}
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {new Date(doc.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                     </span>
-                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary">
-                        <Download className="h-3 w-3" />
-                      </Button>
-                    </a>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-primary shrink-0" onClick={() => downloadFile(doc)}>
+                      <Download className="h-3 w-3" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -902,6 +938,85 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
           )}
         </>
       )}
+
+      {/* Upload dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={(open) => { if (!open) resetUploadForm(); setShowUploadDialog(open); }}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto bg-card border-border">
+          <DialogHeader><DialogTitle className="text-display-sm">Anexar Documento</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            {/* Drop zone */}
+            <div
+              className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadFile ? (
+                <div>
+                  <FileText className="h-7 w-7 text-primary mx-auto mb-1.5" />
+                  <p className="text-caption font-medium truncate">{uploadFile.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{(uploadFile.size / 1024).toFixed(0)} KB</p>
+                </div>
+              ) : (
+                <div>
+                  <Upload className="h-7 w-7 text-muted-foreground/40 mx-auto mb-1.5" />
+                  <p className="text-caption text-muted-foreground">Clique para selecionar</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">PDF, DOCX, JPG, PNG até 20MB</p>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                setUploadFile(f);
+                if (f && !uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ""));
+                e.target.value = "";
+              }} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1">Categoria *</label>
+                <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_OPTIONS.filter((c) => c.value !== "__all__").map((c) => (
+                      <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-overline text-muted-foreground block mb-1">Vincular a Evento</label>
+                <Select value={uploadEventId} onValueChange={setUploadEventId}>
+                  <SelectTrigger className="bg-muted border-border rounded-xl h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-xs">Nenhum</SelectItem>
+                    {processEvents.map((ev: any) => (
+                      <SelectItem key={ev.id} value={ev.id} className="text-xs">
+                        {ev.title} ({new Date(ev.event_date).toLocaleDateString("pt-BR")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1">Nome do documento</label>
+              <Input className="bg-muted border-border rounded-xl h-9 text-xs" value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Nome do arquivo" />
+            </div>
+
+            <div>
+              <label className="text-overline text-muted-foreground block mb-1">Descrição (opcional)</label>
+              <Textarea className="bg-muted border-border rounded-xl text-xs" value={uploadNotes} onChange={(e) => setUploadNotes(e.target.value)} rows={2} placeholder="Observações sobre o documento..." />
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setShowUploadDialog(false)}>Cancelar</Button>
+              <Button size="sm" onClick={handleUpload} disabled={!uploadFile || uploading}>
+                {uploading ? "Enviando..." : "Anexar"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Link existing doc dialog */}
       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
@@ -1337,7 +1452,7 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
     queryFn: async () => {
       const { data, error } = await supabase
         .from("documents")
-        .select("id, file_name, file_type, file_size, file_url, created_at, category")
+        .select("id, file_name, file_type, file_size, file_url, created_at, category, event_id, origin, notes")
         .eq("process_id", process.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
