@@ -3218,6 +3218,135 @@ export type Database = {
           },
         ]
       }
+      process_classification_logs: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          justification: string | null
+          legal_area: string | null
+          manual_reason: string | null
+          organization_id: string
+          origin: string
+          process_id: string
+          process_type: string | null
+          risk_level: string | null
+          urgency: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          justification?: string | null
+          legal_area?: string | null
+          manual_reason?: string | null
+          organization_id: string
+          origin?: string
+          process_id: string
+          process_type?: string | null
+          risk_level?: string | null
+          urgency?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          justification?: string | null
+          legal_area?: string | null
+          manual_reason?: string | null
+          organization_id?: string
+          origin?: string
+          process_id?: string
+          process_type?: string | null
+          risk_level?: string | null
+          urgency?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_classification_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_classification_logs_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_classifications: {
+        Row: {
+          classified_by: string | null
+          confidence: number | null
+          created_at: string
+          id: string
+          justification: string | null
+          legal_area: string | null
+          manual_reason: string | null
+          organization_id: string
+          origin: string
+          process_id: string
+          process_type: string | null
+          risk_level: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          classified_by?: string | null
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          justification?: string | null
+          legal_area?: string | null
+          manual_reason?: string | null
+          organization_id: string
+          origin?: string
+          process_id: string
+          process_type?: string | null
+          risk_level?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          classified_by?: string | null
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          justification?: string | null
+          legal_area?: string | null
+          manual_reason?: string | null
+          organization_id?: string
+          origin?: string
+          process_id?: string
+          process_type?: string | null
+          risk_level?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_classifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_classifications_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: true
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_events: {
         Row: {
           created_at: string

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.chatbot-legal]
 verify_jwt = false
+
+[functions.classify-process]
+verify_jwt = false
