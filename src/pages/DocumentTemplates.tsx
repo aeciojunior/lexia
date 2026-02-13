@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Search, FileText, Edit, Trash2, Copy, Clock, Eye } from "lucide-react";
+import { Plus, Search, FileText, Edit, Trash2, Copy, Clock, Eye, BookTemplate } from "lucide-react";
 
 const TEMPLATE_CATEGORIES = [
   { value: "petition", label: "Petição" },
@@ -160,11 +160,17 @@ const DocumentTemplates = () => {
   if (isClient) return <p className="text-muted-foreground text-center py-8">Acesso não autorizado.</p>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Modelos de Documentos</h1>
-          <p className="text-muted-foreground text-sm">Crie e gerencie templates para suas peças jurídicas</p>
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+            <BookTemplate className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-primary mb-0.5">Gestão</p>
+            <h1 className="text-2xl font-bold text-foreground">Modelos de Documentos</h1>
+          </div>
         </div>
         {canCreate && (
           <Button className="gap-2" onClick={() => { resetForm(); setOpen(true); }}>
@@ -175,10 +181,10 @@ const DocumentTemplates = () => {
 
       {/* Filters */}
       <LexCard hover={false}>
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Buscar modelos..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-9" placeholder="Buscar modelos por título ou conteúdo..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
@@ -192,9 +198,17 @@ const DocumentTemplates = () => {
 
       {/* Templates grid */}
       {isLoading ? (
-        <p className="text-muted-foreground text-center py-8">Carregando...</p>
+        <LexCard hover={false}>
+          <p className="text-muted-foreground text-center py-6">Carregando modelos...</p>
+        </LexCard>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground text-center py-8">Nenhum modelo encontrado.</p>
+        <LexCard hover={false}>
+          <div className="text-center py-10 space-y-2">
+            <BookTemplate className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+            <p className="text-muted-foreground">Nenhum modelo encontrado.</p>
+            {canCreate && <p className="text-xs text-muted-foreground">Clique em "Novo Modelo" para criar.</p>}
+          </div>
+        </LexCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((t: any) => {
