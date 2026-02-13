@@ -2799,6 +2799,9 @@ export type Database = {
           date_format: string
           id: string
           locale: string
+          maintenance_admin_access: boolean
+          maintenance_message: string | null
+          maintenance_mode: boolean
           notifications_external: boolean
           notifications_internal: boolean
           onboarding_completed: boolean
@@ -2815,6 +2818,9 @@ export type Database = {
           date_format?: string
           id?: string
           locale?: string
+          maintenance_admin_access?: boolean
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
           notifications_external?: boolean
           notifications_internal?: boolean
           onboarding_completed?: boolean
@@ -2831,6 +2837,9 @@ export type Database = {
           date_format?: string
           id?: string
           locale?: string
+          maintenance_admin_access?: boolean
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
           notifications_external?: boolean
           notifications_internal?: boolean
           onboarding_completed?: boolean
