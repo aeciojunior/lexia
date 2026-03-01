@@ -496,6 +496,21 @@ export default function Drafts() {
         )}
       </div>
 
+      {/* Suggestions Panel */}
+      {showSuggestions && selectedDraft && (
+        <ArgumentSuggestionsPanel
+          draftId={selectedDraft.id}
+          processId={selectedDraft.process_id || undefined}
+          pieceType={selectedDraft.piece_type}
+          onInsert={(content) => {
+            const updated = { ...selectedDraft, content: (selectedDraft.content || "") + "\n\n" + content };
+            setSelectedDraft(updated);
+            supabase.from("drafts").update({ content: updated.content }).eq("id", updated.id);
+          }}
+          onClose={() => setShowSuggestions(false)}
+        />
+      )}
+
       {/* Versions Dialog */}
       <Dialog open={showVersions} onOpenChange={setShowVersions}>
         <DialogContent className="max-w-md">
