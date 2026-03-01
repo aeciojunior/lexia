@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProcessSummary360 from "@/components/process/ProcessSummary360";
-import { renderWithProviders, mockSupabase } from "../helpers";
+import { renderWithProviders, mockSupabase, createTestQueryClient } from "../helpers";
 
 vi.mock("@/assets/hero-bg.jpg", () => ({ default: "hero-bg-mock.jpg" }));
 
