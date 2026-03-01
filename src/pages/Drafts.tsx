@@ -16,8 +16,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
+import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
 import {
-  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save,
+  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -74,6 +75,7 @@ export default function Drafts() {
   const [processId, setProcessId] = useState("");
   const [instructions, setInstructions] = useState("");
   const [rewriteInstructions, setRewriteInstructions] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Fetch drafts
   const { data: drafts, isLoading } = useQuery({
@@ -448,6 +450,7 @@ export default function Drafts() {
                   )}
                 </div>
                 <div className="flex gap-1.5">
+                  <Button variant="ghost" size="icon" onClick={() => setShowSuggestions(!showSuggestions)} title="Sugestões IA"><Lightbulb className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleCopy} title="Copiar"><Copy className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleExportPdf} title="Exportar PDF"><Download className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => setShowVersions(true)} title="Versões"><History className="h-4 w-4" /></Button>
@@ -492,6 +495,21 @@ export default function Drafts() {
           </div>
         )}
       </div>
+
+      {/* Suggestions Panel */}
+      {showSuggestions && selectedDraft && (
+        <ArgumentSuggestionsPanel
+          draftId={selectedDraft.id}
+          processId={selectedDraft.process_id || undefined}
+          pieceType={selectedDraft.piece_type}
+          onInsert={(content) => {
+            const updated = { ...selectedDraft, content: (selectedDraft.content || "") + "\n\n" + content };
+            setSelectedDraft(updated);
+            supabase.from("drafts").update({ content: updated.content }).eq("id", updated.id);
+          }}
+          onClose={() => setShowSuggestions(false)}
+        />
+      )}
 
       {/* Versions Dialog */}
       <Dialog open={showVersions} onOpenChange={setShowVersions}>

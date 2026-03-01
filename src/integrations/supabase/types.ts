@@ -453,6 +453,85 @@ export type Database = {
         }
         Relationships: []
       }
+      argument_suggestions: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          draft_id: string | null
+          id: string
+          jurisprudence: string | null
+          legal_basis: string | null
+          organization_id: string
+          process_id: string | null
+          risk_level: string | null
+          sources: Json | null
+          status: string | null
+          strength_score: number | null
+          suggestion_type: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          draft_id?: string | null
+          id?: string
+          jurisprudence?: string | null
+          legal_basis?: string | null
+          organization_id: string
+          process_id?: string | null
+          risk_level?: string | null
+          sources?: Json | null
+          status?: string | null
+          strength_score?: number | null
+          suggestion_type?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          draft_id?: string | null
+          id?: string
+          jurisprudence?: string | null
+          legal_basis?: string | null
+          organization_id?: string
+          process_id?: string | null
+          risk_level?: string | null
+          sources?: Json | null
+          status?: string | null
+          strength_score?: number | null
+          suggestion_type?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "argument_suggestions_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "argument_suggestions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "argument_suggestions_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_history: {
         Row: {
           action: string

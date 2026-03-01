@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.generate-draft]
 verify_jwt = false
+
+[functions.suggest-arguments]
+verify_jwt = false
