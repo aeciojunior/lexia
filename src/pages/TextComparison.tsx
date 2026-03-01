@@ -174,7 +174,7 @@ export default function TextComparison() {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const location = useLocation();
-  const navState = location.state as { textA?: string; textB?: string; labelA?: string; labelB?: string; comparisonType?: string } | null;
+  const navState = location.state as { textA?: string; textB?: string; labelA?: string; labelB?: string; comparisonType?: string; sourceDocA?: any; sourceDocB?: any } | null;
 
   const [textA, setTextA] = useState(navState?.textA || "");
   const [textB, setTextB] = useState(navState?.textB || "");
@@ -200,6 +200,68 @@ export default function TextComparison() {
   const [history, setHistory] = useState<ComparisonRecord[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Auto-load documents from process integration
+  const [autoLoaded, setAutoLoaded] = useState(false);
+  useState(() => {
+    if (navState?.sourceDocA && navState?.sourceDocB && !autoLoaded) {
+      setAutoLoaded(true);
+      const loadDocText = async (doc: any, side: "A" | "B") => {
+        const setExtracting = side === "A" ? setExtractingA : setExtractingB;
+        const setText = side === "A" ? setTextA : setTextB;
+        const setFileInfo = side === "A" ? setFileInfoA : setFileInfoB;
+        const setFormat = side === "A" ? setFormatA : setFormatB;
+        const setFileSize = side === "A" ? setFileSizeA : setFileSizeB;
+
+        setExtracting(true);
+        try {
+          const { data: signedData, error: signedErr } = await supabase.storage
+            .from("documents")
+            .createSignedUrl(doc.file_url, 120);
+          if (signedErr || !signedData?.signedUrl) throw new Error("Erro ao obter URL do documento");
+
+          const response = await fetch(signedData.signedUrl);
+          const blob = await response.blob();
+          const file = new File([blob], doc.file_name, { type: doc.file_type || "application/octet-stream" });
+
+          const fileFormat = getFormatFromFile(file);
+          setFormat(fileFormat);
+          setFileSize(file.size);
+
+          const result = await extractTextFromFile(file);
+
+          if (result.needsOcr) {
+            setFileInfo(`${fileFormat} • Executando OCR...`);
+            let images: string[];
+            if (fileFormat === "JPG" || fileFormat === "PNG") {
+              const dataUrl = await imageFileToBase64(file);
+              images = [dataUrl];
+            } else {
+              images = await renderPdfPagesToImages(file, 10);
+            }
+            const { data: ocrData, error: ocrErr } = await supabase.functions.invoke("extract-pdf-text", {
+              body: { images, organizationId: activeOrgId },
+            });
+            if (ocrErr) throw ocrErr;
+            const ocrText = ocrData?.text || "";
+            setText(ocrText);
+            setFileInfo(`${fileFormat} • OCR • ${ocrText.length.toLocaleString()} caracteres`);
+          } else {
+            setText(result.text);
+            setFileInfo(`${fileFormat} • ${result.text.length.toLocaleString()} caracteres`);
+          }
+        } catch (e: any) {
+          console.error(`Error loading doc ${side}:`, e);
+          setFileInfo("Erro ao carregar documento");
+          toast({ title: `Erro ao carregar ${doc.file_name}`, description: e.message, variant: "destructive" });
+        } finally {
+          setExtracting(false);
+        }
+      };
+      loadDocText(navState.sourceDocA, "A");
+      loadDocText(navState.sourceDocB, "B");
+    }
+  });
 
   const handleFileUpload = async (side: "A" | "B", file: File) => {
     const setText = side === "A" ? setTextA : setTextB;
