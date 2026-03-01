@@ -491,6 +491,7 @@ export default function Drafts() {
                   <Button variant="ghost" size="icon" onClick={() => setShowSuggestions(!showSuggestions)} title="Sugestões IA"><Lightbulb className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleCopy} title="Copiar"><Copy className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleExportPdf} title="Exportar PDF"><Download className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={handleSaveToVault} title="Salvar no Cofre"><Lock className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => setShowVersions(true)} title="Versões"><History className="h-4 w-4" /></Button>
                 </div>
               </div>
