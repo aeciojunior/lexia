@@ -48,6 +48,7 @@ interface LegalReviewPanelProps {
   pieceType?: string;
   onApply: (original: string, replacement: string) => void;
   onClose: () => void;
+  onToggleDiff: (showDiff: boolean, originalContent: string) => void;
 }
 
 export default function LegalReviewPanel({ draftId, draftContent, pieceType, onApply, onClose }: LegalReviewPanelProps) {
