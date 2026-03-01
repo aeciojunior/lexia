@@ -66,7 +66,7 @@ describe("TextComparison Page", () => {
 
   it("renders the page title and input areas", () => {
     renderPage();
-    expect(screen.getByText("Comparação de Textos")).toBeInTheDocument();
+    expect(screen.getByText("Comparação de Textos e Arquivos")).toBeInTheDocument();
     expect(screen.getAllByRole("textbox").length).toBeGreaterThanOrEqual(2);
   });
 
@@ -78,7 +78,7 @@ describe("TextComparison Page", () => {
 
   it("shows Upload PDF buttons", () => {
     renderPage();
-    const uploadButtons = screen.getAllByText("Upload PDF");
+    const uploadButtons = screen.getAllByText("Upload Arquivo");
     expect(uploadButtons).toHaveLength(2);
   });
 
