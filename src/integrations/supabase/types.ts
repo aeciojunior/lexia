@@ -3024,6 +3024,53 @@ export type Database = {
           },
         ]
       }
+      nl_queries: {
+        Row: {
+          answer: string | null
+          conversation_id: string
+          created_at: string | null
+          id: string
+          organization_id: string
+          query_type: string | null
+          question: string
+          sources_used: Json | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          query_type?: string | null
+          question: string
+          sources_used?: Json | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          query_type?: string | null
+          question?: string
+          sources_used?: Json | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nl_queries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_rule_logs: {
         Row: {
           channels_used: string[] | null
