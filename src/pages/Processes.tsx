@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import ProcessMovements from "@/components/process/ProcessMovements";
 import ProcessChat from "@/components/process/ProcessChat";
 import ProcessTimeline from "@/components/process/ProcessTimeline";
@@ -17,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X, CalendarClock, AlertTriangle, RefreshCcw, Loader2, Building2 } from "lucide-react";
+import { Search, Plus, Archive, Edit, Eye, ChevronLeft, ChevronRight, Scale, UserCheck, ListTodo, CheckCircle2, Circle, Clock, FileText, Download, Upload, Link2, X, CalendarClock, AlertTriangle, RefreshCcw, Loader2, Building2, ArrowLeftRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -711,6 +713,7 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docSearch, setDocSearch] = useState("");
   const [docCategory, setDocCategory] = useState("__all__");
@@ -718,6 +721,32 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+
+  const toggleCompareDoc = (docId: string) => {
+    setCompareSelection((prev) => {
+      if (prev.includes(docId)) return prev.filter((id) => id !== docId);
+      if (prev.length >= 2) return [prev[1], docId];
+      return [...prev, docId];
+    });
+  };
+
+  const launchComparison = async () => {
+    if (compareSelection.length !== 2) return;
+    const docA = docs.find((d: any) => d.id === compareSelection[0]);
+    const docB = docs.find((d: any) => d.id === compareSelection[1]);
+    if (!docA || !docB) return;
+
+    navigate("/text-comparison", {
+      state: {
+        labelA: docA.file_name,
+        labelB: docB.file_name,
+        comparisonType: "contextual_legal",
+        sourceDocA: docA,
+        sourceDocB: docB,
+      },
+    });
+  };
 
   // Upload form state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -854,6 +883,14 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
               {filtered.length}/{docs.length}
             </span>
           )}
+          {compareSelection.length === 2 && (
+            <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={launchComparison}>
+              <ArrowLeftRight className="h-3 w-3" /> Comparar
+            </Button>
+          )}
+          {compareSelection.length > 0 && compareSelection.length < 2 && (
+            <span className="text-[10px] text-muted-foreground">Selecione mais 1</span>
+          )}
           <Button variant="ghost" size="icon" className="h-6 w-6" title="Vincular documento existente" onClick={() => setShowLinkDialog(true)}>
             <Link2 className="h-3.5 w-3.5" />
           </Button>
@@ -910,6 +947,12 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
                 const sizeLabel = sizeKB ? (Number(sizeKB) > 1024 ? `${(Number(sizeKB) / 1024).toFixed(1)} MB` : `${sizeKB} KB`) : null;
                 return (
                   <div key={doc.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <Checkbox
+                      checked={compareSelection.includes(doc.id)}
+                      onCheckedChange={() => toggleCompareDoc(doc.id)}
+                      className="h-3.5 w-3.5 shrink-0"
+                      title="Selecionar para comparação"
+                    />
                     <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
                     <span className="flex-1 text-caption truncate text-foreground">{doc.file_name}</span>
                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
