@@ -12,12 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import DiffView from "@/components/drafts/DiffView";
 import { toast } from "@/hooks/use-toast";
 import {
   Loader2, ArrowLeftRight, AlertTriangle, CheckCircle, Info, Trash2,
   Clock, Upload, FileText, Download, Shield, DollarSign, Languages,
-  Eye, BarChart3, Scale, BookOpen, Lightbulb, Target
+  Eye, BarChart3, Scale, BookOpen, Lightbulb, Target, ChevronDown,
+  Briefcase, GraduationCap, ClipboardCheck
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
