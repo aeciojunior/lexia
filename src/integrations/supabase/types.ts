@@ -2861,6 +2861,50 @@ export type Database = {
           },
         ]
       }
+      legal_glossary: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          created_by: string
+          definition: string | null
+          id: string
+          organization_id: string
+          preferred_term: string
+          term: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          created_by: string
+          definition?: string | null
+          id?: string
+          organization_id: string
+          preferred_term: string
+          term: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string
+          definition?: string | null
+          id?: string
+          organization_id?: string
+          preferred_term?: string
+          term?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_glossary_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_references: {
         Row: {
           category: string | null
