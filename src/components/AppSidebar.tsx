@@ -35,6 +35,7 @@ const navItems: NavItem[] = [
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
   { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },
   { title: "Minutas", url: "/drafts", icon: FileText, accent: true, permissions: ["USE_IA_ADVANCED"] },
+  { title: "Glossário", url: "/legal-glossary", icon: BookText, permissions: ["USE_IA_ADVANCED"] },
   { title: "Contratos", url: "/contracts", icon: ScrollText, permissions: ["VIEW_CONTRACTS"] },
   { title: "Financeiro", url: "/financial", icon: DollarSign, permissions: ["VIEW_FINANCIAL"] },
   { title: "Horas", url: "/timesheet", icon: Clock, permissions: ["VIEW_PROCESSES"] },

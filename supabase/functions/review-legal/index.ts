@@ -68,11 +68,23 @@ serve(async (req) => {
       extraContext += `\n## Organização: ${orgSettings.name}\n`;
     }
 
+    // Fetch glossary for terminology standardization
+    const { data: glossaryTerms } = await supabase
+      .from("legal_glossary")
+      .select("term, preferred_term, definition, category")
+      .eq("organization_id", organization_id)
+      .limit(200);
+
+    let glossaryContext = "";
+    if (glossaryTerms?.length) {
+      glossaryContext = `\n\n## Glossário jurídico da organização (OBRIGATÓRIO seguir)\nQuando encontrar os termos abaixo, sugira a substituição pelo termo preferido:\n${glossaryTerms.map((g) => `- "${g.term}" → "${g.preferred_term}"${g.definition ? ` (${g.definition})` : ""}`).join("\n")}\n`;
+    }
+
     const mode = review_mode || "automatico";
     const systemPrompt = (MODE_PROMPTS[mode] || MODE_PROMPTS.automatico) +
-      `\n\nRegras obrigatórias:\n- NÃO altere fatos do processo\n- PRESERVE citações legais e jurisprudenciais\n- ALERTE sobre inconsistências fáticas\n- Indique o nível de severidade de cada item\n- Cada sugestão deve ter explicação clara do motivo da correção`;
+      `\n\nRegras obrigatórias:\n- NÃO altere fatos do processo\n- PRESERVE citações legais e jurisprudenciais\n- ALERTE sobre inconsistências fáticas\n- Indique o nível de severidade de cada item\n- Cada sugestão deve ter explicação clara do motivo da correção\n- Se houver glossário da organização, SEMPRE sugira a substituição dos termos não padronizados`;
 
-    const userPrompt = `${extraContext}${piece_type ? `\nTipo de peça: ${piece_type}` : ""}${court ? `\nTribunal: ${court}` : ""}\n\n## Texto para revisão:\n\n${content}`;
+    const userPrompt = `${extraContext}${glossaryContext}${piece_type ? `\nTipo de peça: ${piece_type}` : ""}${court ? `\nTribunal: ${court}` : ""}\n\n## Texto para revisão:\n\n${content}`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
