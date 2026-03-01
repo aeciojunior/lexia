@@ -19,19 +19,22 @@ vi.mock("@/hooks/useOrganization", () => ({
 
 // Mock supabase
 const mockInvoke = vi.fn();
-const mockFrom = vi.fn(() => ({
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  order: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnThis(),
-  delete: vi.fn().mockReturnThis(),
-  then: vi.fn(),
-}));
+const mockSelect = vi.fn().mockReturnThis();
+const mockEq = vi.fn().mockReturnThis();
+const mockOrder = vi.fn().mockReturnThis();
+const mockLimit = vi.fn().mockResolvedValue({ data: [], error: null });
+const mockDelete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: (...args: any[]) => mockInvoke(...args) },
-    from: (...args: any[]) => mockFrom(...args),
+    from: () => ({
+      select: mockSelect,
+      eq: mockEq,
+      order: mockOrder,
+      limit: mockLimit,
+      delete: mockDelete,
+    }),
   },
 }));
 
