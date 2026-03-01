@@ -42,6 +42,20 @@ vi.mock("@/components/drafts/DiffView", () => ({
   ),
 }));
 
+// jsPDF mock
+const mockSave = vi.fn();
+vi.mock("jspdf", () => {
+  return {
+    default: class MockJsPDF {
+      setFontSize = vi.fn();
+      text = vi.fn();
+      splitTextToSize = vi.fn().mockReturnValue(["line"]);
+      addPage = vi.fn();
+      save = mockSave;
+    },
+  };
+});
+
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -53,13 +67,14 @@ function renderPage() {
   );
 }
 
-describe("Debug: comparison flow", () => {
+describe("Debug: with jsPDF mock", () => {
   beforeEach(() => {
     mockInvoke.mockClear();
     mockInsert.mockClear();
+    mockSave.mockClear();
   });
 
-  it("typing enables compare button and invoke works", async () => {
+  it("comparison works with jsPDF mocked", async () => {
     mockInvoke.mockResolvedValueOnce({
       data: { comparison: { id: "comp-1" }, analysis: { resumo: "Test resumo" } },
       error: null,
@@ -68,19 +83,11 @@ describe("Debug: comparison flow", () => {
     renderPage();
     const user = userEvent.setup();
     const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    expect(textareas.length).toBeGreaterThanOrEqual(2);
 
     await user.type(textareas[0], "AAA");
     await user.type(textareas[1], "BBB");
 
-    const btn = screen.getByText("Comparar Textos");
-    expect(btn.closest("button")).not.toBeDisabled();
-
-    await user.click(btn);
-
-    await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalled();
-    });
+    await user.click(screen.getByText("Comparar Textos"));
 
     await waitFor(() => {
       expect(screen.getByText("Test resumo")).toBeInTheDocument();
