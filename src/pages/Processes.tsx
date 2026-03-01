@@ -947,6 +947,12 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
                 const sizeLabel = sizeKB ? (Number(sizeKB) > 1024 ? `${(Number(sizeKB) / 1024).toFixed(1)} MB` : `${sizeKB} KB`) : null;
                 return (
                   <div key={doc.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <Checkbox
+                      checked={compareSelection.includes(doc.id)}
+                      onCheckedChange={() => toggleCompareDoc(doc.id)}
+                      className="h-3.5 w-3.5 shrink-0"
+                      title="Selecionar para comparação"
+                    />
                     <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
                     <span className="flex-1 text-caption truncate text-foreground">{doc.file_name}</span>
                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0">
