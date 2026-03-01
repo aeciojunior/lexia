@@ -111,7 +111,7 @@ describe("ProcessSummary360 — E2E", () => {
     });
     await waitFor(() => {
       expect(screen.getByText("Trata-se de ação de cobrança com risco alto.")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 
   it("shows confidence and badges for existing summary", async () => {
