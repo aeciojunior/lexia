@@ -247,12 +247,8 @@ describe("Drafts - Component Integration", () => {
     // The component maps piece_type values to labels
   });
 
-  it("clipboard copy function exists", () => {
-    // Verify navigator.clipboard is available for the copy feature
-    Object.assign(navigator, {
-      clipboard: { writeText: vi.fn(() => Promise.resolve()) },
-    });
-    expect(navigator.clipboard.writeText).toBeDefined();
+  it("clipboard API is available for copy feature", () => {
+    expect(typeof navigator.clipboard).toBe("object");
   });
 
   it("vault save integration exists via Lock icon", () => {
