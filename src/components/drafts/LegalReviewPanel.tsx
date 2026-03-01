@@ -188,7 +188,7 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
             <p className="text-xs text-muted-foreground leading-relaxed">{result.summary}</p>
 
             {/* Stats */}
-            <div className="flex gap-2 text-xs">
+            <div className="flex gap-2 text-xs flex-wrap">
               <Badge variant="outline" className="gap-1">
                 {result.suggestions.length} sugestões
               </Badge>
@@ -198,6 +198,16 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
               <Badge variant="secondary" className="gap-1">
                 {applied.size} aplicadas
               </Badge>
+              {applied.size > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs gap-1 ml-auto"
+                  onClick={() => onToggleDiff(true, originalContent)}
+                >
+                  <Columns2 className="h-3 w-3" /> Comparar
+                </Button>
+              )}
             </div>
           </div>
 
