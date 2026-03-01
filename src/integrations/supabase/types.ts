@@ -2926,6 +2926,60 @@ export type Database = {
           },
         ]
       }
+      legal_reviews: {
+        Row: {
+          created_at: string | null
+          draft_id: string
+          id: string
+          organization_id: string
+          review_mode: string
+          score: number | null
+          status: string | null
+          suggestions: Json
+          summary: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          draft_id: string
+          id?: string
+          organization_id: string
+          review_mode?: string
+          score?: number | null
+          status?: string | null
+          suggestions?: Json
+          summary?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          draft_id?: string
+          id?: string
+          organization_id?: string
+          review_mode?: string
+          score?: number | null
+          status?: string | null
+          suggestions?: Json
+          summary?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_reviews_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_reviews_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_rule_logs: {
         Row: {
           channels_used: string[] | null

@@ -17,8 +17,9 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
 import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
+import LegalReviewPanel from "@/components/drafts/LegalReviewPanel";
 import {
-  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock,
+  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock, CheckCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -76,6 +77,7 @@ export default function Drafts() {
   const [instructions, setInstructions] = useState("");
   const [rewriteInstructions, setRewriteInstructions] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   // Fetch drafts
   const { data: drafts, isLoading } = useQuery({
@@ -488,7 +490,8 @@ export default function Drafts() {
                   )}
                 </div>
                 <div className="flex gap-1.5">
-                  <Button variant="ghost" size="icon" onClick={() => setShowSuggestions(!showSuggestions)} title="Sugestões IA"><Lightbulb className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => { setShowReview(!showReview); if (!showReview) setShowSuggestions(false); }} title="Revisão Jurídica"><CheckCheck className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => { setShowSuggestions(!showSuggestions); if (!showSuggestions) setShowReview(false); }} title="Sugestões IA"><Lightbulb className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleCopy} title="Copiar"><Copy className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleExportPdf} title="Exportar PDF"><Download className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleSaveToVault} title="Salvar no Cofre"><Lock className="h-4 w-4" /></Button>
@@ -547,6 +550,22 @@ export default function Drafts() {
             supabase.from("drafts").update({ content: updated.content }).eq("id", updated.id);
           }}
           onClose={() => setShowSuggestions(false)}
+        />
+      )}
+
+      {/* Legal Review Panel */}
+      {showReview && selectedDraft && (
+        <LegalReviewPanel
+          draftId={selectedDraft.id}
+          draftContent={selectedDraft.content || ""}
+          pieceType={selectedDraft.piece_type}
+          onApply={(original, replacement) => {
+            const newContent = (selectedDraft.content || "").replace(original, replacement);
+            const updated = { ...selectedDraft, content: newContent };
+            setSelectedDraft(updated);
+            supabase.from("drafts").update({ content: newContent }).eq("id", updated.id);
+          }}
+          onClose={() => setShowReview(false)}
         />
       )}
 
