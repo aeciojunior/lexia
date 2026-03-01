@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
 import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
 import {
-  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb,
+  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
