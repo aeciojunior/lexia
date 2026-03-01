@@ -51,7 +51,7 @@ interface LegalReviewPanelProps {
   onToggleDiff: (showDiff: boolean, originalContent: string) => void;
 }
 
-export default function LegalReviewPanel({ draftId, draftContent, pieceType, onApply, onClose }: LegalReviewPanelProps) {
+export default function LegalReviewPanel({ draftId, draftContent, pieceType, onApply, onClose, onToggleDiff }: LegalReviewPanelProps) {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const { toast } = useToast();
@@ -61,6 +61,7 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
   const [result, setResult] = useState<{ summary: string; score: number; suggestions: Suggestion[] } | null>(null);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
   const [applied, setApplied] = useState<Set<number>>(new Set());
+  const [originalContent, setOriginalContent] = useState("");
 
   const handleReview = async () => {
     if (!activeOrgId || !draftContent) return;
