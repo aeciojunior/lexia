@@ -19,24 +19,25 @@ vi.mock("@/hooks/useOrganization", () => ({
 
 // Mock supabase
 const mockInvoke = vi.fn();
-const mockInsert = vi.fn().mockResolvedValue({ error: null });
-const mockFromChain = {
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  order: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-  delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-  insert: mockInsert,
-};
+const mockInsert = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: (...args: any[]) => mockInvoke(...args) },
-    from: () => mockFromChain,
+    from: () => ({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      }),
+      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+      insert: (...args: any[]) => mockInsert(...args),
+    }),
   },
 }));
 
-// Mock DiffView
 vi.mock("@/components/drafts/DiffView", () => ({
   default: ({ original, revised }: { original: string; revised: string }) => (
     <div data-testid="diff-view">
@@ -58,7 +59,7 @@ vi.mock("jspdf", () => ({
   })),
 }));
 
-// Mock URL.createObjectURL / revokeObjectURL for HTML export
+// Mock URL APIs for HTML export
 const mockCreateObjectURL = vi.fn().mockReturnValue("blob:test");
 const mockRevokeObjectURL = vi.fn();
 Object.defineProperty(URL, "createObjectURL", { value: mockCreateObjectURL, writable: true });
@@ -128,11 +129,17 @@ async function runComparison() {
 
 describe("Report Export Flow", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockInvoke.mockReset();
+    mockInsert.mockReset();
+    mockSave.mockReset();
+    mockCreateObjectURL.mockClear();
+    mockRevokeObjectURL.mockClear();
+
     mockInvoke.mockResolvedValue({
       data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
       error: null,
     });
+    mockInsert.mockResolvedValue({ error: null });
   });
 
   it("shows export dropdown with PDF and HTML options after comparison", async () => {
@@ -142,12 +149,9 @@ describe("Report Export Flow", () => {
     const exportBtn = screen.getByText("Exportar Relatório");
     await user.click(exportBtn);
 
-    // PDF options
     expect(screen.getByText("Executivo (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Técnico (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Auditoria (PDF)")).toBeInTheDocument();
-
-    // HTML options
     expect(screen.getByText("Executivo (HTML)")).toBeInTheDocument();
     expect(screen.getByText("Técnico (HTML)")).toBeInTheDocument();
     expect(screen.getByText("Auditoria (HTML)")).toBeInTheDocument();
@@ -171,18 +175,13 @@ describe("Report Export Flow", () => {
       await user.click(screen.getByText(label));
 
       await waitFor(() => {
-        // jsPDF.save called with correct filename pattern
         expect(mockSave).toHaveBeenCalledWith(
           expect.stringMatching(new RegExp(`comparacao-${type}-\\d{4}-\\d{2}-\\d{2}-\\d{4}\\.pdf`))
         );
       });
 
-      // Audit logs should be inserted (at least comparison_report_generated + type-specific)
       await waitFor(() => {
-        const insertCalls = mockInsert.mock.calls;
-        expect(insertCalls.length).toBeGreaterThanOrEqual(2);
-
-        const actions = insertCalls.map((c: any) => c[0]?.action);
+        const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
         expect(actions).toContain("comparison_report_generated");
       });
     });
@@ -227,12 +226,9 @@ describe("Report Export Flow", () => {
       await user.click(screen.getByText(label));
 
       await waitFor(() => {
-        expect(mockCreateObjectURL).toHaveBeenCalledWith(
-          expect.any(Blob)
-        );
+        expect(mockCreateObjectURL).toHaveBeenCalledWith(expect.any(Blob));
       });
 
-      // Verify the blob content is HTML
       const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
       expect(blob.type).toBe("text/html;charset=utf-8");
 
@@ -242,7 +238,6 @@ describe("Report Export Flow", () => {
       expect(htmlContent).toContain("<details");
       expect(htmlContent).toContain("<summary");
 
-      // Verify audit logging
       await waitFor(() => {
         const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
         expect(actions).toContain("comparison_report_generated");
@@ -264,7 +259,6 @@ describe("Report Export Flow", () => {
       expect(html).toContain("Executivo (Cliente)");
       expect(html).toContain("Principais Diferenças");
       expect(html).toContain("Próximos Passos Recomendados");
-      // Executive should NOT contain detailed semantic table
       expect(html).not.toContain("Alterações Semânticas");
     });
 
@@ -306,7 +300,7 @@ describe("Report Export Flow", () => {
       expect(html).toContain("test-org-id");
     });
 
-    it("HTML report has collapsible sections with details/summary", async () => {
+    it("HTML has collapsible sections and interactive tables", async () => {
       renderPage();
       const user = await runComparison();
 
@@ -318,11 +312,8 @@ describe("Report Export Flow", () => {
       const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
       const html = await blob.text();
 
-      // Count collapsible sections
       const detailsCount = (html.match(/<details/g) || []).length;
-      expect(detailsCount).toBeGreaterThanOrEqual(4); // summary + diffs + legal + contextual at minimum
-
-      // Check interactive elements
+      expect(detailsCount).toBeGreaterThanOrEqual(4);
       expect(html).toContain("cursor:pointer");
       expect(html).toContain("<table");
     });
@@ -339,10 +330,9 @@ describe("Report Export Flow", () => {
       const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
       const html = await blob.text();
 
-      // Risk colors present
-      expect(html).toContain("#ef4444"); // alto = red
+      expect(html).toContain("#ef4444"); // alto red
       expect(html).toContain("ALTO");
-      expect(html).toContain("border-radius:999px"); // badge style
+      expect(html).toContain("border-radius:999px");
     });
 
     it("HTML includes similarity progress bar", async () => {
@@ -364,7 +354,7 @@ describe("Report Export Flow", () => {
   });
 
   describe("Audit metadata", () => {
-    it("includes export_format in HTML audit logs", async () => {
+    it("includes export_format html in HTML audit logs", async () => {
       renderPage();
       const user = await runComparison();
 
@@ -372,10 +362,11 @@ describe("Report Export Flow", () => {
       await user.click(screen.getByText("Técnico (HTML)"));
 
       await waitFor(() => {
-        const calls = mockInsert.mock.calls;
-        const reportCall = calls.find((c: any) => c[0]?.action === "comparison_report_generated");
+        const reportCall = mockInsert.mock.calls.find(
+          (c: any) => c[0]?.action === "comparison_report_generated"
+        );
         expect(reportCall).toBeDefined();
-        expect(reportCall[0].metadata.export_format).toBe("html");
+        expect(reportCall![0].metadata.export_format).toBe("html");
       });
     });
   });
