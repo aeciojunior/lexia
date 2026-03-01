@@ -84,10 +84,10 @@ describe("Routing — E2E", () => {
       });
     });
 
-    it("shows loading state while checking auth", () => {
+    it("shows loading state while checking auth", async () => {
       mockUseAuth.mockReturnValue({ user: null, session: null, loading: true, signOut: vi.fn() });
 
-      const { ProtectedRoute } = require("@/components/ProtectedRoute");
+      const { ProtectedRoute } = await import("@/components/ProtectedRoute");
       const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
       render(

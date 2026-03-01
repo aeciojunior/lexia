@@ -131,14 +131,7 @@ describe("ProcessSummary360 — E2E", () => {
       created_at: "2026-02-13T10:00:00Z",
     };
 
-    mockSupabase.from.mockImplementation(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      neq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: summaryData, error: null }),
-    }));
+    mockSupabase.from.mockImplementation(createMockFrom(summaryData));
 
     renderWithProviders(
       <ProcessSummary360 processId="p1" organizationId="o1" />
@@ -161,14 +154,7 @@ describe("ProcessSummary360 — E2E", () => {
       created_at: "2026-02-13T10:00:00Z",
     };
 
-    mockSupabase.from.mockImplementation(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      neq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: summaryData, error: null }),
-    }));
+    mockSupabase.from.mockImplementation(createMockFrom(summaryData));
 
     renderWithProviders(
       <ProcessSummary360 processId="p1" organizationId="o1" />
