@@ -17,23 +17,26 @@ vi.mock("@/hooks/useOrganization", () => ({
   }),
 }));
 
-// Mock supabase
+// Mock supabase — match exact chain structure from working tests
 const mockInvoke = vi.fn();
-const mockInsert = vi.fn();
+const mockInsert = vi.fn().mockResolvedValue({ error: null });
+const mockSelect = vi.fn().mockReturnThis();
+const mockEq = vi.fn().mockReturnThis();
+const mockOrder = vi.fn().mockReturnThis();
+const mockLimit = vi.fn().mockResolvedValue({ data: [], error: null });
+const mockDeleteEq = vi.fn().mockResolvedValue({ error: null });
+const mockDelete = vi.fn().mockReturnValue({ eq: mockDeleteEq });
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: (...args: any[]) => mockInvoke(...args) },
     from: () => ({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-        }),
-      }),
-      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-      insert: (...args: any[]) => mockInsert(...args),
+      select: mockSelect,
+      eq: mockEq,
+      order: mockOrder,
+      limit: mockLimit,
+      delete: mockDelete,
+      insert: mockInsert,
     }),
   },
 }));
@@ -115,39 +118,44 @@ function renderPage() {
   );
 }
 
-async function runComparison() {
+async function setupComparison() {
+  mockInvoke.mockResolvedValueOnce({
+    data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
+    error: null,
+  });
+
+  renderPage();
   const user = userEvent.setup();
   const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
   await user.type(textareas[0], "Texto A jurídico");
   await user.type(textareas[1], "Texto B modificado");
   await user.click(screen.getByText("Comparar Textos"));
+
   await waitFor(() => {
     expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
   });
+
   return user;
 }
 
 describe("Report Export Flow", () => {
   beforeEach(() => {
-    mockInvoke.mockReset();
-    mockInsert.mockReset();
-    mockSave.mockReset();
-    mockCreateObjectURL.mockClear();
-    mockRevokeObjectURL.mockClear();
-
-    mockInvoke.mockResolvedValue({
-      data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
-      error: null,
-    });
+    vi.clearAllMocks();
+    // Restore chain mocks cleared by clearAllMocks
+    mockSelect.mockReturnThis();
+    mockEq.mockReturnThis();
+    mockOrder.mockReturnThis();
+    mockLimit.mockResolvedValue({ data: [], error: null });
+    mockDelete.mockReturnValue({ eq: mockDeleteEq });
+    mockDeleteEq.mockResolvedValue({ error: null });
     mockInsert.mockResolvedValue({ error: null });
+    mockCreateObjectURL.mockReturnValue("blob:test");
   });
 
   it("shows export dropdown with PDF and HTML options after comparison", async () => {
-    renderPage();
-    const user = await runComparison();
+    const user = await setupComparison();
 
-    const exportBtn = screen.getByText("Exportar Relatório");
-    await user.click(exportBtn);
+    await user.click(screen.getByText("Exportar Relatório"));
 
     expect(screen.getByText("Executivo (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Técnico (PDF)")).toBeInTheDocument();
@@ -168,8 +176,7 @@ describe("Report Export Flow", () => {
       ["tecnico", "Técnico (PDF)"],
       ["auditoria", "Auditoria (PDF)"],
     ] as const)("exports %s PDF and logs audit events", async (type, label) => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText(label));
@@ -187,8 +194,7 @@ describe("Report Export Flow", () => {
     });
 
     it("logs risk_detected for alto risk PDF", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Técnico (PDF)"));
@@ -200,8 +206,7 @@ describe("Report Export Flow", () => {
     });
 
     it("logs recommendation_generated when suggestions exist", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Executivo (PDF)"));
@@ -219,8 +224,7 @@ describe("Report Export Flow", () => {
       ["tecnico", "Técnico (HTML)"],
       ["auditoria", "Auditoria (HTML)"],
     ] as const)("exports %s HTML with correct blob", async (type, label) => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText(label));
@@ -245,8 +249,7 @@ describe("Report Export Flow", () => {
     });
 
     it("HTML executivo contains simplified content", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Executivo (HTML)"));
@@ -263,8 +266,7 @@ describe("Report Export Flow", () => {
     });
 
     it("HTML tecnico contains full analysis sections", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Técnico (HTML)"));
@@ -282,8 +284,7 @@ describe("Report Export Flow", () => {
     });
 
     it("HTML auditoria contains audit trail section", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Auditoria (HTML)"));
@@ -301,8 +302,7 @@ describe("Report Export Flow", () => {
     });
 
     it("HTML has collapsible sections and interactive tables", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Técnico (HTML)"));
@@ -319,8 +319,7 @@ describe("Report Export Flow", () => {
     });
 
     it("HTML includes risk badges with color coding", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Técnico (HTML)"));
@@ -330,14 +329,13 @@ describe("Report Export Flow", () => {
       const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
       const html = await blob.text();
 
-      expect(html).toContain("#ef4444"); // alto red
+      expect(html).toContain("#ef4444");
       expect(html).toContain("ALTO");
       expect(html).toContain("border-radius:999px");
     });
 
     it("HTML includes similarity progress bar", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Executivo (HTML)"));
@@ -355,8 +353,7 @@ describe("Report Export Flow", () => {
 
   describe("Audit metadata", () => {
     it("includes export_format html in HTML audit logs", async () => {
-      renderPage();
-      const user = await runComparison();
+      const user = await setupComparison();
 
       await user.click(screen.getByText("Exportar Relatório"));
       await user.click(screen.getByText("Técnico (HTML)"));
