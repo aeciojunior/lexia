@@ -205,7 +205,7 @@ serve(async (req) => {
       .from("text_comparisons")
       .insert({
         organization_id: organizationId,
-        user_id: user.id,
+        user_id: userId,
         comparison_type: comparisonType,
         text_a_label: labelA,
         text_b_label: labelB,
