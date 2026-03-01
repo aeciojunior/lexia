@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Bot, User, Sparkles, Scale, FileText, Shield, Zap, X, History, ChevronRight, Gavel, AlertTriangle, BookOpen } from "lucide-react";
+import { Send, Bot, User, Sparkles, Scale, FileText, Shield, Zap, X, History, ChevronRight, Gavel, AlertTriangle, BookOpen, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,7 +21,44 @@ const Chat = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Web Speech API setup
+  const startListening = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Seu navegador não suporta reconhecimento de voz.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = (e: any) => {
+      setIsListening(false);
+      if (e.error !== "aborted") toast.error("Erro no reconhecimento de voz: " + e.error);
+    };
+    recognition.onresult = (e: any) => {
+      const transcript = Array.from(e.results as SpeechRecognitionResultList)
+        .map((r: any) => r[0].transcript)
+        .join("");
+      setInput(transcript);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, []);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  }, []);
 
   // Fetch org processes for context selector
   const { data: processes = [] } = useQuery({
@@ -350,6 +387,16 @@ const Chat = () => {
               className="flex-1 h-12 rounded-xl bg-muted border-border text-base"
               disabled={sendMessage.isPending}
             />
+            <Button
+              type="button"
+              size="icon"
+              variant={isListening ? "destructive" : "outline"}
+              className={`h-12 w-12 rounded-xl shrink-0 ${isListening ? "animate-pulse" : ""}`}
+              onClick={isListening ? stopListening : startListening}
+              disabled={sendMessage.isPending}
+            >
+              {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
             <Button type="submit" size="icon" className="h-12 w-12 rounded-xl" disabled={!input.trim() || sendMessage.isPending}>
               <Send className="h-5 w-5" />
             </Button>
