@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { X, Loader2, CheckCheck, Check, Ban, AlertTriangle, Info, AlertCircle } from "lucide-react";
+import { X, Loader2, CheckCheck, Check, Ban, AlertTriangle, Info, AlertCircle, Columns2 } from "lucide-react";
 
 const REVIEW_MODES = [
   { value: "automatico", label: "Automático", desc: "Revisão completa em todas as camadas" },
@@ -48,9 +48,10 @@ interface LegalReviewPanelProps {
   pieceType?: string;
   onApply: (original: string, replacement: string) => void;
   onClose: () => void;
+  onToggleDiff: (showDiff: boolean, originalContent: string) => void;
 }
 
-export default function LegalReviewPanel({ draftId, draftContent, pieceType, onApply, onClose }: LegalReviewPanelProps) {
+export default function LegalReviewPanel({ draftId, draftContent, pieceType, onApply, onClose, onToggleDiff }: LegalReviewPanelProps) {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const { toast } = useToast();
@@ -60,6 +61,7 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
   const [result, setResult] = useState<{ summary: string; score: number; suggestions: Suggestion[] } | null>(null);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
   const [applied, setApplied] = useState<Set<number>>(new Set());
+  const [originalContent, setOriginalContent] = useState("");
 
   const handleReview = async () => {
     if (!activeOrgId || !draftContent) return;
@@ -67,6 +69,7 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
     setResult(null);
     setDismissed(new Set());
     setApplied(new Set());
+    setOriginalContent(draftContent); // snapshot before review
 
     try {
       const { data, error } = await supabase.functions.invoke("review-legal", {
@@ -185,7 +188,7 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
             <p className="text-xs text-muted-foreground leading-relaxed">{result.summary}</p>
 
             {/* Stats */}
-            <div className="flex gap-2 text-xs">
+            <div className="flex gap-2 text-xs flex-wrap">
               <Badge variant="outline" className="gap-1">
                 {result.suggestions.length} sugestões
               </Badge>
@@ -195,6 +198,16 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
               <Badge variant="secondary" className="gap-1">
                 {applied.size} aplicadas
               </Badge>
+              {applied.size > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs gap-1 ml-auto"
+                  onClick={() => onToggleDiff(true, originalContent)}
+                >
+                  <Columns2 className="h-3 w-3" /> Comparar
+                </Button>
+              )}
             </div>
           </div>
 

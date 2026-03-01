@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
 import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
 import LegalReviewPanel from "@/components/drafts/LegalReviewPanel";
+import DiffView from "@/components/drafts/DiffView";
 import {
   Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock, CheckCheck,
 } from "lucide-react";
@@ -78,6 +79,8 @@ export default function Drafts() {
   const [rewriteInstructions, setRewriteInstructions] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+  const [diffOriginal, setDiffOriginal] = useState("");
 
   // Fetch drafts
   const { data: drafts, isLoading } = useQuery({
@@ -501,14 +504,20 @@ export default function Drafts() {
             </CardHeader>
             <Separator />
             <CardContent className="flex-1 overflow-hidden pt-4">
-              <ScrollArea className="h-[calc(100vh-380px)]">
-                <div className="prose prose-sm dark:prose-invert max-w-none pr-4">
-                  <ReactMarkdown>
-                    {isStreaming ? streamContent : selectedDraft?.content || ""}
-                  </ReactMarkdown>
-                  {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
+              {showDiff && diffOriginal ? (
+                <div className="h-[calc(100vh-380px)]">
+                  <DiffView original={diffOriginal} revised={selectedDraft?.content || ""} />
                 </div>
-              </ScrollArea>
+              ) : (
+                <ScrollArea className="h-[calc(100vh-380px)]">
+                  <div className="prose prose-sm dark:prose-invert max-w-none pr-4">
+                    <ReactMarkdown>
+                      {isStreaming ? streamContent : selectedDraft?.content || ""}
+                    </ReactMarkdown>
+                    {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
+                  </div>
+                </ScrollArea>
+              )}
             </CardContent>
             <Separator />
             {/* Rewrite bar */}
@@ -565,7 +574,11 @@ export default function Drafts() {
             setSelectedDraft(updated);
             supabase.from("drafts").update({ content: newContent }).eq("id", updated.id);
           }}
-          onClose={() => setShowReview(false)}
+          onClose={() => { setShowReview(false); setShowDiff(false); }}
+          onToggleDiff={(show, origContent) => {
+            setShowDiff(show);
+            setDiffOriginal(origContent);
+          }}
         />
       )}
 
