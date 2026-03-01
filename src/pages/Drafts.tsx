@@ -75,6 +75,7 @@ export default function Drafts() {
   const [processId, setProcessId] = useState("");
   const [instructions, setInstructions] = useState("");
   const [rewriteInstructions, setRewriteInstructions] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Fetch drafts
   const { data: drafts, isLoading } = useQuery({
