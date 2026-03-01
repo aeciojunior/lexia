@@ -1156,10 +1156,40 @@ export default function TextComparison() {
           {loading ? "Analisando..." : "Comparar Textos"}
         </Button>
         {analysis && (
-          <Button variant="outline" size="lg" onClick={exportPdfReport} className="gap-2">
-            <Download className="h-4 w-4" />
-            Exportar Relatório
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="lg" className="gap-2">
+                <Download className="h-4 w-4" />
+                Exportar Relatório
+                <ChevronDown className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-64">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Tipo de relatório</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => exportPdfReport("executivo")} className="gap-2 cursor-pointer">
+                <Briefcase className="h-4 w-4" />
+                <div>
+                  <p className="text-sm font-medium">Executivo</p>
+                  <p className="text-xs text-muted-foreground">Linguagem simples, para clientes</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportPdfReport("tecnico")} className="gap-2 cursor-pointer">
+                <GraduationCap className="h-4 w-4" />
+                <div>
+                  <p className="text-sm font-medium">Técnico</p>
+                  <p className="text-xs text-muted-foreground">Análise jurídica completa</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportPdfReport("auditoria")} className="gap-2 cursor-pointer">
+                <ClipboardCheck className="h-4 w-4" />
+                <div>
+                  <p className="text-sm font-medium">Auditoria</p>
+                  <p className="text-xs text-muted-foreground">Trilha completa para compliance</p>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
