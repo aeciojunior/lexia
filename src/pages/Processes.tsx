@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import ProcessMovements from "@/components/process/ProcessMovements";
 import ProcessChat from "@/components/process/ProcessChat";
 import ProcessTimeline from "@/components/process/ProcessTimeline";
