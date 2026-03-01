@@ -26,6 +26,14 @@ describe("ProcessSummary360 — E2E", () => {
     mockSupabase.from.mockImplementation(() => createChainMock(null));
   });
 
+  const renderComponent = (processId = "p1") => {
+    const qc = createTestQueryClient();
+    return renderWithProviders(
+      <ProcessSummary360 processId={processId} organizationId="o1" />,
+      { queryClient: qc }
+    );
+  };
+
   it("renders empty state when no summary exists", async () => {
     renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
     await waitFor(() => {
