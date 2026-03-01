@@ -102,7 +102,7 @@ async function fetchContext(
     if (processId) {
       const { data: process } = await supabase
         .from("processes")
-        .select("id, title, process_number, status, court, risk_level, legal_area, phase, case_value, description, parties")
+        .select("id, title, number, status, court, risk_level, classe, fase, valor_causa, description, partes")
         .eq("id", processId)
         .eq("organization_id", orgId)
         .single();

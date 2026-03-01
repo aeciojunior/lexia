@@ -228,7 +228,7 @@ const Chat = () => {
             <div className="flex items-center gap-2 text-body-sm">
               <Scale className="h-4 w-4 text-primary" />
               <span className="text-muted-foreground">Contexto:</span>
-              <span className="font-medium text-foreground">{selectedProcess.process_number || selectedProcess.title}</span>
+              <span className="font-medium text-foreground">{selectedProcess.number || selectedProcess.title}</span>
               <LexBadge variant="default" className="text-xs">{selectedProcess.status}</LexBadge>
             </div>
           </div>
