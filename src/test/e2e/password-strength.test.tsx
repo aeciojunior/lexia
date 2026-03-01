@@ -1,15 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Auth from "@/pages/Auth";
 import { renderWithProviders } from "../helpers";
 
 vi.mock("@/assets/hero-bg.jpg", () => ({ default: "hero-bg-mock.jpg" }));
 
+let Auth: any;
+beforeAll(async () => {
+  Auth = (await import("@/pages/Auth")).default;
+});
+
 describe("Password Strength — E2E", () => {
   async function goToRegister() {
     renderWithProviders(<Auth />);
-    await userEvent.click(screen.getByText("Criar conta"));
+    const createLinks = screen.getAllByText("Criar conta");
+    const linkInParagraph = createLinks.find(el => el.tagName === "BUTTON" && el.closest("p"));
+    await userEvent.click(linkInParagraph || createLinks[0]);
   }
 
   it("shows 'Fraca' for short passwords", async () => {
