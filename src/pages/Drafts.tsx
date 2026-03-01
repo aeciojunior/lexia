@@ -64,6 +64,7 @@ export default function Drafts() {
   const { activeOrgId } = useOrganization();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [showGenerate, setShowGenerate] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<any>(null);
