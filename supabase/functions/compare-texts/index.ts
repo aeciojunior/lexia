@@ -17,12 +17,90 @@ function getSystemPrompt(comparisonType: string): string {
     financial: `Foque na comparação de valores financeiros: valores numéricos, fórmulas de cálculo, índices de correção (IPCA, INPC, SELIC), juros aplicados, datas de cálculo, parcelas, totais e subtotais. Identifique erros de cálculo e inconsistências. Analise o impacto jurídico de cada diferença financeira.`,
     multilingual: `Compare documentos em idiomas diferentes. Identifique equivalências semânticas, omissões na tradução, adições não autorizadas, inconsistências terminológicas e riscos jurídicos decorrentes de diferenças entre as versões. Use termos técnicos jurídicos apropriados em cada idioma.`,
     fraud_detection: `Analise os textos buscando indícios de fraude ou adulteração documental. Use APENAS termos qualitativos como "indício", "suspeita", "inconsistência". NUNCA afirme fraude de forma conclusiva. Analise: inconsistências de conteúdo, divergências entre versões, alterações suspeitas de datas/valores/assinaturas, padrões de edição incomuns. Indique quando dados são insuficientes para análise.`,
+    contextual_legal: `Realize uma análise jurídica contextualizada profunda das diferenças entre os textos. Para CADA diferença identificada, analise o impacto em 7 categorias:
+1. FATOS: mudança de narrativa, contradição com documentos, omissão de fatos relevantes, inclusão de fatos não comprovados
+2. FUNDAMENTOS JURÍDICOS: remoção de fundamento essencial, substituição por fundamento fraco, inclusão inadequada, alteração de artigo/inciso/tese
+3. PEDIDOS: remoção de pedido principal, alteração de subsidiário, inconsistência pedido-fundamentação, pedido incompatível
+4. PROVAS: remoção de referência probatória, inclusão de prova inexistente, inconsistência prova-narrativa, fragilização da tese
+5. JURISPRUDÊNCIA: remoção de precedente forte, inclusão de precedente isolado/desfavorável, alteração de súmula, inconsistência com tribunal
+6. CONTRATUAL: ampliação de responsabilidade, redução de garantias, alteração financeira, mudança de prazos/penalidades
+7. PROCESSUAL: risco de indeferimento, inépcia, intempestividade, violação de requisitos formais
+
+REGRAS OBRIGATÓRIAS:
+- NÃO emita juízo conclusivo ("vai perder", "vai ganhar")
+- Use termos qualitativos: "risco alto", "risco moderado", "indício"
+- Indique quando dados são insuficientes
+- Para cada impacto, forneça DUAS explicações: uma técnica (linguagem jurídica) e uma simples (linguagem acessível para leigos)
+- Inclua exemplos práticos quando possível
+- Simule ao menos 2 cenários: com a alteração mantida e sem a alteração
+- Identifique riscos mesmo quando o texto foi reescrito semanticamente`,
   };
 
   return `${base}
 ${typeInstructions[comparisonType] || typeInstructions.general}
 
 Responda APENAS usando a tool "comparison_analysis" fornecida. Calcule a similaridade percentual entre os textos (0-100). Identifique trechos idênticos, equivalentes e preservados como similaridades.`;
+}
+
+function buildContextualLegalSchema() {
+  return {
+    type: "object",
+    properties: {
+      impactos: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            descricao_alteracao: { type: "string" },
+            interpretacao_juridica: { type: "string" },
+            categoria: { type: "string", enum: ["fatos", "fundamentos", "pedidos", "provas", "jurisprudencia", "contratual", "processual"] },
+            impacto: { type: "string", enum: ["alto", "medio", "baixo"] },
+            fundamentos_afetados: { type: "array", items: { type: "string" } },
+            jurisprudencia_relacionada: { type: "array", items: { type: "string" } },
+            provas_impactadas: { type: "array", items: { type: "string" } },
+            riscos_introduzidos: { type: "array", items: { type: "string" } },
+            riscos_removidos: { type: "array", items: { type: "string" } },
+            sugestoes_mitigacao: { type: "array", items: { type: "string" } },
+            recomendacao: { type: "string", enum: ["manter", "revisar", "reverter"] },
+            explicacao_simples: { type: "string", description: "Explicação em linguagem simples e acessível" },
+            explicacao_tecnica: { type: "string", description: "Explicação em linguagem jurídica técnica" },
+            exemplo_pratico: { type: "string" },
+          },
+          required: ["descricao_alteracao", "interpretacao_juridica", "categoria", "impacto", "recomendacao", "explicacao_simples", "explicacao_tecnica"],
+        },
+      },
+      analise_por_tribunal: {
+        type: "object",
+        properties: {
+          tribunal: { type: "string" },
+          entendimento_predominante: { type: "string" },
+          riscos_especificos: { type: "array", items: { type: "string" } },
+          recomendacoes_adaptadas: { type: "array", items: { type: "string" } },
+        },
+        required: ["tribunal", "entendimento_predominante", "riscos_especificos", "recomendacoes_adaptadas"],
+      },
+      cenarios: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            nome: { type: "string" },
+            descricao: { type: "string" },
+            impacto_juridico: { type: "string" },
+            impacto_probatorio: { type: "string" },
+            impacto_financeiro: { type: "string" },
+            riscos: { type: "array", items: { type: "string" } },
+            vantagens: { type: "array", items: { type: "string" } },
+            desvantagens: { type: "array", items: { type: "string" } },
+            recomendacao: { type: "string" },
+          },
+          required: ["nome", "descricao", "impacto_juridico", "riscos", "recomendacao"],
+        },
+      },
+      resumo_impacto_geral: { type: "string" },
+    },
+    required: ["impactos", "cenarios", "resumo_impacto_geral"],
+  };
 }
 
 function buildToolSchema(comparisonType: string) {
@@ -89,7 +167,7 @@ function buildToolSchema(comparisonType: string) {
 
   const requiredFields = ["resumo", "similaridade_percentual", "alteracoes_criticas", "alteracoes_semanticas", "alteracoes_juridicas", "similaridades", "sugestoes_harmonizacao", "risco_geral"];
 
-  // Add type-specific fields
+  // Financial
   if (comparisonType === "financial") {
     baseProperties.analise_financeira = {
       type: "object",
@@ -131,6 +209,7 @@ function buildToolSchema(comparisonType: string) {
     requiredFields.push("analise_financeira");
   }
 
+  // Multilingual
   if (comparisonType === "multilingual") {
     baseProperties.analise_multilingue = {
       type: "object",
@@ -179,6 +258,7 @@ function buildToolSchema(comparisonType: string) {
     requiredFields.push("analise_multilingue");
   }
 
+  // Fraud detection
   if (comparisonType === "fraud_detection") {
     baseProperties.indicios_fraude = {
       type: "array",
@@ -195,6 +275,14 @@ function buildToolSchema(comparisonType: string) {
       },
     };
     requiredFields.push("indicios_fraude");
+  }
+
+  // Contextual legal analysis — added for contextual_legal, legal_piece, contract
+  if (comparisonType === "contextual_legal" || comparisonType === "legal_piece" || comparisonType === "contract") {
+    baseProperties.analise_juridica_contextualizada = buildContextualLegalSchema();
+    if (comparisonType === "contextual_legal") {
+      requiredFields.push("analise_juridica_contextualizada");
+    }
   }
 
   return {
@@ -385,13 +473,12 @@ serve(async (req) => {
     // Audit logs
     const auditActions: string[] = [];
     
-    // Map comparison type to appropriate audit action
     if (comparisonType === "financial") {
       auditActions.push("financial_comparison_performed");
     } else if (comparisonType === "multilingual") {
       auditActions.push("multilingual_comparison_performed");
-    } else if (comparisonType === "fraud_detection") {
-      auditActions.push("file_comparison_performed");
+    } else if (comparisonType === "contextual_legal") {
+      auditActions.push("contextual_legal_analysis_performed");
     } else {
       auditActions.push("file_comparison_performed");
     }
@@ -404,6 +491,21 @@ serve(async (req) => {
     }
     if (analysis.indicios_fraude?.length > 0) {
       auditActions.push("fraud_indicator_detected");
+    }
+
+    // Contextual legal specific audit events
+    if (analysis.analise_juridica_contextualizada) {
+      const impactos = analysis.analise_juridica_contextualizada.impactos || [];
+      const hasHighRisk = impactos.some((i: any) => i.impacto === "alto");
+      if (impactos.length > 0) {
+        auditActions.push("contextual_legal_risk_detected");
+      }
+      if (hasHighRisk) {
+        auditActions.push("contextual_legal_risk_high");
+      }
+      if (analysis.analise_juridica_contextualizada.cenarios?.length > 0) {
+        auditActions.push("contextual_scenario_simulation_performed");
+      }
     }
 
     for (const action of auditActions) {
