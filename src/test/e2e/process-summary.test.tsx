@@ -26,35 +26,37 @@ describe("ProcessSummary360 — E2E", () => {
     mockSupabase.from.mockImplementation(() => createChainMock(null));
   });
 
-  const renderComponent = (processId = "p1") => {
-    const qc = createTestQueryClient();
+  const render360 = (mockData: any = null, processId = "p1") => {
+    if (mockData) {
+      mockSupabase.from.mockImplementation(() => createChainMock(mockData));
+    }
     return renderWithProviders(
       <ProcessSummary360 processId={processId} organizationId="o1" />,
-      { queryClient: qc }
+      { queryClient: createTestQueryClient() }
     );
   };
 
   it("renders empty state when no summary exists", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     await waitFor(() => {
       expect(screen.getByText("Nenhum resumo gerado para este processo.")).toBeInTheDocument();
     });
   });
 
   it("shows generate button in empty state", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     await waitFor(() => {
       expect(screen.getByText("Gerar resumo com IA")).toBeInTheDocument();
     });
   });
 
   it("renders section header with Resumo 360 label", () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     expect(screen.getByText("Resumo 360 (IA)")).toBeInTheDocument();
   });
 
   it("opens config dialog on refresh button click", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     await userEvent.click(screen.getByTitle("Gerar/Configurar resumo"));
     await waitFor(() => {
       expect(screen.getByText("Configurar Resumo")).toBeInTheDocument();
@@ -62,7 +64,7 @@ describe("ProcessSummary360 — E2E", () => {
   });
 
   it("shows style and detail options in config dialog", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     await userEvent.click(screen.getByTitle("Gerar/Configurar resumo"));
     await waitFor(() => {
       expect(screen.getByText("Estilo")).toBeInTheDocument();
@@ -72,7 +74,7 @@ describe("ProcessSummary360 — E2E", () => {
   });
 
   it("shows all focus options in config dialog", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     await userEvent.click(screen.getByTitle("Gerar/Configurar resumo"));
     await waitFor(() => {
       expect(screen.getByText("Riscos")).toBeInTheDocument();
@@ -85,7 +87,7 @@ describe("ProcessSummary360 — E2E", () => {
   });
 
   it("shows RF references in config dialog", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     await userEvent.click(screen.getByTitle("Gerar/Configurar resumo"));
     await waitFor(() => {
       expect(screen.getByText("Classificação (RF-034)")).toBeInTheDocument();
@@ -96,7 +98,7 @@ describe("ProcessSummary360 — E2E", () => {
   });
 
   it("renders summary text when data exists", async () => {
-    const summaryData = {
+    render360({
       id: "s1",
       process_id: "p1",
       summary_type: "processo",
@@ -106,18 +108,14 @@ describe("ProcessSummary360 — E2E", () => {
       config: { style: "executivo" },
       relevant_excerpts: ["ação de cobrança", "risco alto"],
       created_at: "2026-02-13T10:00:00Z",
-    };
-
-    mockSupabase.from.mockImplementation(() => createChainMock(summaryData));
-
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    });
     await waitFor(() => {
       expect(screen.getByText("Trata-se de ação de cobrança com risco alto.")).toBeInTheDocument();
     });
   });
 
   it("shows confidence and badges for existing summary", async () => {
-    const summaryData = {
+    render360({
       id: "s1",
       process_id: "p1",
       summary_text: "Resumo de teste",
@@ -126,11 +124,7 @@ describe("ProcessSummary360 — E2E", () => {
       config: { style: "executivo" },
       relevant_excerpts: [],
       created_at: "2026-02-13T10:00:00Z",
-    };
-
-    mockSupabase.from.mockImplementation(() => createChainMock(summaryData));
-
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    });
     await waitFor(() => {
       expect(screen.getByText("87%")).toBeInTheDocument();
       expect(screen.getByText("IA")).toBeInTheDocument();
@@ -139,7 +133,7 @@ describe("ProcessSummary360 — E2E", () => {
   });
 
   it("can collapse and expand the section", async () => {
-    renderWithProviders(<ProcessSummary360 processId="p1" organizationId="o1" />);
+    render360();
     const toggleBtn = screen.getByText("Resumo 360 (IA)").closest("button")!;
     
     await userEvent.click(toggleBtn);
