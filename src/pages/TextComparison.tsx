@@ -238,7 +238,7 @@ export default function TextComparison() {
             {textA && textB ? (
               <Card className="border-border">
                 <CardContent className="p-4">
-                  <DiffView original={textA} modified={textB} />
+                  <DiffView original={textA} revised={textB} />
                 </CardContent>
               </Card>
             ) : (
