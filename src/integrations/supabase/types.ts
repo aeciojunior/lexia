@@ -5123,6 +5123,65 @@ export type Database = {
           },
         ]
       }
+      text_comparisons: {
+        Row: {
+          ai_analysis: Json | null
+          comparison_type: string
+          created_at: string
+          id: string
+          literal_diff: Json | null
+          organization_id: string
+          risk_level: string | null
+          source_a_id: string | null
+          source_b_id: string | null
+          text_a: string
+          text_a_label: string | null
+          text_b: string
+          text_b_label: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          comparison_type?: string
+          created_at?: string
+          id?: string
+          literal_diff?: Json | null
+          organization_id: string
+          risk_level?: string | null
+          source_a_id?: string | null
+          source_b_id?: string | null
+          text_a: string
+          text_a_label?: string | null
+          text_b: string
+          text_b_label?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          comparison_type?: string
+          created_at?: string
+          id?: string
+          literal_diff?: Json | null
+          organization_id?: string
+          risk_level?: string | null
+          source_a_id?: string | null
+          source_b_id?: string | null
+          text_a?: string
+          text_a_label?: string | null
+          text_b?: string
+          text_b_label?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_comparisons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_messages: {
         Row: {
           attachments: Json | null

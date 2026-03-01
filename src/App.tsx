@@ -65,6 +65,7 @@ import Vendors from "./pages/Vendors";
 import LegalChatbot from "./pages/LegalChatbot";
 import Drafts from "./pages/Drafts";
 import LegalGlossary from "./pages/LegalGlossary";
+import TextComparison from "./pages/TextComparison";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -132,6 +133,7 @@ const App = () => (
               <Route path="/legal-chatbot" element={<LegalChatbot />} />
               <Route path="/drafts" element={<Drafts />} />
               <Route path="/legal-glossary" element={<LegalGlossary />} />
+              <Route path="/text-comparison" element={<TextComparison />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
