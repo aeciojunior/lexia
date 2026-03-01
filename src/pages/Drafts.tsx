@@ -15,12 +15,14 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import ReactMarkdown from "react-markdown";
 import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
 import LegalReviewPanel from "@/components/drafts/LegalReviewPanel";
 import DiffView from "@/components/drafts/DiffView";
+import { useNavigate } from "react-router-dom";
 import {
-  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock, CheckCheck,
+  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock, CheckCheck, ArrowLeftRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -62,6 +64,7 @@ export default function Drafts() {
   const { activeOrgId } = useOrganization();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [showGenerate, setShowGenerate] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<any>(null);
@@ -583,20 +586,101 @@ export default function Drafts() {
       )}
 
       {/* Versions Dialog */}
-      <Dialog open={showVersions} onOpenChange={setShowVersions}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Histórico de Versões</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-96">
-            <div className="space-y-2">
-              {versions?.map(v => (
-                <Card
-                  key={v.id}
-                  className={`cursor-pointer hover:shadow-sm ${v.id === selectedDraft?.id ? "ring-2 ring-primary" : ""}`}
-                  onClick={() => { setSelectedDraft(v); setShowVersions(false); }}
-                >
-                  <CardContent className="p-3">
+      <VersionsCompareDialog
+        open={showVersions}
+        onOpenChange={setShowVersions}
+        versions={versions}
+        selectedDraft={selectedDraft}
+        onSelectVersion={(v) => { setSelectedDraft(v); setShowVersions(false); }}
+        pieceLabel={pieceLabel}
+        navigate={navigate}
+      />
+    </div>
+  );
+}
+
+// ---- Versions Compare Dialog ----
+function VersionsCompareDialog({
+  open,
+  onOpenChange,
+  versions,
+  selectedDraft,
+  onSelectVersion,
+  pieceLabel,
+  navigate,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  versions: any[] | undefined;
+  selectedDraft: any;
+  onSelectVersion: (v: any) => void;
+  pieceLabel: (v: string) => string;
+  navigate: (path: string, opts?: any) => void;
+}) {
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+
+  const toggleCompare = (id: string) => {
+    setCompareIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 2 ? [...prev, id] : [prev[1], id]
+    );
+  };
+
+  const handleCompareNavigate = () => {
+    if (compareIds.length !== 2 || !versions) return;
+    const vA = versions.find((v) => v.id === compareIds[0]);
+    const vB = versions.find((v) => v.id === compareIds[1]);
+    if (!vA || !vB) return;
+    // Navigate to text-comparison with state
+    navigate("/text-comparison", {
+      state: {
+        textA: vA.content || "",
+        textB: vB.content || "",
+        labelA: `${vA.title} (v${vA.version})`,
+        labelB: `${vB.title} (v${vB.version})`,
+        comparisonType: "legal_piece",
+      },
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setCompareIds([]); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Histórico de Versões</DialogTitle>
+        </DialogHeader>
+        {compareIds.length > 0 && (
+          <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              {compareIds.length}/2 selecionadas para comparação
+            </span>
+            <Button
+              size="sm"
+              disabled={compareIds.length !== 2}
+              onClick={handleCompareNavigate}
+              className="gap-1.5"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" /> Comparar
+            </Button>
+          </div>
+        )}
+        <ScrollArea className="max-h-96">
+          <div className="space-y-2">
+            {versions?.map((v) => (
+              <Card
+                key={v.id}
+                className={`hover:shadow-sm ${v.id === selectedDraft?.id ? "ring-2 ring-primary" : ""} ${compareIds.includes(v.id) ? "ring-2 ring-secondary" : ""}`}
+              >
+                <CardContent className="p-3 flex items-center gap-3">
+                  <Checkbox
+                    checked={compareIds.includes(v.id)}
+                    onCheckedChange={() => toggleCompare(v.id)}
+                    className="shrink-0"
+                  />
+                  <button
+                    className="flex-1 text-left"
+                    onClick={() => onSelectVersion(v)}
+                  >
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">v{v.version} — {v.title}</span>
                       <Badge variant="outline" className="text-[10px]">{pieceLabel(v.piece_type)}</Badge>
@@ -604,16 +688,16 @@ export default function Drafts() {
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(v.created_at), "dd/MM/yyyy HH:mm")}
                     </p>
-                  </CardContent>
-                </Card>
-              ))}
-              {(!versions || versions.length === 0) && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma versão encontrada</p>
-              )}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-    </div>
+                  </button>
+                </CardContent>
+              </Card>
+            ))}
+            {(!versions || versions.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma versão encontrada</p>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }

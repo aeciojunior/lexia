@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,15 +53,17 @@ const RISK_ICONS: Record<string, typeof AlertTriangle> = {
 export default function TextComparison() {
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
+  const location = useLocation();
+  const navState = location.state as { textA?: string; textB?: string; labelA?: string; labelB?: string; comparisonType?: string } | null;
 
-  const [textA, setTextA] = useState("");
-  const [textB, setTextB] = useState("");
-  const [labelA, setLabelA] = useState("Texto A");
-  const [labelB, setLabelB] = useState("Texto B");
-  const [comparisonType, setComparisonType] = useState("general");
+  const [textA, setTextA] = useState(navState?.textA || "");
+  const [textB, setTextB] = useState(navState?.textB || "");
+  const [labelA, setLabelA] = useState(navState?.labelA || "Texto A");
+  const [labelB, setLabelB] = useState(navState?.labelB || "Texto B");
+  const [comparisonType, setComparisonType] = useState(navState?.comparisonType || "general");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ analysis: AiAnalysis } | null>(null);
-  const [activeTab, setActiveTab] = useState("diff");
+  const [activeTab, setActiveTab] = useState(navState?.textA ? "diff" : "diff");
 
   // History
   const [history, setHistory] = useState<ComparisonRecord[]>([]);
