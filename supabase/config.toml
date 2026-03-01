@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.compare-texts]
 verify_jwt = false
+
+[functions.extract-pdf-text]
+verify_jwt = false
