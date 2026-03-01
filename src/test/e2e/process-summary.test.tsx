@@ -116,7 +116,6 @@ describe("ProcessSummary360 — E2E", () => {
     expect(screen.queryByTitle("Copiar")).not.toBeInTheDocument();
     expect(screen.getByTitle("Histórico")).toBeInTheDocument();
   });
-  });
 
   it("can collapse and expand the section", async () => {
     render360();
