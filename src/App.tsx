@@ -65,6 +65,7 @@ import Vendors from "./pages/Vendors";
 import LegalChatbot from "./pages/LegalChatbot";
 import Drafts from "./pages/Drafts";
 import LegalGlossary from "./pages/LegalGlossary";
+import TextComparison from "./pages/TextComparison";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
