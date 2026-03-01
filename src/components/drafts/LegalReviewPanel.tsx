@@ -69,6 +69,7 @@ export default function LegalReviewPanel({ draftId, draftContent, pieceType, onA
     setResult(null);
     setDismissed(new Set());
     setApplied(new Set());
+    setOriginalContent(draftContent); // snapshot before review
 
     try {
       const { data, error } = await supabase.functions.invoke("review-legal", {
