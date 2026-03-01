@@ -202,10 +202,10 @@ export default function TextComparison() {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Auto-load documents from process integration
-  const [autoLoaded, setAutoLoaded] = useState(false);
-  useState(() => {
-    if (navState?.sourceDocA && navState?.sourceDocB && !autoLoaded) {
-      setAutoLoaded(true);
+  const autoLoadedRef = useRef(false);
+  useEffect(() => {
+    if (navState?.sourceDocA && navState?.sourceDocB && !autoLoadedRef.current) {
+      autoLoadedRef.current = true;
       const loadDocText = async (doc: any, side: "A" | "B") => {
         const setExtracting = side === "A" ? setExtractingA : setExtractingB;
         const setText = side === "A" ? setTextA : setTextB;
@@ -228,9 +228,9 @@ export default function TextComparison() {
           setFormat(fileFormat);
           setFileSize(file.size);
 
-          const result = await extractTextFromFile(file);
+          const extractResult = await extractTextFromFile(file);
 
-          if (result.needsOcr) {
+          if (extractResult.needsOcr) {
             setFileInfo(`${fileFormat} • Executando OCR...`);
             let images: string[];
             if (fileFormat === "JPG" || fileFormat === "PNG") {
@@ -247,8 +247,8 @@ export default function TextComparison() {
             setText(ocrText);
             setFileInfo(`${fileFormat} • OCR • ${ocrText.length.toLocaleString()} caracteres`);
           } else {
-            setText(result.text);
-            setFileInfo(`${fileFormat} • ${result.text.length.toLocaleString()} caracteres`);
+            setText(extractResult.text);
+            setFileInfo(`${fileFormat} • ${extractResult.text.length.toLocaleString()} caracteres`);
           }
         } catch (e: any) {
           console.error(`Error loading doc ${side}:`, e);
@@ -261,7 +261,7 @@ export default function TextComparison() {
       loadDocText(navState.sourceDocA, "A");
       loadDocText(navState.sourceDocB, "B");
     }
-  });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileUpload = async (side: "A" | "B", file: File) => {
     const setText = side === "A" ? setTextA : setTextB;
