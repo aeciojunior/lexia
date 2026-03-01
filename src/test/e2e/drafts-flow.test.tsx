@@ -246,7 +246,7 @@ describe("Drafts Page - E2E Flow", () => {
 describe("Drafts - Component Integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSupabase.from.mockImplementation((table: string) => {
+    (mockSupabase.from as any).mockImplementation((table: string) => {
       return setupFromMock(table, table === "drafts" ? MOCK_DRAFTS : []);
     });
   });
