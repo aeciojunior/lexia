@@ -586,37 +586,15 @@ export default function Drafts() {
       )}
 
       {/* Versions Dialog */}
-      <Dialog open={showVersions} onOpenChange={setShowVersions}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Histórico de Versões</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-96">
-            <div className="space-y-2">
-              {versions?.map(v => (
-                <Card
-                  key={v.id}
-                  className={`cursor-pointer hover:shadow-sm ${v.id === selectedDraft?.id ? "ring-2 ring-primary" : ""}`}
-                  onClick={() => { setSelectedDraft(v); setShowVersions(false); }}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">v{v.version} — {v.title}</span>
-                      <Badge variant="outline" className="text-[10px]">{pieceLabel(v.piece_type)}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(v.created_at), "dd/MM/yyyy HH:mm")}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-              {(!versions || versions.length === 0) && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma versão encontrada</p>
-              )}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+      <VersionsCompareDialog
+        open={showVersions}
+        onOpenChange={setShowVersions}
+        versions={versions}
+        selectedDraft={selectedDraft}
+        onSelectVersion={(v) => { setSelectedDraft(v); setShowVersions(false); }}
+        pieceLabel={pieceLabel}
+        navigate={navigate}
+      />
     </div>
   );
 }
