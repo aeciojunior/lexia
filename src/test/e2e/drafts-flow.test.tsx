@@ -146,7 +146,7 @@ describe("Drafts Page - E2E Flow", () => {
   });
 
   it("shows empty state when no drafts", async () => {
-    mockSupabase.from.mockImplementation((table: string) => {
+    (mockSupabase.from as any).mockImplementation((table: string) => {
       return setupFromMock(table, []);
     });
     renderWithProviders(<Drafts />);
