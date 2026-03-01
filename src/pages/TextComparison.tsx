@@ -415,147 +415,422 @@ export default function TextComparison() {
     }
   };
 
-  const exportPdfReport = () => {
+  type ReportType = "executivo" | "tecnico" | "auditoria";
+
+  const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+    executivo: "Executivo (Cliente)",
+    tecnico: "Técnico (Advogado)",
+    auditoria: "Auditoria (Compliance)",
+  };
+
+  const logAuditEvent = async (action: string, metadata: Record<string, any>) => {
+    try {
+      await supabase.from("audit_logs").insert({
+        action,
+        user_id: user?.id || null,
+        organization_id: activeOrgId || null,
+        resource_type: "comparison_report",
+        metadata: {
+          ...metadata,
+          user_agent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+        },
+      } as any);
+    } catch {}
+  };
+
+  const addPdfSection = (doc: jsPDF, title: string, y: number, margin: number): number => {
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text(title, margin, y);
+    return y + 7;
+  };
+
+  const addPdfText = (doc: jsPDF, text: string, y: number, margin: number, maxWidth: number, fontSize = 9): number => {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    if (y + lines.length * 4 > 280) { doc.addPage(); y = 20; }
+    doc.text(lines, margin, y);
+    return y + lines.length * 4 + 2;
+  };
+
+  const addPdfBullet = (doc: jsPDF, text: string, y: number, margin: number, maxWidth: number): number => {
+    return addPdfText(doc, `• ${text}`, y, margin, maxWidth);
+  };
+
+  const exportPdfReport = async (reportType: ReportType = "tecnico") => {
     if (!analysis) return;
     const doc = new jsPDF();
-    let y = 20;
     const margin = 15;
     const maxWidth = 180;
+    let y = 20;
+    const now = new Date();
+    const isExec = reportType === "executivo";
+    const isTech = reportType === "tecnico";
+    const isAudit = reportType === "auditoria";
 
-    doc.setFontSize(18);
+    // ═══════ Cover Page ═══════
+    doc.setFontSize(22);
     doc.text("Relatório de Comparação", margin, y);
+    y += 10;
+    doc.setFontSize(14);
+    doc.text(REPORT_TYPE_LABELS[reportType], margin, y);
     y += 10;
 
     doc.setFontSize(10);
-    doc.text(`Tipo: ${TYPE_LABELS[comparisonType] || comparisonType}`, margin, y);
+    doc.text(`Tipo de análise: ${TYPE_LABELS[comparisonType] || comparisonType}`, margin, y); y += 5;
+    doc.text(`Documentos: ${labelA} × ${labelB}`, margin, y); y += 5;
+    doc.text(`Data: ${format(now, "dd/MM/yyyy HH:mm", { locale: ptBR })}`, margin, y); y += 5;
+    if (formatA || formatB) {
+      doc.text(`Formatos: ${formatA || "texto"} / ${formatB || "texto"}`, margin, y); y += 5;
+    }
+    if (isAudit && user?.email) {
+      doc.text(`Gerado por: ${user.email}`, margin, y); y += 5;
+      doc.text(`ID do usuário: ${user.id}`, margin, y); y += 5;
+    }
     y += 5;
-    doc.text(`${labelA} × ${labelB}`, margin, y);
-    y += 5;
-    doc.text(`Data: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
-    y += 10;
+
+    // ═══════ 1. Resumo Executivo ═══════
+    y = addPdfSection(doc, "1. Resumo Executivo", y, margin);
 
     if (analysis.similaridade_percentual !== undefined) {
-      doc.setFontSize(12);
-      doc.text(`Similaridade: ${analysis.similaridade_percentual}%`, margin, y);
-      y += 6;
+      y = addPdfText(doc, `Similaridade: ${analysis.similaridade_percentual}%`, y, margin, maxWidth, 11);
     }
     if (analysis.risco_geral) {
-      doc.text(`Risco Geral: ${analysis.risco_geral}`, margin, y);
-      y += 8;
+      y = addPdfText(doc, `Nível de risco geral: ${analysis.risco_geral.toUpperCase()}`, y, margin, maxWidth, 11);
     }
 
-    // Resumo
+    const totalDiffs = (analysis.alteracoes_criticas?.length || 0) + (analysis.alteracoes_semanticas?.length || 0) + (analysis.alteracoes_juridicas?.length || 0);
+    y = addPdfText(doc, `Total de diferenças identificadas: ${totalDiffs}`, y, margin, maxWidth, 10);
+    y = addPdfText(doc, `Alterações críticas: ${analysis.alteracoes_criticas?.length || 0}`, y, margin, maxWidth, 10);
+
     if (analysis.resumo) {
-      doc.setFontSize(13);
-      doc.text("Resumo", margin, y);
-      y += 6;
-      doc.setFontSize(9);
-      const lines = doc.splitTextToSize(analysis.resumo, maxWidth);
-      doc.text(lines, margin, y);
-      y += lines.length * 4 + 6;
+      y += 2;
+      if (isExec) {
+        y = addPdfText(doc, "O que mudou:", y, margin, maxWidth, 10);
+      }
+      y = addPdfText(doc, analysis.resumo, y, margin, maxWidth);
     }
+    y += 3;
 
-    // Critical changes
+    // ═══════ 2. Destaques das Diferenças ═══════
     if (analysis.alteracoes_criticas?.length) {
-      if (y > 250) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text(`Alterações Críticas (${analysis.alteracoes_criticas.length})`, margin, y);
-      y += 6;
-      doc.setFontSize(9);
+      const sectionTitle = isExec ? "2. Principais Diferenças" : "2. Destaques das Diferenças";
+      y = addPdfSection(doc, sectionTitle, y, margin);
+
       for (const c of analysis.alteracoes_criticas) {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`• [${c.risco}] ${c.tipo}: ${c.descricao}`, margin, y);
-        y += 4;
-      }
-      y += 4;
-    }
-
-    // Legal changes
-    if (analysis.alteracoes_juridicas?.length) {
-      if (y > 250) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text(`Alterações Jurídicas (${analysis.alteracoes_juridicas.length})`, margin, y);
-      y += 6;
-      doc.setFontSize(9);
-      for (const j of analysis.alteracoes_juridicas) {
         if (y > 265) { doc.addPage(); y = 20; }
-        doc.text(`• [${j.risco}] ${j.aspecto}`, margin, y);
-        y += 4;
-        doc.text(`  Antes: ${j.antes}`, margin, y);
-        y += 4;
-        doc.text(`  Depois: ${j.depois}`, margin, y);
-        y += 4;
-        const impLines = doc.splitTextToSize(`  Impacto: ${j.impacto_juridico}`, maxWidth - 5);
-        doc.text(impLines, margin, y);
-        y += impLines.length * 4 + 2;
+        if (isExec) {
+          y = addPdfBullet(doc, `${c.descricao} (Risco: ${c.risco})`, y, margin, maxWidth);
+        } else {
+          y = addPdfText(doc, `[${c.risco.toUpperCase()}] ${c.tipo}: ${c.descricao}`, y, margin, maxWidth, 9);
+          y = addPdfText(doc, `  Trecho: "${c.trecho}"`, y, margin, maxWidth, 8);
+        }
       }
-      y += 4;
+      y += 3;
     }
 
-    // Contextual Legal Analysis in PDF
+    // Semantic changes (tech + audit only)
+    if (!isExec && analysis.alteracoes_semanticas?.length) {
+      y = addPdfSection(doc, "2.1 Alterações Semânticas", y, margin);
+      for (const s of analysis.alteracoes_semanticas) {
+        if (y > 260) { doc.addPage(); y = 20; }
+        y = addPdfText(doc, `Original: ${s.original}`, y, margin, maxWidth, 8);
+        y = addPdfText(doc, `Modificado: ${s.modificado}`, y, margin, maxWidth, 8);
+        y = addPdfText(doc, `Impacto: ${s.impacto}`, y, margin, maxWidth, 8);
+        y += 2;
+      }
+      y += 2;
+    }
+
+    // ═══════ 3. Alterações Jurídicas ═══════
+    if (analysis.alteracoes_juridicas?.length) {
+      y = addPdfSection(doc, isExec ? "3. Riscos Identificados" : "3. Alterações Jurídicas", y, margin);
+      for (const j of analysis.alteracoes_juridicas) {
+        if (y > 255) { doc.addPage(); y = 20; }
+        if (isExec) {
+          y = addPdfBullet(doc, `${j.aspecto}: ${j.impacto_juridico} (Risco: ${j.risco})`, y, margin, maxWidth);
+        } else {
+          y = addPdfText(doc, `[${j.risco.toUpperCase()}] ${j.aspecto}`, y, margin, maxWidth, 10);
+          y = addPdfText(doc, `  Antes: ${j.antes}`, y, margin, maxWidth, 9);
+          y = addPdfText(doc, `  Depois: ${j.depois}`, y, margin, maxWidth, 9);
+          y = addPdfText(doc, `  Impacto: ${j.impacto_juridico}`, y, margin, maxWidth, 9);
+          y += 2;
+        }
+      }
+      y += 3;
+    }
+
+    // ═══════ 4. Similaridades (tech + audit) ═══════
+    if (!isExec && analysis.similaridades?.length) {
+      y = addPdfSection(doc, "4. Similaridades e Equivalências", y, margin);
+      for (const s of analysis.similaridades) {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const tipoLabel = s.tipo === "identico" ? "Idêntico" : s.tipo === "equivalente" ? "Equivalente" : "Preservado";
+        y = addPdfBullet(doc, `[${tipoLabel}] ${s.trecho}`, y, margin, maxWidth);
+      }
+      y += 3;
+    }
+
+    // ═══════ 5. Análise Jurídica Contextualizada ═══════
     const ctx = analysis.analise_juridica_contextualizada;
     if (ctx) {
-      if (y > 240) { doc.addPage(); y = 20; }
-      doc.setFontSize(14);
-      doc.text("Análise Jurídica Contextualizada", margin, y);
-      y += 8;
+      y = addPdfSection(doc, isExec ? "4. Impacto para o Cliente" : "5. Análise Jurídica Contextualizada", y, margin);
 
       if (ctx.resumo_impacto_geral) {
-        doc.setFontSize(9);
-        const sumLines = doc.splitTextToSize(ctx.resumo_impacto_geral, maxWidth);
-        doc.text(sumLines, margin, y);
-        y += sumLines.length * 4 + 4;
+        y = addPdfText(doc, ctx.resumo_impacto_geral, y, margin, maxWidth);
+        y += 2;
       }
 
       for (const imp of ctx.impactos || []) {
-        if (y > 255) { doc.addPage(); y = 20; }
+        if (y > 250) { doc.addPage(); y = 20; }
+        const catLabel = CATEGORY_LABELS[imp.categoria] || imp.categoria;
         doc.setFontSize(10);
-        doc.text(`[${imp.impacto.toUpperCase()}] ${CATEGORY_LABELS[imp.categoria] || imp.categoria} — ${imp.recomendacao}`, margin, y);
+        doc.text(`[${imp.impacto.toUpperCase()}] ${catLabel} — ${imp.recomendacao}`, margin, y);
         y += 5;
-        doc.setFontSize(9);
-        const descLines = doc.splitTextToSize(imp.descricao_alteracao, maxWidth);
-        doc.text(descLines, margin, y);
-        y += descLines.length * 4;
-        const interpLines = doc.splitTextToSize(`Interpretação: ${imp.interpretacao_juridica}`, maxWidth);
-        doc.text(interpLines, margin, y);
-        y += interpLines.length * 4 + 3;
+
+        if (isExec) {
+          y = addPdfText(doc, imp.explicacao_simples, y, margin, maxWidth);
+        } else {
+          y = addPdfText(doc, imp.descricao_alteracao, y, margin, maxWidth);
+          y = addPdfText(doc, `Interpretação: ${imp.interpretacao_juridica}`, y, margin, maxWidth);
+          y = addPdfText(doc, `Explicação técnica: ${imp.explicacao_tecnica}`, y, margin, maxWidth);
+        }
+
+        if (!isExec && imp.fundamentos_afetados?.length) {
+          y = addPdfText(doc, `  Fundamentos: ${imp.fundamentos_afetados.join(", ")}`, y, margin, maxWidth, 8);
+        }
+        if (!isExec && imp.jurisprudencia_relacionada?.length) {
+          y = addPdfText(doc, `  Jurisprudência: ${imp.jurisprudencia_relacionada.join(", ")}`, y, margin, maxWidth, 8);
+        }
+        if (imp.riscos_introduzidos?.length) {
+          y = addPdfText(doc, `  Riscos: ${imp.riscos_introduzidos.join("; ")}`, y, margin, maxWidth, 8);
+        }
+        if (imp.sugestoes_mitigacao?.length) {
+          y = addPdfText(doc, `  Mitigação: ${imp.sugestoes_mitigacao.join("; ")}`, y, margin, maxWidth, 8);
+        }
+        y += 3;
       }
 
+      // Court analysis
+      if (ctx.analise_por_tribunal) {
+        if (y > 240) { doc.addPage(); y = 20; }
+        const courtTitle = isExec ? "Análise do Tribunal" : "Análise por Tribunal";
+        doc.setFontSize(11);
+        doc.text(`${courtTitle}: ${ctx.analise_por_tribunal.tribunal}`, margin, y);
+        y += 6;
+
+        if (isExec) {
+          y = addPdfText(doc, ctx.analise_por_tribunal.entendimento_predominante, y, margin, maxWidth);
+        } else {
+          y = addPdfText(doc, `Entendimento predominante: ${ctx.analise_por_tribunal.entendimento_predominante}`, y, margin, maxWidth);
+          if (ctx.analise_por_tribunal.riscos_especificos?.length) {
+            y = addPdfText(doc, `Riscos específicos:`, y, margin, maxWidth, 9);
+            for (const r of ctx.analise_por_tribunal.riscos_especificos) {
+              y = addPdfBullet(doc, r, y, margin + 5, maxWidth - 5);
+            }
+          }
+          if (ctx.analise_por_tribunal.recomendacoes_adaptadas?.length) {
+            y = addPdfText(doc, `Recomendações adaptadas:`, y, margin, maxWidth, 9);
+            for (const r of ctx.analise_por_tribunal.recomendacoes_adaptadas) {
+              y = addPdfBullet(doc, r, y, margin + 5, maxWidth - 5);
+            }
+          }
+        }
+        y += 3;
+      }
+
+      // Scenarios
       if (ctx.cenarios?.length) {
-        if (y > 250) { doc.addPage(); y = 20; }
+        if (y > 240) { doc.addPage(); y = 20; }
         doc.setFontSize(11);
         doc.text("Simulação de Cenários", margin, y);
         y += 6;
+
         for (const sc of ctx.cenarios) {
-          if (y > 260) { doc.addPage(); y = 20; }
+          if (y > 255) { doc.addPage(); y = 20; }
           doc.setFontSize(10);
-          doc.text(sc.nome, margin, y);
-          y += 5;
-          doc.setFontSize(9);
-          const scLines = doc.splitTextToSize(sc.descricao, maxWidth);
-          doc.text(scLines, margin, y);
-          y += scLines.length * 4 + 3;
+          doc.text(sc.nome, margin, y); y += 5;
+
+          if (isExec) {
+            y = addPdfText(doc, sc.descricao, y, margin, maxWidth);
+            y = addPdfText(doc, `Recomendação: ${sc.recomendacao}`, y, margin, maxWidth);
+          } else {
+            y = addPdfText(doc, sc.descricao, y, margin, maxWidth);
+            y = addPdfText(doc, `Impacto jurídico: ${sc.impacto_juridico}`, y, margin, maxWidth, 8);
+            if (sc.impacto_probatorio) y = addPdfText(doc, `Impacto probatório: ${sc.impacto_probatorio}`, y, margin, maxWidth, 8);
+            if (sc.impacto_financeiro) y = addPdfText(doc, `Impacto financeiro: ${sc.impacto_financeiro}`, y, margin, maxWidth, 8);
+            if (sc.vantagens?.length) y = addPdfText(doc, `Vantagens: ${sc.vantagens.join("; ")}`, y, margin, maxWidth, 8);
+            if (sc.desvantagens?.length) y = addPdfText(doc, `Desvantagens: ${sc.desvantagens.join("; ")}`, y, margin, maxWidth, 8);
+            if (sc.riscos?.length) y = addPdfText(doc, `Riscos: ${sc.riscos.join("; ")}`, y, margin, maxWidth, 8);
+            y = addPdfText(doc, `Recomendação: ${sc.recomendacao}`, y, margin, maxWidth, 8);
+          }
+          y += 3;
         }
       }
     }
 
-    // Suggestions
-    if (analysis.sugestoes_harmonizacao?.length) {
-      if (y > 250) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text("Sugestões de Harmonização", margin, y);
-      y += 6;
-      doc.setFontSize(9);
-      for (const s of analysis.sugestoes_harmonizacao) {
-        if (y > 270) { doc.addPage(); y = 20; }
-        const sLines = doc.splitTextToSize(`• ${s}`, maxWidth);
-        doc.text(sLines, margin, y);
-        y += sLines.length * 4 + 1;
+    // ═══════ 6. Análise Financeira ═══════
+    const fin = analysis.analise_financeira;
+    if (fin) {
+      y = addPdfSection(doc, isExec ? "5. Impacto Financeiro" : "6. Análise Financeira", y, margin);
+      if (fin.impacto_financeiro) {
+        y = addPdfText(doc, fin.impacto_financeiro, y, margin, maxWidth);
       }
+      if (fin.diferencas_valores?.length) {
+        for (const v of fin.diferencas_valores) {
+          if (y > 265) { doc.addPage(); y = 20; }
+          y = addPdfBullet(doc, `${v.campo}: ${v.valor_a} → ${v.valor_b} (${v.diferenca}) — ${v.impacto}`, y, margin, maxWidth);
+        }
+      }
+      if (!isExec && fin.erros_calculo?.length) {
+        y = addPdfText(doc, "Erros de cálculo detectados:", y, margin, maxWidth, 9);
+        for (const err of fin.erros_calculo) {
+          y = addPdfBullet(doc, err, y, margin + 5, maxWidth - 5);
+        }
+      }
+      y += 3;
     }
 
-    doc.save(`comparacao-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`);
-    toast({ title: "Relatório PDF exportado!" });
+    // ═══════ 7. Análise Multilíngue (tech + audit) ═══════
+    const multi = analysis.analise_multilingue;
+    if (!isExec && multi) {
+      y = addPdfSection(doc, "7. Análise Multilíngue", y, margin);
+      y = addPdfText(doc, `Idiomas: ${multi.idioma_a || "N/A"} / ${multi.idioma_b || "N/A"}`, y, margin, maxWidth, 10);
+      if (multi.omissoes?.length) {
+        y = addPdfText(doc, `Omissões na tradução (${multi.omissoes.length}):`, y, margin, maxWidth, 9);
+        for (const o of multi.omissoes) {
+          y = addPdfBullet(doc, `${o.trecho_original} [${o.idioma}] — ${o.impacto}`, y, margin + 5, maxWidth - 5);
+        }
+      }
+      if (multi.inconsistencias_terminologicas?.length) {
+        y = addPdfText(doc, `Inconsistências terminológicas:`, y, margin, maxWidth, 9);
+        for (const t of multi.inconsistencias_terminologicas) {
+          y = addPdfBullet(doc, `${t.termo_a} → ${t.termo_b}: ${t.sugestao}`, y, margin + 5, maxWidth - 5);
+        }
+      }
+      y += 3;
+    }
+
+    // ═══════ 8. Indícios de Fraude ═══════
+    if (analysis.indicios_fraude?.length) {
+      y = addPdfSection(doc, isExec ? "6. Alertas de Fraude" : "8. Indícios de Fraude", y, margin);
+      for (const f of analysis.indicios_fraude) {
+        if (y > 260) { doc.addPage(); y = 20; }
+        if (isExec) {
+          y = addPdfBullet(doc, `${f.tipo} (${f.probabilidade}): ${f.recomendacao}`, y, margin, maxWidth);
+        } else {
+          y = addPdfText(doc, `[${f.probabilidade.toUpperCase()}] ${f.tipo}`, y, margin, maxWidth, 10);
+          y = addPdfText(doc, f.descricao, y, margin, maxWidth);
+          if (f.pagina) y = addPdfText(doc, `Página: ${f.pagina}`, y, margin, maxWidth, 8);
+          y = addPdfText(doc, `Recomendação: ${f.recomendacao}`, y, margin, maxWidth, 8);
+          y += 2;
+        }
+      }
+      y += 3;
+    }
+
+    // ═══════ 9. Recomendações ═══════
+    if (analysis.sugestoes_harmonizacao?.length) {
+      const recTitle = isExec ? "Próximos Passos Recomendados" : "Recomendações e Sugestões de Harmonização";
+      y = addPdfSection(doc, recTitle, y, margin);
+      for (const s of analysis.sugestoes_harmonizacao) {
+        if (y > 270) { doc.addPage(); y = 20; }
+        y = addPdfBullet(doc, s, y, margin, maxWidth);
+      }
+      y += 3;
+    }
+
+    // ═══════ 10. Trilha de Auditoria (audit only) ═══════
+    if (isAudit) {
+      doc.addPage();
+      y = 20;
+      doc.setFontSize(14);
+      doc.text("Trilha de Auditoria", margin, y);
+      y += 8;
+
+      const auditItems = [
+        `Gerado em: ${format(now, "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}`,
+        `Usuário: ${user?.email || "N/A"}`,
+        `ID do Usuário: ${user?.id || "N/A"}`,
+        `Organização: ${activeOrgId || "N/A"}`,
+        `Tipo de comparação: ${TYPE_LABELS[comparisonType] || comparisonType}`,
+        `Tipo de relatório: ${REPORT_TYPE_LABELS[reportType]}`,
+        `Documento A: ${labelA} (${formatA || "texto"})`,
+        `Documento B: ${labelB} (${formatB || "texto"})`,
+        `Tamanho A: ${fileSizeA ? `${(fileSizeA / 1024).toFixed(1)} KB` : `${textA.length} caracteres`}`,
+        `Tamanho B: ${fileSizeB ? `${(fileSizeB / 1024).toFixed(1)} KB` : `${textB.length} caracteres`}`,
+        `Similaridade: ${analysis.similaridade_percentual ?? "N/A"}%`,
+        `Risco geral: ${analysis.risco_geral || "N/A"}`,
+        `Qualidade OCR: ${analysis.qualidade_ocr || "N/A"}`,
+        `Alterações críticas: ${analysis.alteracoes_criticas?.length || 0}`,
+        `Alterações semânticas: ${analysis.alteracoes_semanticas?.length || 0}`,
+        `Alterações jurídicas: ${analysis.alteracoes_juridicas?.length || 0}`,
+        `Impactos contextuais: ${ctx?.impactos?.length || 0}`,
+        `Cenários simulados: ${ctx?.cenarios?.length || 0}`,
+        `Indícios de fraude: ${analysis.indicios_fraude?.length || 0}`,
+        `Sugestões geradas: ${analysis.sugestoes_harmonizacao?.length || 0}`,
+      ];
+
+      doc.setFontSize(9);
+      for (const item of auditItems) {
+        if (y > 275) { doc.addPage(); y = 20; }
+        doc.text(item, margin, y);
+        y += 5;
+      }
+
+      y += 5;
+      doc.setFontSize(8);
+      doc.text("Este relatório é gerado automaticamente pelo LexIA. Trilha de auditoria imutável.", margin, y);
+      y += 4;
+      doc.text("Fontes: documentos fornecidos pelo usuário, análise de IA, dados internos do sistema.", margin, y);
+    }
+
+    // ═══════ Footer on last page ═══════
+    if (!isAudit) {
+      doc.setFontSize(7);
+      doc.text(
+        `Gerado pelo LexIA em ${format(now, "dd/MM/yyyy HH:mm")} — Relatório ${REPORT_TYPE_LABELS[reportType]}`,
+        margin,
+        285
+      );
+    }
+
+    const filename = `comparacao-${reportType}-${format(now, "yyyy-MM-dd-HHmm")}.pdf`;
+    doc.save(filename);
+
+    // ═══════ Audit Logging ═══════
+    const auditMeta = {
+      report_type: reportType,
+      comparison_type: comparisonType,
+      label_a: labelA,
+      label_b: labelB,
+      format_a: formatA,
+      format_b: formatB,
+      risk_level: analysis.risco_geral,
+      critical_changes: analysis.alteracoes_criticas?.length || 0,
+      legal_changes: analysis.alteracoes_juridicas?.length || 0,
+      has_fraud_indicators: (analysis.indicios_fraude?.length || 0) > 0,
+      recommendations_count: analysis.sugestoes_harmonizacao?.length || 0,
+    };
+
+    await logAuditEvent("comparison_report_generated", auditMeta);
+
+    const typeSpecificAction: Record<ReportType, string> = {
+      executivo: "executive_report_generated",
+      tecnico: "technical_report_generated",
+      auditoria: "audit_trail_report_generated",
+    };
+    await logAuditEvent(typeSpecificAction[reportType], auditMeta);
+
+    if (analysis.risco_geral === "alto") {
+      await logAuditEvent("comparison_report_risk_detected", auditMeta);
+    }
+    if ((analysis.sugestoes_harmonizacao?.length || 0) > 0) {
+      await logAuditEvent("comparison_report_recommendation_generated", auditMeta);
+    }
+
+    toast({ title: `Relatório ${REPORT_TYPE_LABELS[reportType]} exportado!` });
   };
 
   const analysis = result?.analysis;
