@@ -553,6 +553,22 @@ export default function Drafts() {
         />
       )}
 
+      {/* Legal Review Panel */}
+      {showReview && selectedDraft && (
+        <LegalReviewPanel
+          draftId={selectedDraft.id}
+          draftContent={selectedDraft.content || ""}
+          pieceType={selectedDraft.piece_type}
+          onApply={(original, replacement) => {
+            const newContent = (selectedDraft.content || "").replace(original, replacement);
+            const updated = { ...selectedDraft, content: newContent };
+            setSelectedDraft(updated);
+            supabase.from("drafts").update({ content: newContent }).eq("id", updated.id);
+          }}
+          onClose={() => setShowReview(false)}
+        />
+      )}
+
       {/* Versions Dialog */}
       <Dialog open={showVersions} onOpenChange={setShowVersions}>
         <DialogContent className="max-w-md">
