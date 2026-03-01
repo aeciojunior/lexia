@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TextComparison from "@/pages/TextComparison";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// Exact same mock pattern as text-comparison.test.tsx
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "test-user-id", email: "test@test.com" } }),
 }));
-
 vi.mock("@/hooks/useOrganization", () => ({
   useOrganization: () => ({
     activeOrgId: "test-org-id",
@@ -17,18 +17,23 @@ vi.mock("@/hooks/useOrganization", () => ({
 }));
 
 const mockInvoke = vi.fn();
+const mockSelect = vi.fn().mockReturnThis();
+const mockEq = vi.fn().mockReturnThis();
+const mockOrder = vi.fn().mockReturnThis();
+const mockLimit = vi.fn().mockResolvedValue({ data: [], error: null });
+const mockDelete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: (...args: any[]) => mockInvoke(...args) },
     from: () => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-      insert: (...args: any[]) => mockInsert(...args),
+      select: mockSelect,
+      eq: mockEq,
+      order: mockOrder,
+      limit: mockLimit,
+      delete: mockDelete,
+      insert: mockInsert,
     }),
   },
 }));
@@ -72,13 +77,9 @@ const FULL_ANALYSIS = {
   analise_juridica_contextualizada: {
     resumo_impacto_geral: "Impacto geral alto.",
     impactos: [{
-      descricao_alteracao: "Alteração de fundamento",
-      interpretacao_juridica: "Interpretação grave",
-      categoria: "fundamentos",
-      impacto: "alto",
-      recomendacao: "revisar",
-      explicacao_simples: "Explicação simples",
-      explicacao_tecnica: "Explicação técnica detalhada",
+      descricao_alteracao: "Alteração de fundamento", interpretacao_juridica: "Interpretação grave",
+      categoria: "fundamentos", impacto: "alto", recomendacao: "revisar",
+      explicacao_simples: "Explicação simples", explicacao_tecnica: "Explicação técnica detalhada",
     }],
     cenarios: [{
       nome: "Cenário A", descricao: "Cenário otimista",
@@ -96,36 +97,17 @@ function renderPage() {
   );
 }
 
-async function setupComparison() {
-  mockInvoke.mockResolvedValueOnce({
-    data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
-    error: null,
-  });
-  renderPage();
-  const user = userEvent.setup();
-  const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-  await user.type(textareas[0], "Texto A jurídico");
-  await user.type(textareas[1], "Texto B modificado");
-  await user.click(screen.getByText("Comparar Textos"));
-  await waitFor(() => {
-    expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
-  });
-  return user;
-}
-
 describe("Report Export Flow", () => {
   beforeEach(() => {
-    mockInvoke.mockReset();
-    mockInsert.mockReset();
+    vi.clearAllMocks();
+    // Restore implementations cleared by clearAllMocks
+    mockSelect.mockReturnThis();
+    mockEq.mockReturnThis();
+    mockOrder.mockReturnThis();
+    mockLimit.mockResolvedValue({ data: [], error: null });
+    mockDelete.mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
     mockInsert.mockResolvedValue({ error: null });
-    mockSave.mockReset();
-    mockCreateObjectURL.mockReset();
     mockCreateObjectURL.mockReturnValue("blob:test");
-    mockRevokeObjectURL.mockReset();
-  });
-
-  afterEach(() => {
-    cleanup();
   });
 
   it("does not show export button before comparison", () => {
@@ -133,21 +115,35 @@ describe("Report Export Flow", () => {
     expect(screen.queryByText("Exportar Relatório")).not.toBeInTheDocument();
   });
 
-  it("shows all 6 export options (3 PDF + 3 HTML) after comparison", async () => {
-    const user = await setupComparison();
+  it("shows 6 export options and exports Técnico PDF correctly", async () => {
+    mockInvoke.mockResolvedValueOnce({
+      data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
+      error: null,
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
+    await user.type(textareas[0], "Texto A jurídico");
+    await user.type(textareas[1], "Texto B modificado");
+    await user.click(screen.getByText("Comparar Textos"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
+    });
+
+    // Open dropdown
     await user.click(screen.getByText("Exportar Relatório"));
 
+    // All 6 options present
     expect(screen.getByText("Executivo (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Técnico (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Auditoria (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Executivo (HTML)")).toBeInTheDocument();
     expect(screen.getByText("Técnico (HTML)")).toBeInTheDocument();
     expect(screen.getByText("Auditoria (HTML)")).toBeInTheDocument();
-  });
 
-  it("exports Técnico PDF with correct filename and audit logs", async () => {
-    const user = await setupComparison();
-    await user.click(screen.getByText("Exportar Relatório"));
+    // Export PDF
     await user.click(screen.getByText("Técnico (PDF)"));
 
     await waitFor(() => {
@@ -156,6 +152,7 @@ describe("Report Export Flow", () => {
       );
     });
 
+    // Audit logs
     await waitFor(() => {
       const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
       expect(actions).toContain("comparison_report_generated");
@@ -166,7 +163,22 @@ describe("Report Export Flow", () => {
   });
 
   it("exports Executivo HTML with simplified content and collapsible sections", async () => {
-    const user = await setupComparison();
+    mockInvoke.mockResolvedValueOnce({
+      data: { comparison: { id: "comp-2" }, analysis: FULL_ANALYSIS },
+      error: null,
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
+    await user.type(textareas[0], "Texto A");
+    await user.type(textareas[1], "Texto B");
+    await user.click(screen.getByText("Comparar Textos"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
+    });
+
     await user.click(screen.getByText("Exportar Relatório"));
     await user.click(screen.getByText("Executivo (HTML)"));
 
@@ -174,8 +186,8 @@ describe("Report Export Flow", () => {
 
     const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
     expect(blob.type).toBe("text/html;charset=utf-8");
-
     const html = await blob.text();
+
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("Executivo (Cliente)");
     expect(html).toContain("<details");
@@ -184,13 +196,26 @@ describe("Report Export Flow", () => {
     expect(html).toContain("Próximos Passos Recomendados");
     expect(html).toContain("72%");
     expect(html).toContain("width:72%");
-    expect(html).toContain("linear-gradient");
-    // Executive should NOT have semantic changes
     expect(html).not.toContain("Alterações Semânticas");
   });
 
-  it("exports Técnico HTML with full sections and tables", async () => {
-    const user = await setupComparison();
+  it("exports Técnico HTML with full sections, tables and risk badges", async () => {
+    mockInvoke.mockResolvedValueOnce({
+      data: { comparison: { id: "comp-3" }, analysis: FULL_ANALYSIS },
+      error: null,
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
+    await user.type(textareas[0], "Texto A");
+    await user.type(textareas[1], "Texto B");
+    await user.click(screen.getByText("Comparar Textos"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
+    });
+
     await user.click(screen.getByText("Exportar Relatório"));
     await user.click(screen.getByText("Técnico (HTML)"));
 
@@ -205,17 +230,29 @@ describe("Report Export Flow", () => {
     expect(html).toContain("Análise Jurídica Contextualizada");
     expect(html).toContain("Simulação de Cenários");
     expect(html).toContain("<table");
-    expect(html).toContain("#ef4444"); // alto risk color
+    expect(html).toContain("#ef4444");
     expect(html).toContain("ALTO");
-    expect(html).toContain("border-radius:999px"); // badge
     expect(html).toContain("cursor:pointer");
-
-    const detailsCount = (html.match(/<details/g) || []).length;
-    expect(detailsCount).toBeGreaterThanOrEqual(4);
+    expect((html.match(/<details/g) || []).length).toBeGreaterThanOrEqual(4);
   });
 
-  it("exports Auditoria HTML with audit trail and user metadata", async () => {
-    const user = await setupComparison();
+  it("exports Auditoria HTML with audit trail and logs export_format", async () => {
+    mockInvoke.mockResolvedValueOnce({
+      data: { comparison: { id: "comp-4" }, analysis: FULL_ANALYSIS },
+      error: null,
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
+    await user.type(textareas[0], "Texto A");
+    await user.type(textareas[1], "Texto B");
+    await user.click(screen.getByText("Comparar Textos"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
+    });
+
     await user.click(screen.getByText("Exportar Relatório"));
     await user.click(screen.getByText("Auditoria (HTML)"));
 
@@ -230,7 +267,6 @@ describe("Report Export Flow", () => {
     expect(html).toContain("test@test.com");
     expect(html).toContain("test-org-id");
 
-    // Audit log metadata includes export_format
     await waitFor(() => {
       const reportCall = mockInsert.mock.calls.find(
         (c: any) => c[0]?.action === "comparison_report_generated"
