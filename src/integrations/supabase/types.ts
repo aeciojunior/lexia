@@ -1915,6 +1915,97 @@ export type Database = {
           },
         ]
       }
+      drafts: {
+        Row: {
+          ai_model: string | null
+          confidence: number | null
+          config: Json | null
+          content: string
+          created_at: string | null
+          detail_level: string
+          id: string
+          instructions: string | null
+          organization_id: string
+          parent_version_id: string | null
+          piece_type: string
+          process_id: string | null
+          relevant_excerpts: Json | null
+          status: string
+          style: string
+          template_id: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          version: number
+        }
+        Insert: {
+          ai_model?: string | null
+          confidence?: number | null
+          config?: Json | null
+          content?: string
+          created_at?: string | null
+          detail_level?: string
+          id?: string
+          instructions?: string | null
+          organization_id: string
+          parent_version_id?: string | null
+          piece_type?: string
+          process_id?: string | null
+          relevant_excerpts?: Json | null
+          status?: string
+          style?: string
+          template_id?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id: string
+          version?: number
+        }
+        Update: {
+          ai_model?: string | null
+          confidence?: number | null
+          config?: Json | null
+          content?: string
+          created_at?: string | null
+          detail_level?: string
+          id?: string
+          instructions?: string | null
+          organization_id?: string
+          parent_version_id?: string | null
+          piece_type?: string
+          process_id?: string | null
+          relevant_excerpts?: Json | null
+          status?: string
+          style?: string
+          template_id?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drafts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drafts_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drafts_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dsar_requests: {
         Row: {
           client_id: string | null

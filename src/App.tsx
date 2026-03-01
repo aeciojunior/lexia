@@ -63,6 +63,7 @@ import VaultDocuments from "./pages/VaultDocuments";
 import Assets from "./pages/Assets";
 import Vendors from "./pages/Vendors";
 import LegalChatbot from "./pages/LegalChatbot";
+import Drafts from "./pages/Drafts";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -128,6 +129,7 @@ const App = () => (
               <Route path="/assets" element={<Assets />} />
               <Route path="/vendors" element={<Vendors />} />
               <Route path="/legal-chatbot" element={<LegalChatbot />} />
+              <Route path="/drafts" element={<Drafts />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
