@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
 import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
 import {
-  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb,
+  Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -307,6 +307,44 @@ export default function Drafts() {
     toast({ title: "PDF exportado!" });
   };
 
+  const handleSaveToVault = async () => {
+    if (!selectedDraft?.content || !activeOrgId || !user) return;
+    try {
+      const blob = new Blob([selectedDraft.content], { type: "text/markdown" });
+      const fileName = `${(selectedDraft.title || "minuta").replace(/[^a-zA-Z0-9À-ÿ\s-]/g, "")}.md`;
+      const path = `${activeOrgId}/${crypto.randomUUID()}_${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from("vault").upload(path, blob);
+      if (uploadError) throw uploadError;
+
+      const { error } = await supabase.from("vault_documents").insert({
+        organization_id: activeOrgId,
+        title: selectedDraft.title || "Minuta",
+        file_name: fileName,
+        file_url: path,
+        file_size: blob.size,
+        file_type: "text/markdown",
+        category: "confidential",
+        description: `Minuta: ${pieceLabel(selectedDraft.piece_type)} — v${selectedDraft.version}`,
+        uploaded_by: user.id,
+      });
+      if (error) throw error;
+
+      await supabase.from("audit_logs").insert({
+        action: "secure_document_uploaded",
+        user_id: user.id,
+        organization_id: activeOrgId,
+        resource_type: "vault_document",
+        resource_id: selectedDraft.id,
+        metadata: { source: "draft", draft_id: selectedDraft.id, file_name: fileName },
+      });
+
+      toast({ title: "Minuta salva no Cofre Seguro 🔒" });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar no cofre", description: e.message, variant: "destructive" });
+    }
+  };
+
   const resetForm = () => {
     setTitle("");
     setPieceType("peticao_inicial");
@@ -453,6 +491,7 @@ export default function Drafts() {
                   <Button variant="ghost" size="icon" onClick={() => setShowSuggestions(!showSuggestions)} title="Sugestões IA"><Lightbulb className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleCopy} title="Copiar"><Copy className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={handleExportPdf} title="Exportar PDF"><Download className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={handleSaveToVault} title="Salvar no Cofre"><Lock className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => setShowVersions(true)} title="Versões"><History className="h-4 w-4" /></Button>
                 </div>
               </div>
