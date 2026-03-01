@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TextComparison from "@/pages/TextComparison";
@@ -50,9 +50,8 @@ vi.mock("jspdf", () => ({
 }));
 
 const mockCreateObjectURL = vi.fn().mockReturnValue("blob:test");
-const mockRevokeObjectURL = vi.fn();
 Object.defineProperty(URL, "createObjectURL", { value: mockCreateObjectURL, writable: true });
-Object.defineProperty(URL, "revokeObjectURL", { value: mockRevokeObjectURL, writable: true });
+Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), writable: true });
 
 const FULL_ANALYSIS = {
   resumo: "Diferenças significativas encontradas.",
@@ -82,47 +81,34 @@ const FULL_ANALYSIS = {
   },
 };
 
-function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <BrowserRouter><TextComparison /></BrowserRouter>
-    </QueryClientProvider>
-  );
-}
+describe("Report Export — PDF and HTML", () => {
+  it("exports PDF with audit logs, then HTML with collapsible sections and audit trail", async () => {
+    mockInvoke.mockResolvedValueOnce({
+      data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
+      error: null,
+    });
 
-async function runComparison() {
-  mockInvoke.mockResolvedValueOnce({
-    data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
-    error: null,
-  });
-  renderPage();
-  const user = userEvent.setup();
-  const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-  await user.type(textareas[0], "Texto A");
-  await user.type(textareas[1], "Texto B");
-  await user.click(screen.getByText("Comparar Textos"));
-  await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
-  return user;
-}
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <BrowserRouter><TextComparison /></BrowserRouter>
+      </QueryClientProvider>
+    );
 
-describe("Report Export Flow", () => {
-  beforeEach(() => {
-    mockInvoke.mockClear();
-    mockInsert.mockClear();
-    mockSave.mockClear();
-    mockCreateObjectURL.mockClear();
-  });
-
-  it("does not show export button before comparison", () => {
-    renderPage();
+    // Before comparison — no export button
     expect(screen.queryByText("Exportar Relatório")).not.toBeInTheDocument();
-  });
 
-  it("shows 6 export options and exports PDF with audit logs", async () => {
-    const user = await runComparison();
+    // Run comparison
+    const user = userEvent.setup();
+    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
+    await user.type(textareas[0], "Texto A jurídico");
+    await user.type(textareas[1], "Texto B modificado");
+    await user.click(screen.getByText("Comparar Textos"));
+
+    await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
+
+    // ═══ 1. Verify all 6 export options ═══
     await user.click(screen.getByText("Exportar Relatório"));
-
     expect(screen.getByText("Executivo (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Técnico (PDF)")).toBeInTheDocument();
     expect(screen.getByText("Auditoria (PDF)")).toBeInTheDocument();
@@ -130,6 +116,7 @@ describe("Report Export Flow", () => {
     expect(screen.getByText("Técnico (HTML)")).toBeInTheDocument();
     expect(screen.getByText("Auditoria (HTML)")).toBeInTheDocument();
 
+    // ═══ 2. Export Técnico PDF ═══
     await user.click(screen.getByText("Técnico (PDF)"));
 
     await waitFor(() => {
@@ -142,59 +129,72 @@ describe("Report Export Flow", () => {
       expect(actions).toContain("comparison_report_risk_detected");
       expect(actions).toContain("comparison_report_recommendation_generated");
     });
-  });
 
-  it("exports Executivo HTML with simplified content", async () => {
-    const user = await runComparison();
+    // ═══ 3. Export Executivo HTML ═══
+    mockInsert.mockClear();
+    mockCreateObjectURL.mockClear();
+    mockCreateObjectURL.mockReturnValue("blob:test");
+
     await user.click(screen.getByText("Exportar Relatório"));
     await user.click(screen.getByText("Executivo (HTML)"));
 
     await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-    const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-    expect(blob.type).toBe("text/html;charset=utf-8");
-    const html = await blob.text();
+    const execBlob = mockCreateObjectURL.mock.calls[0][0] as Blob;
+    expect(execBlob.type).toBe("text/html;charset=utf-8");
+    const execHtml = await execBlob.text();
 
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("Executivo (Cliente)");
-    expect(html).toContain("<details");
-    expect(html).toContain("Principais Diferenças");
-    expect(html).toContain("Próximos Passos Recomendados");
-    expect(html).toContain("72%");
-    expect(html).not.toContain("Alterações Semânticas");
-  });
+    expect(execHtml).toContain("<!DOCTYPE html>");
+    expect(execHtml).toContain("Executivo (Cliente)");
+    expect(execHtml).toContain("<details");
+    expect(execHtml).toContain("<summary");
+    expect(execHtml).toContain("Principais Diferenças");
+    expect(execHtml).toContain("Próximos Passos Recomendados");
+    expect(execHtml).toContain("72%");
+    expect(execHtml).toContain("width:72%");
+    expect(execHtml).not.toContain("Alterações Semânticas");
 
-  it("exports Técnico HTML with full sections", async () => {
-    const user = await runComparison();
+    // ═══ 4. Export Técnico HTML ═══
+    mockCreateObjectURL.mockClear();
+    mockCreateObjectURL.mockReturnValue("blob:test");
+
     await user.click(screen.getByText("Exportar Relatório"));
     await user.click(screen.getByText("Técnico (HTML)"));
 
     await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-    const html = await (mockCreateObjectURL.mock.calls[0][0] as Blob).text();
+    const techHtml = await (mockCreateObjectURL.mock.calls[0][0] as Blob).text();
 
-    expect(html).toContain("Técnico (Advogado)");
-    expect(html).toContain("Alterações Semânticas");
-    expect(html).toContain("Alterações Jurídicas");
-    expect(html).toContain("Análise Jurídica Contextualizada");
-    expect(html).toContain("<table");
-    expect(html).toContain("#ef4444");
-    expect((html.match(/<details/g) || []).length).toBeGreaterThanOrEqual(4);
-  });
+    expect(techHtml).toContain("Técnico (Advogado)");
+    expect(techHtml).toContain("Alterações Semânticas");
+    expect(techHtml).toContain("Alterações Jurídicas");
+    expect(techHtml).toContain("Análise Jurídica Contextualizada");
+    expect(techHtml).toContain("Simulação de Cenários");
+    expect(techHtml).toContain("<table");
+    expect(techHtml).toContain("#ef4444");
+    expect(techHtml).toContain("ALTO");
+    expect(techHtml).toContain("cursor:pointer");
+    expect((techHtml.match(/<details/g) || []).length).toBeGreaterThanOrEqual(4);
 
-  it("exports Auditoria HTML with audit trail", async () => {
-    const user = await runComparison();
+    // ═══ 5. Export Auditoria HTML ═══
+    mockInsert.mockClear();
+    mockCreateObjectURL.mockClear();
+    mockCreateObjectURL.mockReturnValue("blob:test");
+
     await user.click(screen.getByText("Exportar Relatório"));
     await user.click(screen.getByText("Auditoria (HTML)"));
 
     await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-    const html = await (mockCreateObjectURL.mock.calls[0][0] as Blob).text();
+    const auditHtml = await (mockCreateObjectURL.mock.calls[0][0] as Blob).text();
 
-    expect(html).toContain("Auditoria (Compliance)");
-    expect(html).toContain("Trilha de Auditoria");
-    expect(html).toContain("test-user-id");
-    expect(html).toContain("test@test.com");
+    expect(auditHtml).toContain("Auditoria (Compliance)");
+    expect(auditHtml).toContain("Trilha de Auditoria");
+    expect(auditHtml).toContain("test-user-id");
+    expect(auditHtml).toContain("test@test.com");
+    expect(auditHtml).toContain("test-org-id");
 
+    // Verify HTML audit log includes export_format
     await waitFor(() => {
       const call = mockInsert.mock.calls.find((c: any) => c[0]?.action === "comparison_report_generated");
+      expect(call).toBeDefined();
       expect(call![0].metadata.export_format).toBe("html");
     });
   });
