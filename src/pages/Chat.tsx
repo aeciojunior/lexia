@@ -29,7 +29,7 @@ const Chat = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("processes")
-        .select("id, title, process_number, status")
+        .select("id, title, number, status")
         .eq("organization_id", activeOrgId!)
         .order("updated_at", { ascending: false })
         .limit(50);
