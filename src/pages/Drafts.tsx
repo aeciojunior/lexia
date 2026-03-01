@@ -574,7 +574,11 @@ export default function Drafts() {
             setSelectedDraft(updated);
             supabase.from("drafts").update({ content: newContent }).eq("id", updated.id);
           }}
-          onClose={() => setShowReview(false)}
+          onClose={() => { setShowReview(false); setShowDiff(false); }}
+          onToggleDiff={(show, origContent) => {
+            setShowDiff(show);
+            setDiffOriginal(origContent);
+          }}
         />
       )}
 
