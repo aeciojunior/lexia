@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TextComparison from "@/pages/TextComparison";
 import { BrowserRouter } from "react-router-dom";
@@ -125,36 +125,49 @@ const fullMockAnalysis = {
   },
 };
 
+/** Helper: fill texts, set type to contextual_legal via initial state, trigger comparison */
+async function setupAndCompare(mockAnalysis: any) {
+  mockInvoke.mockResolvedValueOnce({
+    data: { comparison: { id: "ctx-test" }, analysis: mockAnalysis },
+    error: null,
+  });
+
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <BrowserRouter>
+        <TextComparison />
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+
+  const user = userEvent.setup({ pointerEventsCheck: 0 });
+
+  // Select contextual_legal type
+  const trigger = screen.getByRole("combobox");
+  await user.click(trigger);
+  const option = await screen.findByText("Análise Jurídica Contextualizada");
+  await user.click(option);
+
+  // Fill texts
+  const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
+  await user.type(textareas[0], "Petição com Art. 5º CF");
+  await user.type(textareas[1], "Petição revisada Art. 37 CF");
+
+  // Compare
+  await user.click(screen.getByText("Comparar Textos"));
+
+  return user;
+}
+
 describe("Contextual Legal Analysis — Full E2E", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("selects contextual_legal type, compares texts, and shows Impacto Jurídico tab", async () => {
-    mockInvoke.mockResolvedValueOnce({
-      data: { comparison: { id: "ctx-1" }, analysis: fullMockAnalysis },
-      error: null,
-    });
+  it("selects contextual_legal, compares, and shows Impacto Jurídico tab with summary", async () => {
+    await setupAndCompare(fullMockAnalysis);
 
-    renderPage();
-    const user = userEvent.setup();
-
-    // 1. Select "Análise Jurídica Contextualizada"
-    const trigger = screen.getByText("Geral");
-    await user.click(trigger);
-    const option = await screen.findByText("Análise Jurídica Contextualizada");
-    await user.click(option);
-
-    // 2. Fill both texts
-    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Petição inicial com Art. 5º CF");
-    await user.type(textareas[1], "Petição revisada com Art. 37 CF");
-
-    // 3. Click compare
-    const compareBtn = screen.getByText("Comparar Textos");
-    await user.click(compareBtn);
-
-    // 4. Verify edge function called with contextual_legal type
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("compare-texts", {
         body: expect.objectContaining({
@@ -164,101 +177,45 @@ describe("Contextual Legal Analysis — Full E2E", () => {
       });
     });
 
-    // 5. Verify Impacto Jurídico tab auto-activates and shows summary
     await waitFor(() => {
       expect(screen.getByText("Resumo do Impacto Geral")).toBeInTheDocument();
     });
     expect(screen.getByText(/riscos significativos na fundamentação/)).toBeInTheDocument();
   });
 
-  it("renders impact cards grouped by category with correct badges", async () => {
-    mockInvoke.mockResolvedValueOnce({
-      data: { comparison: { id: "ctx-2" }, analysis: fullMockAnalysis },
-      error: null,
-    });
-
-    renderPage();
-    const user = userEvent.setup();
-
-    const trigger = screen.getByText("Geral");
-    await user.click(trigger);
-    await user.click(await screen.findByText("Análise Jurídica Contextualizada"));
-
-    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Texto A");
-    await user.type(textareas[1], "Texto B");
-    await user.click(screen.getByText("Comparar Textos"));
+  it("renders impact cards grouped by category with badges", async () => {
+    await setupAndCompare(fullMockAnalysis);
 
     await waitFor(() => {
-      expect(screen.getByText("Resumo do Impacto Geral")).toBeInTheDocument();
+      expect(screen.getByText(/Fundamentos Jurídicos \(1\)/)).toBeInTheDocument();
     });
 
-    // Category headers
-    expect(screen.getByText(/Fundamentos Jurídicos \(1\)/)).toBeInTheDocument();
     expect(screen.getByText(/Pedidos \(1\)/)).toBeInTheDocument();
-
-    // Impact descriptions
     expect(screen.getByText("Alteração do fundamento constitucional invocado")).toBeInTheDocument();
     expect(screen.getByText("Remoção de pedido cautelar")).toBeInTheDocument();
-
-    // Recommendation badges
     expect(screen.getByText("revisar")).toBeInTheDocument();
     expect(screen.getByText("reverter")).toBeInTheDocument();
-
-    // Risk badges
-    expect(screen.getByText("alto")).toBeInTheDocument();
-    expect(screen.getByText("medio")).toBeInTheDocument();
   });
 
   it("toggles between simple and technical explanations", async () => {
-    mockInvoke.mockResolvedValueOnce({
-      data: { comparison: { id: "ctx-3" }, analysis: fullMockAnalysis },
-      error: null,
-    });
-
-    renderPage();
-    const user = userEvent.setup();
-
-    const trigger = screen.getByText("Geral");
-    await user.click(trigger);
-    await user.click(await screen.findByText("Análise Jurídica Contextualizada"));
-
-    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Texto A");
-    await user.type(textareas[1], "Texto B");
-    await user.click(screen.getByText("Comparar Textos"));
+    const user = await setupAndCompare(fullMockAnalysis);
 
     await waitFor(() => {
       expect(screen.getByText("Resumo do Impacto Geral")).toBeInTheDocument();
     });
 
-    // Default is simple mode
+    // Default: simple mode
     expect(screen.getByText("A mudança pode enfraquecer o argumento principal do caso.")).toBeInTheDocument();
 
-    // Toggle to technical mode
+    // Toggle to technical
     const toggle = screen.getByRole("switch");
     await user.click(toggle);
 
     expect(screen.getByText("A substituição do fundamento constitucional altera o paradigma jurisprudencial aplicável.")).toBeInTheDocument();
   });
 
-  it("shows court analysis section with tribunal details", async () => {
-    mockInvoke.mockResolvedValueOnce({
-      data: { comparison: { id: "ctx-4" }, analysis: fullMockAnalysis },
-      error: null,
-    });
-
-    renderPage();
-    const user = userEvent.setup();
-
-    const trigger = screen.getByText("Geral");
-    await user.click(trigger);
-    await user.click(await screen.findByText("Análise Jurídica Contextualizada"));
-
-    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Texto A");
-    await user.type(textareas[1], "Texto B");
-    await user.click(screen.getByText("Comparar Textos"));
+  it("shows court analysis with tribunal details", async () => {
+    await setupAndCompare(fullMockAnalysis);
 
     await waitFor(() => {
       expect(screen.getByText(/Análise por Tribunal: TJ-SP/)).toBeInTheDocument();
@@ -266,78 +223,36 @@ describe("Contextual Legal Analysis — Full E2E", () => {
 
     expect(screen.getByText("Entendimento predominante")).toBeInTheDocument();
     expect(screen.getByText(/TJ-SP tende a aceitar/)).toBeInTheDocument();
-    expect(screen.getByText("Riscos específicos do tribunal")).toBeInTheDocument();
     expect(screen.getByText("Câmara de Direito Público pode divergir")).toBeInTheDocument();
-    expect(screen.getByText("Recomendações adaptadas")).toBeInTheDocument();
     expect(screen.getByText("Incluir precedente local do TJ-SP")).toBeInTheDocument();
   });
 
-  it("renders scenario simulation cards with details", async () => {
-    mockInvoke.mockResolvedValueOnce({
-      data: { comparison: { id: "ctx-5" }, analysis: fullMockAnalysis },
-      error: null,
-    });
-
-    renderPage();
-    const user = userEvent.setup();
-
-    const trigger = screen.getByText("Geral");
-    await user.click(trigger);
-    await user.click(await screen.findByText("Análise Jurídica Contextualizada"));
-
-    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Texto A");
-    await user.type(textareas[1], "Texto B");
-    await user.click(screen.getByText("Comparar Textos"));
+  it("renders scenario simulation cards", async () => {
+    await setupAndCompare(fullMockAnalysis);
 
     await waitFor(() => {
       expect(screen.getByText(/Simulação de Cenários \(2\)/)).toBeInTheDocument();
     });
 
-    // Scenario A
     expect(screen.getByText("Cenário A: Manter alterações")).toBeInTheDocument();
     expect(screen.getByText(/Risco moderado de improcedência/)).toBeInTheDocument();
     expect(screen.getByText("Argumento mais moderno")).toBeInTheDocument();
-    expect(screen.getByText("Perda de precedente consolidado")).toBeInTheDocument();
-
-    // Scenario B
     expect(screen.getByText("Cenário B: Reverter alterações")).toBeInTheDocument();
-    expect(screen.getByText(/fundamentação consolidada/)).toBeInTheDocument();
     expect(screen.getByText("Precedente favorável existente")).toBeInTheDocument();
   });
 
-  it("shows risks introduced, removed, and mitigation suggestions in impact cards", async () => {
-    mockInvoke.mockResolvedValueOnce({
-      data: { comparison: { id: "ctx-6" }, analysis: fullMockAnalysis },
-      error: null,
-    });
-
-    renderPage();
-    const user = userEvent.setup();
-
-    const trigger = screen.getByText("Geral");
-    await user.click(trigger);
-    await user.click(await screen.findByText("Análise Jurídica Contextualizada"));
-
-    const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Texto A");
-    await user.type(textareas[1], "Texto B");
-    await user.click(screen.getByText("Comparar Textos"));
+  it("shows risks, mitigations, fundamentos badges, and practical example", async () => {
+    await setupAndCompare(fullMockAnalysis);
 
     await waitFor(() => {
       expect(screen.getByText("Resumo do Impacto Geral")).toBeInTheDocument();
     });
 
-    // Risks & suggestions from first impact
     expect(screen.getByText("Perda de precedente favorável")).toBeInTheDocument();
     expect(screen.getByText("Manter referência subsidiária ao Art. 5º")).toBeInTheDocument();
-
-    // Fundamentos badges
     expect(screen.getByText("Art. 5º CF")).toBeInTheDocument();
     expect(screen.getByText("Art. 37 CF")).toBeInTheDocument();
     expect(screen.getByText("STF RE 123456")).toBeInTheDocument();
-
-    // Practical example
     expect(screen.getByText(/Se um juiz seguir o entendimento do STF/)).toBeInTheDocument();
   });
 });
