@@ -12,17 +12,24 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 
 describe("ProcessSummary360 — E2E", () => {
+  const createMockFrom = (maybeSingleData: any = null) => () => ({
+    select: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
+    gte: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    single: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: maybeSingleData, error: null }),
+    then: vi.fn((cb: any) => cb({ data: [], error: null })),
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: no existing summary
-    mockSupabase.from.mockImplementation(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      neq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    }));
+    mockSupabase.from.mockImplementation(createMockFrom(null));
   });
 
   it("renders empty state when no summary exists", async () => {
