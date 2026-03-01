@@ -883,6 +883,14 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
               {filtered.length}/{docs.length}
             </span>
           )}
+          {compareSelection.length === 2 && (
+            <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={launchComparison}>
+              <ArrowLeftRight className="h-3 w-3" /> Comparar
+            </Button>
+          )}
+          {compareSelection.length > 0 && compareSelection.length < 2 && (
+            <span className="text-[10px] text-muted-foreground">Selecione mais 1</span>
+          )}
           <Button variant="ghost" size="icon" className="h-6 w-6" title="Vincular documento existente" onClick={() => setShowLinkDialog(true)}>
             <Link2 className="h-3.5 w-3.5" />
           </Button>
