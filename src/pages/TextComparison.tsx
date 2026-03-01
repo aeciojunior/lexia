@@ -830,7 +830,328 @@ export default function TextComparison() {
       await logAuditEvent("comparison_report_recommendation_generated", auditMeta);
     }
 
-    toast({ title: `Relatório ${REPORT_TYPE_LABELS[reportType]} exportado!` });
+    toast({ title: `Relatório PDF ${REPORT_TYPE_LABELS[reportType]} exportado!` });
+  };
+
+  const exportHtmlReport = async (reportType: ReportType = "tecnico") => {
+    if (!analysis) return;
+    const now = new Date();
+    const isExec = reportType === "executivo";
+    const isTech = reportType === "tecnico";
+    const isAudit = reportType === "auditoria";
+    const ctx = analysis.analise_juridica_contextualizada;
+    const fin = analysis.analise_financeira;
+    const multi = analysis.analise_multilingue;
+
+    const riskColor = (r: string) => {
+      const map: Record<string, string> = { alto: "#ef4444", médio: "#f59e0b", medio: "#f59e0b", baixo: "#22c55e" };
+      return map[r?.toLowerCase()] || "#6b7280";
+    };
+    const riskBg = (r: string) => {
+      const map: Record<string, string> = { alto: "#fef2f2", médio: "#fffbeb", medio: "#fffbeb", baixo: "#f0fdf4" };
+      return map[r?.toLowerCase()] || "#f9fafb";
+    };
+    const badge = (text: string, color: string, bg: string) =>
+      `<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;color:${color};background:${bg};border:1px solid ${color}22;">${text}</span>`;
+    const section = (title: string, content: string, open = true) =>
+      `<details${open ? " open" : ""} style="margin-bottom:16px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <summary style="padding:12px 16px;background:#f9fafb;cursor:pointer;font-weight:600;font-size:15px;user-select:none;list-style:none;display:flex;align-items:center;gap:8px;">
+          <span style="transition:transform 0.2s;display:inline-block;">▶</span> ${title}
+        </summary>
+        <div style="padding:16px;">${content}</div>
+      </details>`;
+    const table = (headers: string[], rows: string[][]) => {
+      const ths = headers.map(h => `<th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e5e7eb;font-size:13px;background:#f9fafb;">${h}</th>`).join("");
+      const trs = rows.map(r => `<tr>${r.map(c => `<td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;">${c}</td>`).join("")}</tr>`).join("");
+      return `<table style="width:100%;border-collapse:collapse;margin:8px 0;">${ths ? `<thead><tr>${ths}</tr></thead>` : ""}<tbody>${trs}</tbody></table>`;
+    };
+
+    let sections = "";
+
+    // 1. Executive Summary
+    const totalDiffs = (analysis.alteracoes_criticas?.length || 0) + (analysis.alteracoes_semanticas?.length || 0) + (analysis.alteracoes_juridicas?.length || 0);
+    let summaryHtml = "";
+    if (analysis.similaridade_percentual !== undefined) {
+      const pct = analysis.similaridade_percentual;
+      summaryHtml += `<div style="margin-bottom:12px;"><strong>Similaridade:</strong> <span style="font-size:20px;font-weight:700;color:#6366f1;">${pct}%</span>
+        <div style="height:8px;background:#e5e7eb;border-radius:4px;margin-top:4px;"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px;"></div></div></div>`;
+    }
+    if (analysis.risco_geral) {
+      summaryHtml += `<p><strong>Risco geral:</strong> ${badge(analysis.risco_geral.toUpperCase(), riskColor(analysis.risco_geral), riskBg(analysis.risco_geral))}</p>`;
+    }
+    summaryHtml += `<p style="margin:8px 0;font-size:13px;color:#6b7280;">Total de diferenças: <strong>${totalDiffs}</strong> · Alterações críticas: <strong>${analysis.alteracoes_criticas?.length || 0}</strong></p>`;
+    if (analysis.resumo) {
+      summaryHtml += `<div style="padding:12px;background:#f0f9ff;border-left:3px solid #3b82f6;border-radius:4px;margin-top:8px;font-size:14px;">${isExec ? "<strong>O que mudou:</strong> " : ""}${analysis.resumo}</div>`;
+    }
+    sections += section("📊 Resumo Executivo", summaryHtml);
+
+    // 2. Critical Differences
+    if (analysis.alteracoes_criticas?.length) {
+      let diffsHtml = "";
+      if (isExec) {
+        diffsHtml = `<ul style="margin:0;padding-left:20px;">${analysis.alteracoes_criticas.map(c =>
+          `<li style="margin-bottom:8px;"><span>${c.descricao}</span> ${badge("Risco: " + c.risco, riskColor(c.risco), riskBg(c.risco))}</li>`
+        ).join("")}</ul>`;
+      } else {
+        diffsHtml = analysis.alteracoes_criticas.map(c =>
+          `<div style="padding:10px;margin-bottom:8px;border-left:3px solid ${riskColor(c.risco)};background:${riskBg(c.risco)};border-radius:4px;">
+            <div>${badge(c.risco.toUpperCase(), riskColor(c.risco), riskBg(c.risco))} <strong>${c.tipo}</strong></div>
+            <p style="margin:4px 0;font-size:13px;">${c.descricao}</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;font-style:italic;">"${c.trecho}"</p>
+          </div>`
+        ).join("");
+      }
+      sections += section(isExec ? "⚠️ Principais Diferenças" : `⚠️ Destaques das Diferenças (${analysis.alteracoes_criticas.length})`, diffsHtml);
+    }
+
+    // 2.1 Semantic changes (tech + audit)
+    if (!isExec && analysis.alteracoes_semanticas?.length) {
+      const rows = analysis.alteracoes_semanticas.map(s => [s.original, s.modificado, s.impacto]);
+      sections += section(`🔄 Alterações Semânticas (${analysis.alteracoes_semanticas.length})`, table(["Original", "Modificado", "Impacto"], rows), false);
+    }
+
+    // 3. Legal changes
+    if (analysis.alteracoes_juridicas?.length) {
+      let legalHtml = "";
+      if (isExec) {
+        legalHtml = `<ul style="margin:0;padding-left:20px;">${analysis.alteracoes_juridicas.map(j =>
+          `<li style="margin-bottom:8px;">${j.aspecto}: ${j.impacto_juridico} ${badge("Risco: " + j.risco, riskColor(j.risco), riskBg(j.risco))}</li>`
+        ).join("")}</ul>`;
+      } else {
+        const rows = analysis.alteracoes_juridicas.map(j => [
+          `${badge(j.risco.toUpperCase(), riskColor(j.risco), riskBg(j.risco))} ${j.aspecto}`,
+          j.antes, j.depois, j.impacto_juridico
+        ]);
+        legalHtml = table(["Aspecto", "Antes", "Depois", "Impacto"], rows);
+      }
+      sections += section(isExec ? "⚖️ Riscos Identificados" : `⚖️ Alterações Jurídicas (${analysis.alteracoes_juridicas.length})`, legalHtml);
+    }
+
+    // 4. Similarities (tech + audit)
+    if (!isExec && analysis.similaridades?.length) {
+      const rows = analysis.similaridades.map(s => {
+        const tipoLabel = s.tipo === "identico" ? "Idêntico" : s.tipo === "equivalente" ? "Equivalente" : "Preservado";
+        return [tipoLabel, s.trecho];
+      });
+      sections += section("✅ Similaridades e Equivalências", table(["Tipo", "Trecho"], rows), false);
+    }
+
+    // 5. Contextual Legal Analysis
+    if (ctx) {
+      let ctxHtml = "";
+      if (ctx.resumo_impacto_geral) {
+        ctxHtml += `<div style="padding:12px;background:#faf5ff;border-left:3px solid #8b5cf6;border-radius:4px;margin-bottom:12px;">${ctx.resumo_impacto_geral}</div>`;
+      }
+      for (const imp of ctx.impactos || []) {
+        const catLabel = CATEGORY_LABELS[imp.categoria] || imp.categoria;
+        ctxHtml += `<details style="margin-bottom:8px;border:1px solid #e5e7eb;border-radius:6px;">
+          <summary style="padding:10px 12px;cursor:pointer;font-size:13px;font-weight:500;">
+            ${badge(imp.impacto, riskColor(imp.impacto), riskBg(imp.impacto))} <strong>${catLabel}</strong> — ${imp.descricao_alteracao}
+          </summary>
+          <div style="padding:12px;font-size:13px;">
+            <p>${isExec ? imp.explicacao_simples : imp.explicacao_tecnica}</p>
+            <p style="color:#6b7280;font-size:12px;">${imp.interpretacao_juridica}</p>
+            ${imp.exemplo_pratico ? `<div style="padding:8px;background:#f0f9ff;border-radius:4px;margin:8px 0;font-size:12px;"><strong>Exemplo:</strong> ${imp.exemplo_pratico}</div>` : ""}
+            ${imp.riscos_introduzidos?.length ? `<p style="color:#ef4444;font-size:12px;"><strong>Riscos:</strong> ${imp.riscos_introduzidos.join("; ")}</p>` : ""}
+            ${imp.sugestoes_mitigacao?.length ? `<p style="color:#22c55e;font-size:12px;"><strong>Mitigação:</strong> ${imp.sugestoes_mitigacao.join("; ")}</p>` : ""}
+            ${!isExec && imp.fundamentos_afetados?.length ? `<p style="font-size:12px;color:#6b7280;"><strong>Fundamentos:</strong> ${imp.fundamentos_afetados.join(", ")}</p>` : ""}
+            ${!isExec && imp.jurisprudencia_relacionada?.length ? `<p style="font-size:12px;color:#6b7280;"><strong>Jurisprudência:</strong> ${imp.jurisprudencia_relacionada.join(", ")}</p>` : ""}
+          </div>
+        </details>`;
+      }
+
+      // Court analysis
+      if (ctx.analise_por_tribunal) {
+        ctxHtml += `<div style="margin-top:12px;padding:12px;background:#fffbeb;border:1px solid #fbbf2433;border-radius:6px;">
+          <strong>🏛️ ${ctx.analise_por_tribunal.tribunal}</strong>
+          <p style="font-size:13px;margin:6px 0;">${ctx.analise_por_tribunal.entendimento_predominante}</p>
+          ${!isExec && ctx.analise_por_tribunal.riscos_especificos?.length ? `<p style="font-size:12px;color:#ef4444;"><strong>Riscos:</strong> ${ctx.analise_por_tribunal.riscos_especificos.join("; ")}</p>` : ""}
+          ${!isExec && ctx.analise_por_tribunal.recomendacoes_adaptadas?.length ? `<p style="font-size:12px;color:#22c55e;"><strong>Recomendações:</strong> ${ctx.analise_por_tribunal.recomendacoes_adaptadas.join("; ")}</p>` : ""}
+        </div>`;
+      }
+
+      // Scenarios
+      if (ctx.cenarios?.length) {
+        ctxHtml += `<div style="margin-top:12px;"><strong>🎯 Simulação de Cenários</strong></div>`;
+        for (const sc of ctx.cenarios) {
+          ctxHtml += `<details style="margin:8px 0;border:1px solid #e5e7eb;border-radius:6px;">
+            <summary style="padding:10px 12px;cursor:pointer;font-size:13px;font-weight:500;">${sc.nome}</summary>
+            <div style="padding:12px;font-size:13px;">
+              <p>${sc.descricao}</p>
+              <p><strong>Impacto jurídico:</strong> ${sc.impacto_juridico}</p>
+              ${sc.impacto_probatorio ? `<p><strong>Impacto probatório:</strong> ${sc.impacto_probatorio}</p>` : ""}
+              ${sc.impacto_financeiro ? `<p><strong>Impacto financeiro:</strong> ${sc.impacto_financeiro}</p>` : ""}
+              ${sc.vantagens?.length ? `<p style="color:#22c55e;"><strong>Vantagens:</strong> ${sc.vantagens.join("; ")}</p>` : ""}
+              ${sc.desvantagens?.length ? `<p style="color:#ef4444;"><strong>Desvantagens:</strong> ${sc.desvantagens.join("; ")}</p>` : ""}
+              ${sc.riscos?.length ? `<p><strong>Riscos:</strong> ${sc.riscos.join("; ")}</p>` : ""}
+              <p style="background:#f0fdf4;padding:8px;border-radius:4px;"><strong>Recomendação:</strong> ${sc.recomendacao}</p>
+            </div>
+          </details>`;
+        }
+      }
+
+      sections += section(isExec ? "📋 Impacto para o Cliente" : "🔍 Análise Jurídica Contextualizada", ctxHtml);
+    }
+
+    // 6. Financial
+    if (fin) {
+      let finHtml = "";
+      if (fin.impacto_financeiro) {
+        finHtml += `<p style="padding:10px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:4px;">${fin.impacto_financeiro}</p>`;
+      }
+      if (fin.diferencas_valores?.length) {
+        const rows = fin.diferencas_valores.map(v => [v.campo, v.valor_a, v.valor_b, v.diferenca, v.impacto]);
+        finHtml += table(["Campo", "Valor A", "Valor B", "Diferença", "Impacto"], rows);
+      }
+      if (!isExec && fin.erros_calculo?.length) {
+        finHtml += `<div style="margin-top:8px;padding:10px;background:#fef2f2;border-radius:4px;"><strong>Erros de cálculo:</strong><ul style="margin:4px 0;padding-left:20px;">${fin.erros_calculo.map(e => `<li>${e}</li>`).join("")}</ul></div>`;
+      }
+      sections += section(isExec ? "💰 Impacto Financeiro" : "💰 Análise Financeira", finHtml);
+    }
+
+    // 7. Multilingual (tech + audit)
+    if (!isExec && multi) {
+      let multiHtml = `<p><strong>Idiomas:</strong> ${multi.idioma_a || "N/A"} / ${multi.idioma_b || "N/A"}</p>`;
+      if (multi.omissoes?.length) {
+        const rows = multi.omissoes.map(o => [o.trecho_original, o.idioma, o.impacto]);
+        multiHtml += `<p style="font-weight:600;margin-top:8px;">Omissões:</p>` + table(["Trecho", "Idioma", "Impacto"], rows);
+      }
+      if (multi.inconsistencias_terminologicas?.length) {
+        const rows = multi.inconsistencias_terminologicas.map(t => [t.termo_a, t.termo_b, t.sugestao]);
+        multiHtml += `<p style="font-weight:600;margin-top:8px;">Inconsistências:</p>` + table(["Termo A", "Termo B", "Sugestão"], rows);
+      }
+      sections += section("🌐 Análise Multilíngue", multiHtml, false);
+    }
+
+    // 8. Fraud
+    if (analysis.indicios_fraude?.length) {
+      let fraudHtml = "";
+      if (isExec) {
+        fraudHtml = `<ul style="margin:0;padding-left:20px;">${analysis.indicios_fraude.map(f =>
+          `<li style="margin-bottom:8px;">${f.tipo} (${f.probabilidade}): ${f.recomendacao}</li>`
+        ).join("")}</ul>`;
+      } else {
+        fraudHtml = analysis.indicios_fraude.map(f => {
+          const fc = riskColor(f.probabilidade === "alta" ? "alto" : f.probabilidade === "media" ? "medio" : "baixo");
+          const fb = riskBg(f.probabilidade === "alta" ? "alto" : f.probabilidade === "media" ? "medio" : "baixo");
+          return `<div style="padding:10px;margin-bottom:8px;border-left:3px solid ${fc};background:${fb};border-radius:4px;">
+            <div>${badge(f.probabilidade, fc, fb)} <strong>${f.tipo}</strong></div>
+            <p style="margin:4px 0;font-size:13px;">${f.descricao}</p>
+            ${f.pagina ? `<p style="font-size:12px;color:#6b7280;">Página: ${f.pagina}</p>` : ""}
+            <p style="font-size:12px;background:#f9fafb;padding:6px;border-radius:4px;"><strong>Recomendação:</strong> ${f.recomendacao}</p>
+          </div>`;
+        }).join("");
+      }
+      sections += section(isExec ? "🛡️ Alertas de Fraude" : "🛡️ Indícios de Fraude", fraudHtml);
+    }
+
+    // 9. Recommendations
+    if (analysis.sugestoes_harmonizacao?.length) {
+      const recHtml = `<ol style="margin:0;padding-left:20px;">${analysis.sugestoes_harmonizacao.map(s =>
+        `<li style="margin-bottom:8px;padding:8px;background:#f0fdf4;border-radius:4px;border-left:3px solid #22c55e;">${s}</li>`
+      ).join("")}</ol>`;
+      sections += section(isExec ? "✅ Próximos Passos Recomendados" : "💡 Recomendações e Harmonização", recHtml);
+    }
+
+    // 10. Audit trail (audit only)
+    if (isAudit) {
+      const auditItems = [
+        ["Gerado em", format(now, "dd/MM/yyyy HH:mm:ss", { locale: ptBR })],
+        ["Usuário", user?.email || "N/A"],
+        ["ID do Usuário", user?.id || "N/A"],
+        ["Organização", activeOrgId || "N/A"],
+        ["Tipo de comparação", TYPE_LABELS[comparisonType] || comparisonType],
+        ["Tipo de relatório", REPORT_TYPE_LABELS[reportType]],
+        ["Documento A", `${labelA} (${formatA || "texto"})`],
+        ["Documento B", `${labelB} (${formatB || "texto"})`],
+        ["Tamanho A", fileSizeA ? `${(fileSizeA / 1024).toFixed(1)} KB` : `${textA.length} caracteres`],
+        ["Tamanho B", fileSizeB ? `${(fileSizeB / 1024).toFixed(1)} KB` : `${textB.length} caracteres`],
+        ["Similaridade", `${analysis.similaridade_percentual ?? "N/A"}%`],
+        ["Risco geral", analysis.risco_geral || "N/A"],
+        ["Qualidade OCR", analysis.qualidade_ocr || "N/A"],
+        ["Alterações críticas", String(analysis.alteracoes_criticas?.length || 0)],
+        ["Alterações semânticas", String(analysis.alteracoes_semanticas?.length || 0)],
+        ["Alterações jurídicas", String(analysis.alteracoes_juridicas?.length || 0)],
+        ["Impactos contextuais", String(ctx?.impactos?.length || 0)],
+        ["Cenários simulados", String(ctx?.cenarios?.length || 0)],
+        ["Indícios de fraude", String(analysis.indicios_fraude?.length || 0)],
+        ["Sugestões geradas", String(analysis.sugestoes_harmonizacao?.length || 0)],
+      ];
+      const auditHtml = table(["Campo", "Valor"], auditItems) +
+        `<p style="margin-top:12px;font-size:11px;color:#9ca3af;">Este relatório é gerado automaticamente pelo LexIA. Trilha de auditoria imutável.<br/>Fontes: documentos fornecidos pelo usuário, análise de IA, dados internos do sistema.</p>`;
+      sections += section("🔒 Trilha de Auditoria", auditHtml);
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório de Comparação — ${REPORT_TYPE_LABELS[reportType]}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; max-width: 900px; margin: 0 auto; padding: 32px 24px; background: #fff; line-height: 1.6; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  h2 { font-size: 16px; color: #6b7280; font-weight: 400; margin-bottom: 16px; }
+  .meta { font-size: 13px; color: #9ca3af; margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; }
+  .meta span { margin-right: 16px; }
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] > summary span:first-child { transform: rotate(90deg); }
+  details summary:hover { background: #f3f4f6 !important; }
+  table { border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
+  p { margin: 4px 0; }
+  @media print { details { open: true; } body { padding: 16px; } }
+  @media (max-width: 640px) { body { padding: 16px 12px; } }
+</style>
+</head>
+<body>
+  <h1>📄 Relatório de Comparação</h1>
+  <h2>${REPORT_TYPE_LABELS[reportType]}</h2>
+  <div class="meta">
+    <span>📁 ${labelA} × ${labelB}</span>
+    <span>📂 ${TYPE_LABELS[comparisonType] || comparisonType}</span>
+    <span>📅 ${format(now, "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+    ${formatA || formatB ? `<span>📎 ${formatA || "texto"} / ${formatB || "texto"}</span>` : ""}
+  </div>
+  ${sections}
+  <footer style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;">
+    Gerado pelo LexIA em ${format(now, "dd/MM/yyyy HH:mm")} — Relatório ${REPORT_TYPE_LABELS[reportType]}
+  </footer>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comparacao-${reportType}-${format(now, "yyyy-MM-dd-HHmm")}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Audit logging
+    const auditMeta = {
+      report_type: reportType,
+      export_format: "html",
+      comparison_type: comparisonType,
+      label_a: labelA,
+      label_b: labelB,
+      format_a: formatA,
+      format_b: formatB,
+      risk_level: analysis.risco_geral,
+      critical_changes: analysis.alteracoes_criticas?.length || 0,
+    };
+    await logAuditEvent("comparison_report_generated", auditMeta);
+    const typeSpecificAction: Record<ReportType, string> = {
+      executivo: "executive_report_generated",
+      tecnico: "technical_report_generated",
+      auditoria: "audit_trail_report_generated",
+    };
+    await logAuditEvent(typeSpecificAction[reportType], auditMeta);
+
+    toast({ title: `Relatório HTML ${REPORT_TYPE_LABELS[reportType]} exportado!` });
   };
 
   const analysis = result?.analysis;
