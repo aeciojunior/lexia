@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import DiffView from "@/components/drafts/DiffView";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeftRight, AlertTriangle, CheckCircle, Info, Trash2, Clock, FileDown } from "lucide-react";
+import { Loader2, ArrowLeftRight, AlertTriangle, CheckCircle, Info, Trash2, Clock, Upload, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import ReactMarkdown from "react-markdown";
+import { extractTextFromPdf, renderPdfPagesToImages } from "@/lib/pdf-extract";
 
 interface AiAnalysis {
   resumo?: string;
@@ -63,12 +64,84 @@ export default function TextComparison() {
   const [comparisonType, setComparisonType] = useState(navState?.comparisonType || "general");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ analysis: AiAnalysis } | null>(null);
-  const [activeTab, setActiveTab] = useState(navState?.textA ? "diff" : "diff");
+  const [activeTab, setActiveTab] = useState("diff");
+
+  // PDF extraction state
+  const [extractingA, setExtractingA] = useState(false);
+  const [extractingB, setExtractingB] = useState(false);
+  const [pdfInfoA, setPdfInfoA] = useState<string | null>(null);
+  const [pdfInfoB, setPdfInfoB] = useState<string | null>(null);
 
   // History
   const [history, setHistory] = useState<ComparisonRecord[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const handlePdfUpload = async (side: "A" | "B", file: File) => {
+    const setSetter = side === "A" ? setTextA : setTextB;
+    const setExtracting = side === "A" ? setExtractingA : setExtractingB;
+    const setPdfInfo = side === "A" ? setPdfInfoA : setPdfInfoB;
+    const setLabel = side === "A" ? setLabelA : setLabelB;
+
+    setExtracting(true);
+    setPdfInfo(null);
+
+    try {
+      // Step 1: Try client-side text extraction
+      const { text, pageCount, hasText } = await extractTextFromPdf(file);
+
+      if (hasText) {
+        setSetter(text);
+        setLabel(file.name);
+        setPdfInfo(`${pageCount} páginas • ${text.length.toLocaleString()} caracteres (texto digital)`);
+        toast({ title: `Texto extraído de ${file.name}` });
+      } else {
+        // Step 2: Scanned PDF — use OCR via edge function
+        toast({ title: "PDF digitalizado detectado", description: "Executando OCR com IA..." });
+        setPdfInfo(`${pageCount} páginas • Executando OCR...`);
+
+        const images = await renderPdfPagesToImages(file, 10);
+
+        const { data, error } = await supabase.functions.invoke("extract-pdf-text", {
+          body: {
+            images,
+            organizationId: activeOrgId,
+          },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const ocrText = data.text || "";
+        setSetter(ocrText);
+        setLabel(file.name);
+        setPdfInfo(`${data.pages} páginas OCR • ${ocrText.length.toLocaleString()} caracteres`);
+        toast({ title: `OCR concluído para ${file.name}` });
+      }
+    } catch (e: any) {
+      console.error("PDF extraction error:", e);
+      toast({ title: "Erro ao extrair texto do PDF", description: e.message, variant: "destructive" });
+      setPdfInfo("Erro na extração");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleFileInput = (side: "A" | "B") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast({ title: "Apenas arquivos PDF são suportados", variant: "destructive" });
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande (máx 20MB)", variant: "destructive" });
+      return;
+    }
+    handlePdfUpload(side, file);
+    // Reset input
+    e.target.value = "";
+  };
 
   const handleCompare = async () => {
     if (!textA.trim() || !textB.trim()) {
@@ -100,7 +173,6 @@ export default function TextComparison() {
       setResult({ analysis: data.analysis });
       setActiveTab("analysis");
       toast({ title: "Comparação concluída!" });
-      // Refresh history if loaded
       if (historyLoaded) loadHistory();
     } catch (e: any) {
       console.error(e);
@@ -120,7 +192,6 @@ export default function TextComparison() {
         .eq("organization_id", activeOrgId)
         .order("created_at", { ascending: false })
         .limit(20);
-
       if (error) throw error;
       setHistory((data as any[]) || []);
       setHistoryLoaded(true);
@@ -152,12 +223,60 @@ export default function TextComparison() {
 
   const analysis = result?.analysis;
 
+  const renderTextInputCard = (side: "A" | "B") => {
+    const label = side === "A" ? labelA : labelB;
+    const text = side === "A" ? textA : textB;
+    const setText = side === "A" ? setTextA : setTextB;
+    const extracting = side === "A" ? extractingA : extractingB;
+    const pdfInfo = side === "A" ? pdfInfoA : pdfInfoB;
+
+    return (
+      <Card className="border-border">
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-foreground">{label}</CardTitle>
+            <div className="relative">
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={handleFileInput(side)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={extracting}
+              />
+              <Button variant="outline" size="sm" disabled={extracting} className="gap-1.5 pointer-events-none">
+                {extracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {extracting ? "Extraindo..." : "Upload PDF"}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 pt-0">
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Cole texto aqui ou faça upload de um PDF..."
+            className="min-h-[220px] font-mono text-xs"
+            disabled={extracting}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-muted-foreground">{text.length.toLocaleString()} caracteres</p>
+            {pdfInfo && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <FileText className="h-3 w-3" /> {pdfInfo}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Comparação de Textos</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Compare textos jurídicos com análise literal, semântica e de risco.
+          Compare textos jurídicos ou PDFs com análise literal, semântica e de risco.
         </p>
       </div>
 
@@ -188,39 +307,13 @@ export default function TextComparison() {
 
       {/* Input areas side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border">
-          <CardHeader className="py-3 px-4">
-            <CardTitle className="text-sm font-semibold text-foreground">{labelA}</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 pt-0">
-            <Textarea
-              value={textA}
-              onChange={(e) => setTextA(e.target.value)}
-              placeholder="Cole ou digite o primeiro texto aqui..."
-              className="min-h-[220px] font-mono text-xs"
-            />
-            <p className="text-xs text-muted-foreground mt-1">{textA.length.toLocaleString()} caracteres</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardHeader className="py-3 px-4">
-            <CardTitle className="text-sm font-semibold text-foreground">{labelB}</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 pt-0">
-            <Textarea
-              value={textB}
-              onChange={(e) => setTextB(e.target.value)}
-              placeholder="Cole ou digite o segundo texto aqui..."
-              className="min-h-[220px] font-mono text-xs"
-            />
-            <p className="text-xs text-muted-foreground mt-1">{textB.length.toLocaleString()} caracteres</p>
-          </CardContent>
-        </Card>
+        {renderTextInputCard("A")}
+        {renderTextInputCard("B")}
       </div>
 
       {/* Compare button */}
       <div className="flex justify-center">
-        <Button onClick={handleCompare} disabled={loading || !textA.trim() || !textB.trim()} size="lg" className="gap-2">
+        <Button onClick={handleCompare} disabled={loading || extractingA || extractingB || !textA.trim() || !textB.trim()} size="lg" className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
           {loading ? "Analisando..." : "Comparar Textos"}
         </Button>
@@ -236,7 +329,6 @@ export default function TextComparison() {
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
 
-          {/* Diff tab */}
           <TabsContent value="diff">
             {textA && textB ? (
               <Card className="border-border">
@@ -249,11 +341,9 @@ export default function TextComparison() {
             )}
           </TabsContent>
 
-          {/* AI Analysis tab */}
           <TabsContent value="analysis">
             {analysis && (
               <div className="space-y-4">
-                {/* Resumo */}
                 <Card className="border-border">
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-sm flex items-center gap-2">
@@ -270,7 +360,6 @@ export default function TextComparison() {
                   </CardContent>
                 </Card>
 
-                {/* Alterações críticas */}
                 {analysis.alteracoes_criticas && analysis.alteracoes_criticas.length > 0 && (
                   <Card className="border-border">
                     <CardHeader className="py-3 px-4">
@@ -295,7 +384,6 @@ export default function TextComparison() {
                   </Card>
                 )}
 
-                {/* Alterações semânticas */}
                 {analysis.alteracoes_semanticas && analysis.alteracoes_semanticas.length > 0 && (
                   <Card className="border-border">
                     <CardHeader className="py-3 px-4">
@@ -321,7 +409,6 @@ export default function TextComparison() {
                   </Card>
                 )}
 
-                {/* Sugestões */}
                 {analysis.sugestoes_harmonizacao && analysis.sugestoes_harmonizacao.length > 0 && (
                   <Card className="border-border">
                     <CardHeader className="py-3 px-4">
@@ -340,7 +427,6 @@ export default function TextComparison() {
             )}
           </TabsContent>
 
-          {/* Risks tab */}
           <TabsContent value="risks">
             {analysis?.alteracoes_juridicas && analysis.alteracoes_juridicas.length > 0 ? (
               <div className="space-y-3">
@@ -380,7 +466,6 @@ export default function TextComparison() {
             )}
           </TabsContent>
 
-          {/* History tab */}
           <TabsContent value="history">
             {!historyLoaded ? (
               <div className="text-center py-6">
