@@ -1485,28 +1485,50 @@ export default function TextComparison() {
                 <ChevronDown className="h-3.5 w-3.5 ml-1" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-64">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Tipo de relatório</DropdownMenuLabel>
-              <DropdownMenuSeparator />
+            <DropdownMenuContent align="center" className="w-72">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">PDF</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => exportPdfReport("executivo")} className="gap-2 cursor-pointer">
                 <Briefcase className="h-4 w-4" />
                 <div>
-                  <p className="text-sm font-medium">Executivo</p>
+                  <p className="text-sm font-medium">Executivo (PDF)</p>
                   <p className="text-xs text-muted-foreground">Linguagem simples, para clientes</p>
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => exportPdfReport("tecnico")} className="gap-2 cursor-pointer">
                 <GraduationCap className="h-4 w-4" />
                 <div>
-                  <p className="text-sm font-medium">Técnico</p>
+                  <p className="text-sm font-medium">Técnico (PDF)</p>
                   <p className="text-xs text-muted-foreground">Análise jurídica completa</p>
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => exportPdfReport("auditoria")} className="gap-2 cursor-pointer">
                 <ClipboardCheck className="h-4 w-4" />
                 <div>
-                  <p className="text-sm font-medium">Auditoria</p>
+                  <p className="text-sm font-medium">Auditoria (PDF)</p>
                   <p className="text-xs text-muted-foreground">Trilha completa para compliance</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">HTML Interativo</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => exportHtmlReport("executivo")} className="gap-2 cursor-pointer">
+                <FileCode className="h-4 w-4" />
+                <div>
+                  <p className="text-sm font-medium">Executivo (HTML)</p>
+                  <p className="text-xs text-muted-foreground">Interativo com seções colapsáveis</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportHtmlReport("tecnico")} className="gap-2 cursor-pointer">
+                <FileCode className="h-4 w-4" />
+                <div>
+                  <p className="text-sm font-medium">Técnico (HTML)</p>
+                  <p className="text-xs text-muted-foreground">Tabelas e detalhes expansíveis</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportHtmlReport("auditoria")} className="gap-2 cursor-pointer">
+                <FileCode className="h-4 w-4" />
+                <div>
+                  <p className="text-sm font-medium">Auditoria (HTML)</p>
+                  <p className="text-xs text-muted-foreground">Trilha interativa para compliance</p>
                 </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
