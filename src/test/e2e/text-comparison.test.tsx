@@ -78,7 +78,7 @@ describe("TextComparison Page", () => {
 
   it("shows Upload PDF buttons", () => {
     renderPage();
-    const uploadButtons = screen.getAllByText("Upload PDF");
+    const uploadButtons = screen.getAllByText("Upload Arquivo");
     expect(uploadButtons).toHaveLength(2);
   });
 
