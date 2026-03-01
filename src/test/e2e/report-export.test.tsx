@@ -5,7 +5,6 @@ import TextComparison from "@/pages/TextComparison";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Mock hooks
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "test-user-id", email: "test@test.com" } }),
 }));
@@ -17,26 +16,19 @@ vi.mock("@/hooks/useOrganization", () => ({
   }),
 }));
 
-// Mock supabase — match exact chain structure from working tests
 const mockInvoke = vi.fn();
 const mockInsert = vi.fn().mockResolvedValue({ error: null });
-const mockSelect = vi.fn().mockReturnThis();
-const mockEq = vi.fn().mockReturnThis();
-const mockOrder = vi.fn().mockReturnThis();
-const mockLimit = vi.fn().mockResolvedValue({ data: [], error: null });
-const mockDeleteEq = vi.fn().mockResolvedValue({ error: null });
-const mockDelete = vi.fn().mockReturnValue({ eq: mockDeleteEq });
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: (...args: any[]) => mockInvoke(...args) },
     from: () => ({
-      select: mockSelect,
-      eq: mockEq,
-      order: mockOrder,
-      limit: mockLimit,
-      delete: mockDelete,
-      insert: mockInsert,
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+      insert: (...args: any[]) => mockInsert(...args),
     }),
   },
 }));
@@ -44,25 +36,23 @@ vi.mock("@/integrations/supabase/client", () => ({
 vi.mock("@/components/drafts/DiffView", () => ({
   default: ({ original, revised }: { original: string; revised: string }) => (
     <div data-testid="diff-view">
-      <span data-testid="diff-original">{original.slice(0, 50)}</span>
-      <span data-testid="diff-revised">{revised.slice(0, 50)}</span>
+      <span>{original.slice(0, 50)}</span>
+      <span>{revised.slice(0, 50)}</span>
     </div>
   ),
 }));
 
-// Mock jsPDF
 const mockSave = vi.fn();
 vi.mock("jspdf", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    setFontSize: vi.fn(),
-    text: vi.fn(),
-    splitTextToSize: vi.fn().mockReturnValue(["line"]),
-    addPage: vi.fn(),
-    save: mockSave,
-  })),
+  default: class MockJsPDF {
+    setFontSize = vi.fn();
+    text = vi.fn();
+    splitTextToSize = vi.fn().mockReturnValue(["line"]);
+    addPage = vi.fn();
+    save = mockSave;
+  },
 }));
 
-// Mock URL APIs for HTML export
 const mockCreateObjectURL = vi.fn().mockReturnValue("blob:test");
 const mockRevokeObjectURL = vi.fn();
 Object.defineProperty(URL, "createObjectURL", { value: mockCreateObjectURL, writable: true });
@@ -140,16 +130,11 @@ async function setupComparison() {
 
 describe("Report Export Flow", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    // Restore chain mocks cleared by clearAllMocks
-    mockSelect.mockReturnThis();
-    mockEq.mockReturnThis();
-    mockOrder.mockReturnThis();
-    mockLimit.mockResolvedValue({ data: [], error: null });
-    mockDelete.mockReturnValue({ eq: mockDeleteEq });
-    mockDeleteEq.mockResolvedValue({ error: null });
-    mockInsert.mockResolvedValue({ error: null });
-    mockCreateObjectURL.mockReturnValue("blob:test");
+    mockInvoke.mockClear();
+    mockInsert.mockClear();
+    mockSave.mockClear();
+    mockCreateObjectURL.mockClear();
+    mockRevokeObjectURL.mockClear();
   });
 
   it("shows export dropdown with PDF and HTML options after comparison", async () => {
