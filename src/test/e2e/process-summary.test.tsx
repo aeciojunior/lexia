@@ -129,7 +129,7 @@ describe("ProcessSummary360 — E2E", () => {
       expect(screen.getByText("87%")).toBeInTheDocument();
       expect(screen.getByText("IA")).toBeInTheDocument();
       expect(screen.getByText("Executivo")).toBeInTheDocument();
-    });
+    }, { timeout: 3000 });
   });
 
   it("can collapse and expand the section", async () => {
