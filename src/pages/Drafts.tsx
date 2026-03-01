@@ -504,14 +504,20 @@ export default function Drafts() {
             </CardHeader>
             <Separator />
             <CardContent className="flex-1 overflow-hidden pt-4">
-              <ScrollArea className="h-[calc(100vh-380px)]">
-                <div className="prose prose-sm dark:prose-invert max-w-none pr-4">
-                  <ReactMarkdown>
-                    {isStreaming ? streamContent : selectedDraft?.content || ""}
-                  </ReactMarkdown>
-                  {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
+              {showDiff && diffOriginal ? (
+                <div className="h-[calc(100vh-380px)]">
+                  <DiffView original={diffOriginal} revised={selectedDraft?.content || ""} />
                 </div>
-              </ScrollArea>
+              ) : (
+                <ScrollArea className="h-[calc(100vh-380px)]">
+                  <div className="prose prose-sm dark:prose-invert max-w-none pr-4">
+                    <ReactMarkdown>
+                      {isStreaming ? streamContent : selectedDraft?.content || ""}
+                    </ReactMarkdown>
+                    {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
+                  </div>
+                </ScrollArea>
+              )}
             </CardContent>
             <Separator />
             {/* Rewrite bar */}
