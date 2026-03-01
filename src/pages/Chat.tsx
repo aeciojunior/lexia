@@ -189,7 +189,7 @@ const Chat = () => {
                   <SelectItem value="none">Sem contexto de processo</SelectItem>
                   {processes.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.process_number || p.title}
+                      {p.number || p.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
