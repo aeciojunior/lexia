@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
 import ArgumentSuggestionsPanel from "@/components/drafts/ArgumentSuggestionsPanel";
 import LegalReviewPanel from "@/components/drafts/LegalReviewPanel";
+import DiffView from "@/components/drafts/DiffView";
 import {
   Plus, FileText, Wand2, Copy, Download, History, RefreshCw, Loader2, Sparkles, Save, Lightbulb, Lock, CheckCheck,
 } from "lucide-react";
