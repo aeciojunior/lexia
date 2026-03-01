@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { DiffView } from "@/components/drafts/DiffView";
+import DiffView from "@/components/drafts/DiffView";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeftRight, AlertTriangle, CheckCircle, Info, Trash2, Clock, FileDown } from "lucide-react";
 import { format } from "date-fns";
