@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.suggest-arguments]
 verify_jwt = false
+
+[functions.review-legal]
+verify_jwt = false
