@@ -129,7 +129,7 @@ describe("Drafts Page - E2E Flow", () => {
     vi.clearAllMocks();
 
     // Setup supabase.from mock to return correct data per table
-    mockSupabase.from.mockImplementation((table: string) => {
+    (mockSupabase.from as any).mockImplementation((table: string) => {
       if (table === "drafts") return setupFromMock("drafts", MOCK_DRAFTS);
       if (table === "processes") return setupFromMock("processes", []);
       if (table === "audit_logs") return setupFromMock("audit_logs", []);
