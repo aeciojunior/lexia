@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.classify-document]
 verify_jwt = false
+
+[functions.generate-draft]
+verify_jwt = false
