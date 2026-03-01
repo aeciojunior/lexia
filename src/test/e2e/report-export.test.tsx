@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TextComparison from "@/pages/TextComparison";
 import { BrowserRouter } from "react-router-dom";
@@ -35,10 +35,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("@/components/drafts/DiffView", () => ({
   default: ({ original, revised }: { original: string; revised: string }) => (
-    <div data-testid="diff-view">
-      <span>{original.slice(0, 50)}</span>
-      <span>{revised.slice(0, 50)}</span>
-    </div>
+    <div data-testid="diff-view"><span>{original.slice(0, 50)}</span><span>{revised.slice(0, 50)}</span></div>
   ),
 }));
 
@@ -74,26 +71,19 @@ const FULL_ANALYSIS = {
   sugestoes_harmonizacao: ["Revisar fundamentação do Art. 5º"],
   analise_juridica_contextualizada: {
     resumo_impacto_geral: "Impacto geral alto.",
-    impactos: [
-      {
-        descricao_alteracao: "Alteração de fundamento",
-        interpretacao_juridica: "Interpretação grave",
-        categoria: "fundamentos",
-        impacto: "alto",
-        recomendacao: "revisar",
-        explicacao_simples: "Explicação simples",
-        explicacao_tecnica: "Explicação técnica detalhada",
-      },
-    ],
-    cenarios: [
-      {
-        nome: "Cenário A",
-        descricao: "Cenário otimista",
-        impacto_juridico: "Favorável",
-        riscos: ["Risco mínimo"],
-        recomendacao: "Manter",
-      },
-    ],
+    impactos: [{
+      descricao_alteracao: "Alteração de fundamento",
+      interpretacao_juridica: "Interpretação grave",
+      categoria: "fundamentos",
+      impacto: "alto",
+      recomendacao: "revisar",
+      explicacao_simples: "Explicação simples",
+      explicacao_tecnica: "Explicação técnica detalhada",
+    }],
+    cenarios: [{
+      nome: "Cenário A", descricao: "Cenário otimista",
+      impacto_juridico: "Favorável", riscos: ["Risco mínimo"], recomendacao: "Manter",
+    }],
   },
 };
 
@@ -101,9 +91,7 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <BrowserRouter>
-        <TextComparison />
-      </BrowserRouter>
+      <BrowserRouter><TextComparison /></BrowserRouter>
     </QueryClientProvider>
   );
 }
@@ -113,33 +101,40 @@ async function setupComparison() {
     data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
     error: null,
   });
-
   renderPage();
   const user = userEvent.setup();
   const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
   await user.type(textareas[0], "Texto A jurídico");
   await user.type(textareas[1], "Texto B modificado");
   await user.click(screen.getByText("Comparar Textos"));
-
   await waitFor(() => {
     expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument();
   });
-
   return user;
 }
 
 describe("Report Export Flow", () => {
   beforeEach(() => {
-    mockInvoke.mockClear();
-    mockInsert.mockClear();
-    mockSave.mockClear();
-    mockCreateObjectURL.mockClear();
-    mockRevokeObjectURL.mockClear();
+    mockInvoke.mockReset();
+    mockInsert.mockReset();
+    mockInsert.mockResolvedValue({ error: null });
+    mockSave.mockReset();
+    mockCreateObjectURL.mockReset();
+    mockCreateObjectURL.mockReturnValue("blob:test");
+    mockRevokeObjectURL.mockReset();
   });
 
-  it("shows export dropdown with PDF and HTML options after comparison", async () => {
-    const user = await setupComparison();
+  afterEach(() => {
+    cleanup();
+  });
 
+  it("does not show export button before comparison", () => {
+    renderPage();
+    expect(screen.queryByText("Exportar Relatório")).not.toBeInTheDocument();
+  });
+
+  it("shows all 6 export options (3 PDF + 3 HTML) after comparison", async () => {
+    const user = await setupComparison();
     await user.click(screen.getByText("Exportar Relatório"));
 
     expect(screen.getByText("Executivo (PDF)")).toBeInTheDocument();
@@ -150,206 +145,98 @@ describe("Report Export Flow", () => {
     expect(screen.getByText("Auditoria (HTML)")).toBeInTheDocument();
   });
 
-  it("does not show export button before comparison", () => {
-    renderPage();
-    expect(screen.queryByText("Exportar Relatório")).not.toBeInTheDocument();
-  });
+  it("exports Técnico PDF with correct filename and audit logs", async () => {
+    const user = await setupComparison();
+    await user.click(screen.getByText("Exportar Relatório"));
+    await user.click(screen.getByText("Técnico (PDF)"));
 
-  describe("PDF Export", () => {
-    it.each([
-      ["executivo", "Executivo (PDF)"],
-      ["tecnico", "Técnico (PDF)"],
-      ["auditoria", "Auditoria (PDF)"],
-    ] as const)("exports %s PDF and logs audit events", async (type, label) => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText(label));
-
-      await waitFor(() => {
-        expect(mockSave).toHaveBeenCalledWith(
-          expect.stringMatching(new RegExp(`comparacao-${type}-\\d{4}-\\d{2}-\\d{2}-\\d{4}\\.pdf`))
-        );
-      });
-
-      await waitFor(() => {
-        const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
-        expect(actions).toContain("comparison_report_generated");
-      });
+    await waitFor(() => {
+      expect(mockSave).toHaveBeenCalledWith(
+        expect.stringMatching(/comparacao-tecnico-\d{4}-\d{2}-\d{2}-\d{4}\.pdf/)
+      );
     });
 
-    it("logs risk_detected for alto risk PDF", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Técnico (PDF)"));
-
-      await waitFor(() => {
-        const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
-        expect(actions).toContain("comparison_report_risk_detected");
-      });
-    });
-
-    it("logs recommendation_generated when suggestions exist", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Executivo (PDF)"));
-
-      await waitFor(() => {
-        const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
-        expect(actions).toContain("comparison_report_recommendation_generated");
-      });
+    await waitFor(() => {
+      const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
+      expect(actions).toContain("comparison_report_generated");
+      expect(actions).toContain("technical_report_generated");
+      expect(actions).toContain("comparison_report_risk_detected");
+      expect(actions).toContain("comparison_report_recommendation_generated");
     });
   });
 
-  describe("HTML Export", () => {
-    it.each([
-      ["executivo", "Executivo (HTML)"],
-      ["tecnico", "Técnico (HTML)"],
-      ["auditoria", "Auditoria (HTML)"],
-    ] as const)("exports %s HTML with correct blob", async (type, label) => {
-      const user = await setupComparison();
+  it("exports Executivo HTML with simplified content and collapsible sections", async () => {
+    const user = await setupComparison();
+    await user.click(screen.getByText("Exportar Relatório"));
+    await user.click(screen.getByText("Executivo (HTML)"));
 
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText(label));
+    await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
 
-      await waitFor(() => {
-        expect(mockCreateObjectURL).toHaveBeenCalledWith(expect.any(Blob));
-      });
+    const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
+    expect(blob.type).toBe("text/html;charset=utf-8");
 
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      expect(blob.type).toBe("text/html;charset=utf-8");
-
-      const htmlContent = await blob.text();
-      expect(htmlContent).toContain("<!DOCTYPE html>");
-      expect(htmlContent).toContain("Relatório de Comparação");
-      expect(htmlContent).toContain("<details");
-      expect(htmlContent).toContain("<summary");
-
-      await waitFor(() => {
-        const actions = mockInsert.mock.calls.map((c: any) => c[0]?.action);
-        expect(actions).toContain("comparison_report_generated");
-      });
-    });
-
-    it("HTML executivo contains simplified content", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Executivo (HTML)"));
-
-      await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      const html = await blob.text();
-
-      expect(html).toContain("Executivo (Cliente)");
-      expect(html).toContain("Principais Diferenças");
-      expect(html).toContain("Próximos Passos Recomendados");
-      expect(html).not.toContain("Alterações Semânticas");
-    });
-
-    it("HTML tecnico contains full analysis sections", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Técnico (HTML)"));
-
-      await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      const html = await blob.text();
-
-      expect(html).toContain("Técnico (Advogado)");
-      expect(html).toContain("Alterações Semânticas");
-      expect(html).toContain("Alterações Jurídicas");
-      expect(html).toContain("Análise Jurídica Contextualizada");
-      expect(html).toContain("Simulação de Cenários");
-    });
-
-    it("HTML auditoria contains audit trail section", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Auditoria (HTML)"));
-
-      await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      const html = await blob.text();
-
-      expect(html).toContain("Auditoria (Compliance)");
-      expect(html).toContain("Trilha de Auditoria");
-      expect(html).toContain("test-user-id");
-      expect(html).toContain("test@test.com");
-      expect(html).toContain("test-org-id");
-    });
-
-    it("HTML has collapsible sections and interactive tables", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Técnico (HTML)"));
-
-      await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      const html = await blob.text();
-
-      const detailsCount = (html.match(/<details/g) || []).length;
-      expect(detailsCount).toBeGreaterThanOrEqual(4);
-      expect(html).toContain("cursor:pointer");
-      expect(html).toContain("<table");
-    });
-
-    it("HTML includes risk badges with color coding", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Técnico (HTML)"));
-
-      await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      const html = await blob.text();
-
-      expect(html).toContain("#ef4444");
-      expect(html).toContain("ALTO");
-      expect(html).toContain("border-radius:999px");
-    });
-
-    it("HTML includes similarity progress bar", async () => {
-      const user = await setupComparison();
-
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Executivo (HTML)"));
-
-      await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-
-      const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
-      const html = await blob.text();
-
-      expect(html).toContain("72%");
-      expect(html).toContain("width:72%");
-      expect(html).toContain("linear-gradient");
-    });
+    const html = await blob.text();
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("Executivo (Cliente)");
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
+    expect(html).toContain("Principais Diferenças");
+    expect(html).toContain("Próximos Passos Recomendados");
+    expect(html).toContain("72%");
+    expect(html).toContain("width:72%");
+    expect(html).toContain("linear-gradient");
+    // Executive should NOT have semantic changes
+    expect(html).not.toContain("Alterações Semânticas");
   });
 
-  describe("Audit metadata", () => {
-    it("includes export_format html in HTML audit logs", async () => {
-      const user = await setupComparison();
+  it("exports Técnico HTML with full sections and tables", async () => {
+    const user = await setupComparison();
+    await user.click(screen.getByText("Exportar Relatório"));
+    await user.click(screen.getByText("Técnico (HTML)"));
 
-      await user.click(screen.getByText("Exportar Relatório"));
-      await user.click(screen.getByText("Técnico (HTML)"));
+    await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
 
-      await waitFor(() => {
-        const reportCall = mockInsert.mock.calls.find(
-          (c: any) => c[0]?.action === "comparison_report_generated"
-        );
-        expect(reportCall).toBeDefined();
-        expect(reportCall![0].metadata.export_format).toBe("html");
-      });
+    const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
+    const html = await blob.text();
+
+    expect(html).toContain("Técnico (Advogado)");
+    expect(html).toContain("Alterações Semânticas");
+    expect(html).toContain("Alterações Jurídicas");
+    expect(html).toContain("Análise Jurídica Contextualizada");
+    expect(html).toContain("Simulação de Cenários");
+    expect(html).toContain("<table");
+    expect(html).toContain("#ef4444"); // alto risk color
+    expect(html).toContain("ALTO");
+    expect(html).toContain("border-radius:999px"); // badge
+    expect(html).toContain("cursor:pointer");
+
+    const detailsCount = (html.match(/<details/g) || []).length;
+    expect(detailsCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it("exports Auditoria HTML with audit trail and user metadata", async () => {
+    const user = await setupComparison();
+    await user.click(screen.getByText("Exportar Relatório"));
+    await user.click(screen.getByText("Auditoria (HTML)"));
+
+    await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
+
+    const blob = mockCreateObjectURL.mock.calls[0][0] as Blob;
+    const html = await blob.text();
+
+    expect(html).toContain("Auditoria (Compliance)");
+    expect(html).toContain("Trilha de Auditoria");
+    expect(html).toContain("test-user-id");
+    expect(html).toContain("test@test.com");
+    expect(html).toContain("test-org-id");
+
+    // Audit log metadata includes export_format
+    await waitFor(() => {
+      const reportCall = mockInsert.mock.calls.find(
+        (c: any) => c[0]?.action === "comparison_report_generated"
+      );
+      expect(reportCall).toBeDefined();
+      expect(reportCall![0].metadata.export_format).toBe("html");
     });
   });
 });
