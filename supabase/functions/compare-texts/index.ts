@@ -40,19 +40,21 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user
+    // Verify user via getClaims
     const anonClient = createClient(
       supabaseUrl,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: { user }, error: authError } = await anonClient.auth.getUser();
-    if (authError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const userId = claimsData.claims.sub as string;
 
     const { textA, textB, comparisonType = "general", labelA = "Texto A", labelB = "Texto B", organizationId, sourceAId, sourceBId } = await req.json();
 
@@ -65,7 +67,7 @@ serve(async (req) => {
 
     // Verify org membership
     const { data: isMember } = await supabase.rpc("is_org_member", {
-      _user_id: user.id,
+      _user_id: userId,
       _org_id: organizationId,
     });
     if (!isMember) {
@@ -203,7 +205,7 @@ serve(async (req) => {
       .from("text_comparisons")
       .insert({
         organization_id: organizationId,
-        user_id: user.id,
+        user_id: userId,
         comparison_type: comparisonType,
         text_a_label: labelA,
         text_b_label: labelB,
@@ -234,7 +236,7 @@ serve(async (req) => {
     for (const action of auditActions) {
       await supabase.from("audit_logs").insert({
         action,
-        user_id: user.id,
+        user_id: userId,
         organization_id: organizationId,
         resource_type: "text_comparison",
         resource_id: comparison.id,
