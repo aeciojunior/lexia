@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { X, Loader2, CheckCheck, Check, Ban, AlertTriangle, Info, AlertCircle } from "lucide-react";
+import { X, Loader2, CheckCheck, Check, Ban, AlertTriangle, Info, AlertCircle, Columns2 } from "lucide-react";
 
 const REVIEW_MODES = [
   { value: "automatico", label: "Automático", desc: "Revisão completa em todas as camadas" },
