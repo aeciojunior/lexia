@@ -77,6 +77,7 @@ export default function Drafts() {
   const [instructions, setInstructions] = useState("");
   const [rewriteInstructions, setRewriteInstructions] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   // Fetch drafts
   const { data: drafts, isLoading } = useQuery({
