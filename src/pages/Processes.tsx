@@ -713,6 +713,7 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
   const { user } = useAuth();
   const { activeOrgId } = useOrganization();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docSearch, setDocSearch] = useState("");
   const [docCategory, setDocCategory] = useState("__all__");
@@ -720,6 +721,32 @@ const LinkedDocsSection = ({ docs, loading, processId }: { docs: any[]; loading:
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [linkSearch, setLinkSearch] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+
+  const toggleCompareDoc = (docId: string) => {
+    setCompareSelection((prev) => {
+      if (prev.includes(docId)) return prev.filter((id) => id !== docId);
+      if (prev.length >= 2) return [prev[1], docId];
+      return [...prev, docId];
+    });
+  };
+
+  const launchComparison = async () => {
+    if (compareSelection.length !== 2) return;
+    const docA = docs.find((d: any) => d.id === compareSelection[0]);
+    const docB = docs.find((d: any) => d.id === compareSelection[1]);
+    if (!docA || !docB) return;
+
+    navigate("/text-comparison", {
+      state: {
+        labelA: docA.file_name,
+        labelB: docB.file_name,
+        comparisonType: "contextual_legal",
+        sourceDocA: docA,
+        sourceDocB: docB,
+      },
+    });
+  };
 
   // Upload form state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
