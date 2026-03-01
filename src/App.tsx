@@ -133,6 +133,7 @@ const App = () => (
               <Route path="/legal-chatbot" element={<LegalChatbot />} />
               <Route path="/drafts" element={<Drafts />} />
               <Route path="/legal-glossary" element={<LegalGlossary />} />
+              <Route path="/text-comparison" element={<TextComparison />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

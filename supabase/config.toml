@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.review-legal]
 verify_jwt = false
+
+[functions.compare-texts]
+verify_jwt = false
