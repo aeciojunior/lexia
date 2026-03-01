@@ -63,6 +63,7 @@ import VaultDocuments from "./pages/VaultDocuments";
 import Assets from "./pages/Assets";
 import Vendors from "./pages/Vendors";
 import LegalChatbot from "./pages/LegalChatbot";
+import Drafts from "./pages/Drafts";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
