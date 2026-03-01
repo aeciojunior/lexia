@@ -19,7 +19,7 @@ import {
   Loader2, ArrowLeftRight, AlertTriangle, CheckCircle, Info, Trash2,
   Clock, Upload, FileText, Download, Shield, DollarSign, Languages,
   Eye, BarChart3, Scale, BookOpen, Lightbulb, Target, ChevronDown,
-  Briefcase, GraduationCap, ClipboardCheck
+  Briefcase, GraduationCap, ClipboardCheck, FileCode
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
