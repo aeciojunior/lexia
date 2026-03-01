@@ -387,6 +387,16 @@ const Chat = () => {
               className="flex-1 h-12 rounded-xl bg-muted border-border text-base"
               disabled={sendMessage.isPending}
             />
+            <Button
+              type="button"
+              size="icon"
+              variant={isListening ? "destructive" : "outline"}
+              className={`h-12 w-12 rounded-xl shrink-0 ${isListening ? "animate-pulse" : ""}`}
+              onClick={isListening ? stopListening : startListening}
+              disabled={sendMessage.isPending}
+            >
+              {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
             <Button type="submit" size="icon" className="h-12 w-12 rounded-xl" disabled={!input.trim() || sendMessage.isPending}>
               <Send className="h-5 w-5" />
             </Button>
