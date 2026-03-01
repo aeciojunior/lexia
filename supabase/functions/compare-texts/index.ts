@@ -236,7 +236,7 @@ serve(async (req) => {
     for (const action of auditActions) {
       await supabase.from("audit_logs").insert({
         action,
-        user_id: user.id,
+        user_id: userId,
         organization_id: organizationId,
         resource_type: "text_comparison",
         resource_id: comparison.id,
