@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Bot, User, Sparkles, Scale, FileText, Shield, Zap, X, History, ChevronRight, Gavel, AlertTriangle, BookOpen } from "lucide-react";
+import { Send, Bot, User, Sparkles, Scale, FileText, Shield, Zap, X, History, ChevronRight, Gavel, AlertTriangle, BookOpen, Mic, MicOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
