@@ -108,7 +108,7 @@ async function fetchContext(
         .single();
 
       if (process) {
-        sections.push(`## Processo Selecionado\n- Título: ${process.title}\n- Número: ${process.process_number || "N/A"}\n- Status: ${process.status}\n- Tribunal: ${process.court || "N/A"}\n- Risco: ${process.risk_level || "N/A"}\n- Área: ${process.legal_area || "N/A"}\n- Fase: ${process.phase || "N/A"}\n- Valor da causa: ${process.case_value || "N/A"}\n- Descrição: ${(process.description || "").substring(0, 500)}\n- Partes: ${JSON.stringify(process.parties || []).substring(0, 500)}`);
+        sections.push(`## Processo Selecionado\n- Título: ${process.title}\n- Número: ${process.number || "N/A"}\n- Status: ${process.status}\n- Tribunal: ${process.court || "N/A"}\n- Risco: ${process.risk_level || "N/A"}\n- Classe: ${process.classe || "N/A"}\n- Fase: ${process.fase || "N/A"}\n- Valor da causa: ${process.valor_causa || "N/A"}\n- Descrição: ${(process.description || "").substring(0, 500)}\n- Partes: ${JSON.stringify(process.partes || []).substring(0, 500)}`);
         sources.push({ type: "process", id: processId, title: process.title });
 
         // Deadlines for this process
