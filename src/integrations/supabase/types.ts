@@ -5128,10 +5128,18 @@ export type Database = {
           ai_analysis: Json | null
           comparison_type: string
           created_at: string
+          detected_languages: Json | null
+          file_a_format: string | null
+          file_a_size_bytes: number | null
+          file_b_format: string | null
+          file_b_size_bytes: number | null
+          financial_analysis: Json | null
+          fraud_indicators: Json | null
           id: string
           literal_diff: Json | null
           organization_id: string
           risk_level: string | null
+          similarity_percent: number | null
           source_a_id: string | null
           source_b_id: string | null
           text_a: string
@@ -5144,10 +5152,18 @@ export type Database = {
           ai_analysis?: Json | null
           comparison_type?: string
           created_at?: string
+          detected_languages?: Json | null
+          file_a_format?: string | null
+          file_a_size_bytes?: number | null
+          file_b_format?: string | null
+          file_b_size_bytes?: number | null
+          financial_analysis?: Json | null
+          fraud_indicators?: Json | null
           id?: string
           literal_diff?: Json | null
           organization_id: string
           risk_level?: string | null
+          similarity_percent?: number | null
           source_a_id?: string | null
           source_b_id?: string | null
           text_a: string
@@ -5160,10 +5176,18 @@ export type Database = {
           ai_analysis?: Json | null
           comparison_type?: string
           created_at?: string
+          detected_languages?: Json | null
+          file_a_format?: string | null
+          file_a_size_bytes?: number | null
+          file_b_format?: string | null
+          file_b_size_bytes?: number | null
+          financial_analysis?: Json | null
+          fraud_indicators?: Json | null
           id?: string
           literal_diff?: Json | null
           organization_id?: string
           risk_level?: string | null
+          similarity_percent?: number | null
           source_a_id?: string | null
           source_b_id?: string | null
           text_a?: string
