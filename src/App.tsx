@@ -66,6 +66,9 @@ import LegalChatbot from "./pages/LegalChatbot";
 import Drafts from "./pages/Drafts";
 import LegalGlossary from "./pages/LegalGlossary";
 import TextComparison from "./pages/TextComparison";
+import CourtMonitoring from "./pages/CourtMonitoring";
+import LegislativeUpdates from "./pages/LegislativeUpdates";
+import RegulatoryIntelligence from "./pages/RegulatoryIntelligence";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
