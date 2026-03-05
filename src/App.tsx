@@ -69,6 +69,11 @@ import TextComparison from "./pages/TextComparison";
 import CourtMonitoring from "./pages/CourtMonitoring";
 import LegislativeUpdates from "./pages/LegislativeUpdates";
 import RegulatoryIntelligence from "./pages/RegulatoryIntelligence";
+import LegalIntelligence from "./pages/LegalIntelligence";
+import InternalPrecedents from "./pages/InternalPrecedents";
+import LegalStrategy from "./pages/LegalStrategy";
+import CaseClustering from "./pages/CaseClustering";
+import FinancialImpact from "./pages/FinancialImpact";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
