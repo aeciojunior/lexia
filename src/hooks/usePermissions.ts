@@ -105,7 +105,10 @@ export type Permission =
   | "GENERATE_LEGAL_STRATEGY"
   | "VIEW_CASE_CLUSTERING"
   | "VIEW_FINANCIAL_IMPACT"
-  | "VIEW_LEGAL_PERFORMANCE";
+  | "VIEW_LEGAL_PERFORMANCE"
+  | "VIEW_DUE_DILIGENCE"
+  | "PERFORM_DUE_DILIGENCE"
+  | "VIEW_MASS_LITIGATION";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
