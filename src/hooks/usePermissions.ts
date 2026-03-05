@@ -91,7 +91,13 @@ export type Permission =
   | "MANAGE_VENDORS"
   | "VIEW_VENDORS"
   | "MANAGE_CHATBOTS"
-  | "USE_CHATBOT";
+  | "USE_CHATBOT"
+  | "VIEW_COURT_MONITORING"
+  | "MANAGE_COURT_MONITORING"
+  | "VIEW_LEGISLATIVE_UPDATES"
+  | "MANAGE_LEGISLATIVE_UPDATES"
+  | "VIEW_REGULATORY"
+  | "MANAGE_REGULATORY";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
