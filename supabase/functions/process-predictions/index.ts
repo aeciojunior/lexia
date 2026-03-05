@@ -120,11 +120,13 @@ serve(async (req) => {
       number: process.number,
       type: process.type,
       status: process.status,
-      legal_area: process.legal_area,
+      classe: process.classe,
+      fase: process.fase,
       description: process.description,
-      priority: process.priority,
       court: process.court,
       judge: process.judge,
+      vara: process.vara,
+      risk_level: process.risk_level,
     })}
 
 Riscos ativos: ${JSON.stringify(risksRes.data || [])}

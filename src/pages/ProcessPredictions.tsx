@@ -113,11 +113,11 @@ const ProcessPredictions = () => {
       </div>
 
       {/* Disclaimer */}
-      <Card className="border-amber-500/30 bg-amber-500/5">
+      <Card className="border-destructive/30 bg-destructive/5">
         <CardContent className="flex items-start gap-3 py-4">
-          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
           <p className="text-sm text-muted-foreground">
-            As análises são <strong>qualitativas e não vinculantes</strong>. A IA utiliza termos como 
+            As análises são <strong>qualitativas e não vinculantes</strong>. A IA utiliza termos como
             curto/médio/longo prazo e alta/moderada/baixa probabilidade — nunca datas exatas, percentuais ou valores monetários.
             As limitações são indicadas quando os dados são insuficientes.
           </p>
