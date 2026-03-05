@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.due-diligence]
 verify_jwt = false
+
+[functions.process-predictions]
+verify_jwt = false

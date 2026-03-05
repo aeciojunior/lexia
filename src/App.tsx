@@ -76,6 +76,7 @@ import CaseClustering from "./pages/CaseClustering";
 import FinancialImpact from "./pages/FinancialImpact";
 import DueDiligence from "./pages/DueDiligence";
 import MassLitigation from "./pages/MassLitigation";
+import ProcessPredictions from "./pages/ProcessPredictions";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -154,6 +155,7 @@ const App = () => (
               <Route path="/financial-impact" element={<FinancialImpact />} />
               <Route path="/due-diligence" element={<DueDiligence />} />
               <Route path="/mass-litigation" element={<MassLitigation />} />
+              <Route path="/process-predictions" element={<ProcessPredictions />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
