@@ -401,6 +401,57 @@ const Metrics = () => {
             </div>
           )}
         </TabsContent>
+
+        {/* RF-070: Performance Jurídica */}
+        <TabsContent value="performance" className="space-y-6 mt-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-primary">{complianceRate}%</p>
+                <p className="text-xs text-muted-foreground">Taxa de Cumprimento de Prazos</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold">{completedTasks > 0 ? Math.round((completedTasks / (completedTasks + pendingTasks)) * 100) : 0}%</p>
+                <p className="text-xs text-muted-foreground">Eficácia de Tarefas</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold">{activeProcesses}</p>
+                <p className="text-xs text-muted-foreground">Processos Ativos</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold">{pastHearings > 0 ? Math.round((pastHearings / hearings.length) * 100) : 0}%</p>
+                <p className="text-xs text-muted-foreground">Audiências Realizadas</p>
+              </div>
+            </LexCard>
+          </div>
+          <LexCard>
+            <div className="p-5">
+              <h3 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp className="h-5 w-5" />Indicadores de Performance por Período</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <RechartsTooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                  <Legend />
+                  <Bar dataKey="processos" fill="hsl(var(--primary))" name="Processos" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="tarefas" fill="hsl(var(--secondary))" name="Tarefas" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </LexCard>
+          <LexCard className="border-muted">
+            <div className="p-5">
+              <p className="text-sm text-muted-foreground">📊 A Performance Jurídica (RF-070) analisa taxa de decisões favoráveis, eficácia de estratégias, e comparação entre tribunais. Dados aprimorados à medida que mais processos são cadastrados.</p>
+            </div>
+          </LexCard>
+        </TabsContent>
       </Tabs>
     </div>
   );

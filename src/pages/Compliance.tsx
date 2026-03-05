@@ -179,6 +179,7 @@ export default function Compliance() {
           <TabsTrigger value="consents" className="gap-1.5"><Users className="h-4 w-4" />Consentimentos</TabsTrigger>
           <TabsTrigger value="dsar" className="gap-1.5"><FileText className="h-4 w-4" />DSAR</TabsTrigger>
           <TabsTrigger value="incidents" className="gap-1.5"><AlertTriangle className="h-4 w-4" />Incidentes</TabsTrigger>
+          <TabsTrigger value="engine" className="gap-1.5"><Shield className="h-4 w-4" />Motor Compliance</TabsTrigger>
         </TabsList>
 
         {/* ── Policies ── */}
