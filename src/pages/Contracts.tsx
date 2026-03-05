@@ -369,6 +369,7 @@ const Contracts = () => {
           </LexCard>
         </TabsContent>
 
+        <TabsContent value="list" className="mt-4">
       {/* Contracts List */}
       <div className="space-y-3">
         {isLoading ? (
