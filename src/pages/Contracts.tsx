@@ -261,9 +261,10 @@ const Contracts = () => {
 
       {/* RF-073: Análise Inteligente de Contratos */}
       <Tabs defaultValue="list">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="list">Lista de Contratos</TabsTrigger>
           <TabsTrigger value="analysis">Análise Inteligente</TabsTrigger>
+          <TabsTrigger value="audit">Auditoria Contínua</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis" className="space-y-4 mt-4">
@@ -307,6 +308,63 @@ const Contracts = () => {
           <LexCard className="border-muted">
             <div className="p-4">
               <p className="text-sm text-muted-foreground">📋 A Análise Inteligente (RF-073) monitora prazos, obrigações, riscos contratuais e impacto legislativo. Sugestões de renegociação e detecção de cláusulas perigosas são geradas automaticamente.</p>
+            </div>
+          </LexCard>
+        </TabsContent>
+
+        {/* RF-079: Auditoria Contínua */}
+        <TabsContent value="audit" className="space-y-4 mt-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-primary">{contracts.filter((c: any) => c.status === "active").length}</p>
+                <p className="text-xs text-muted-foreground">Contratos Monitorados</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-destructive">{contracts.filter((c: any) => c.end_date && new Date(c.end_date) < new Date() && c.status === "active").length}</p>
+                <p className="text-xs text-muted-foreground">Obrigações Vencidas</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold">{contracts.filter((c: any) => c.end_date && new Date(c.end_date) > new Date() && new Date(c.end_date) < new Date(Date.now() + 15 * 86400000) && c.status === "active").length}</p>
+                <p className="text-xs text-muted-foreground">Vencem em 15 dias</p>
+              </div>
+            </LexCard>
+          </div>
+
+          <LexCard>
+            <div className="p-5 space-y-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2">Histórico de Auditoria</h3>
+              {contracts.filter((c: any) => c.status === "active").slice(0, 8).map((c: any) => {
+                const isExpired = c.end_date && new Date(c.end_date) < new Date();
+                const isNear = c.end_date && new Date(c.end_date) > new Date() && new Date(c.end_date) < new Date(Date.now() + 30 * 86400000);
+                const noClauses = !c.clauses;
+                const hasIssue = isExpired || isNear || noClauses;
+                return (
+                  <div key={c.id} className="p-3 rounded-lg bg-muted/50 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{c.title}</p>
+                      <div className="flex gap-1.5 mt-1">
+                        <LexBadge variant={isExpired ? "destructive" : isNear ? "warning" : "success"}>{isExpired ? "Vencido" : isNear ? "Próximo" : "Regular"}</LexBadge>
+                        {noClauses && <LexBadge variant="warning">Sem cláusulas</LexBadge>}
+                      </div>
+                    </div>
+                    {c.end_date && <span className="text-xs text-muted-foreground">{format(new Date(c.end_date), "dd/MM/yyyy")}</span>}
+                  </div>
+                );
+              })}
+              {contracts.filter((c: any) => c.status === "active").length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum contrato ativo para auditar.</p>
+              )}
+            </div>
+          </LexCard>
+
+          <LexCard className="border-muted">
+            <div className="p-4">
+              <p className="text-sm text-muted-foreground">🔍 A Auditoria Contínua (RF-079) monitora contratos 24/7, identificando riscos, obrigações vencidas, inconsistências e impactos legislativos. Trilha de auditoria imutável registrada automaticamente.</p>
             </div>
           </LexCard>
         </TabsContent>

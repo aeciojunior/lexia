@@ -39,6 +39,8 @@ const navItems: NavItem[] = [
   { title: "Estratégia", url: "/legal-strategy", icon: Target, accent: true, permissions: ["VIEW_LEGAL_STRATEGY"] },
   { title: "Clusters", url: "/case-clustering", icon: GitBranch, permissions: ["VIEW_CASE_CLUSTERING"] },
   { title: "Impacto Fin.", url: "/financial-impact", icon: DollarSign, accent: true, permissions: ["VIEW_FINANCIAL_IMPACT"] },
+  { title: "Due Diligence", url: "/due-diligence", icon: FileSearch, accent: true, permissions: ["VIEW_DUE_DILIGENCE"] },
+  { title: "Litígios Rep.", url: "/mass-litigation", icon: Users, permissions: ["VIEW_MASS_LITIGATION"] },
   { title: "Clientes", url: "/clients", icon: Users, permissions: ["VIEW_CLIENTS"] },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
   { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },

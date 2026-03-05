@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.generate-legal-strategy]
 verify_jwt = false
+
+[functions.due-diligence]
+verify_jwt = false

@@ -74,6 +74,8 @@ import InternalPrecedents from "./pages/InternalPrecedents";
 import LegalStrategy from "./pages/LegalStrategy";
 import CaseClustering from "./pages/CaseClustering";
 import FinancialImpact from "./pages/FinancialImpact";
+import DueDiligence from "./pages/DueDiligence";
+import MassLitigation from "./pages/MassLitigation";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
@@ -150,6 +152,8 @@ const App = () => (
               <Route path="/legal-strategy" element={<LegalStrategy />} />
               <Route path="/case-clustering" element={<CaseClustering />} />
               <Route path="/financial-impact" element={<FinancialImpact />} />
+              <Route path="/due-diligence" element={<DueDiligence />} />
+              <Route path="/mass-litigation" element={<MassLitigation />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
