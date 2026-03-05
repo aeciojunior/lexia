@@ -213,7 +213,6 @@ async function processConfig(
                 },
               } as any);
 
-              // Also create a jurisprudence alert audit log
               await supabase.from("audit_logs").insert({
                 action: "jurisprudence_alert_generated",
                 organization_id: config.organization_id,
@@ -225,6 +224,16 @@ async function processConfig(
                   themes: matchedThemes,
                 },
               } as any);
+
+              // Send email notification to org members
+              await sendAlertEmail(
+                supabase,
+                config.organization_id,
+                decision,
+                matchedThemes,
+                matchedKeywords,
+                generateRecommendation(relevance, impactLevel, matchedThemes)
+              );
             }
           }
         }
@@ -350,4 +359,93 @@ function generateRecommendation(
     return `Decisão de tribunal superior detectada. Analisar potencial impacto jurisprudencial e precedente vinculante.`;
   }
   return `Decisão monitorada com relevância ${relevance === "medium" ? "média" : "baixa"}. Acompanhar evolução.`;
+}
+
+/**
+ * Send email alert to org members with notifications enabled via Resend.
+ */
+async function sendAlertEmail(
+  supabase: any,
+  organizationId: string,
+  decision: { tribunal: string; decisionNumber: string | null; summary: string | null; date: string | null },
+  matchedThemes: string[],
+  matchedKeywords: string[],
+  recommendation: string
+) {
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendKey) {
+    console.warn("RESEND_API_KEY not configured — skipping email alert");
+    return;
+  }
+
+  const { data: org } = await supabase
+    .from("organizations").select("name").eq("id", organizationId).single();
+  const orgName = org?.name || "Escritório";
+
+  const { data: members } = await supabase
+    .from("user_organizations").select("user_id")
+    .eq("organization_id", organizationId).eq("status", "active");
+  if (!members?.length) return;
+
+  const userIds = members.map((m: any) => m.user_id);
+  const { data: profiles } = await supabase
+    .from("profiles").select("user_id")
+    .in("user_id", userIds).eq("notify_deadlines", true).eq("notify_email", true);
+  if (!profiles?.length) return;
+
+  const { data: appUsers } = await supabase
+    .from("app_users").select("auth_user_id, email")
+    .in("auth_user_id", profiles.map((p: any) => p.user_id));
+  if (!appUsers?.length) return;
+
+  const recipients = appUsers.map((u: any) => u.email).filter(Boolean);
+  if (!recipients.length) return;
+
+  const decisionDate = decision.date
+    ? new Date(decision.date).toLocaleDateString("pt-BR") : "Não informada";
+
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Tahoma,sans-serif;max-width:600px;margin:0 auto;">
+      <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:24px;border-radius:12px 12px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:20px;">⚖️ Alerta Jurisprudencial — ${orgName}</h1>
+      </div>
+      <div style="background:#fff;padding:24px;border:1px solid #eee;border-radius:0 0 12px 12px;">
+        <p style="color:#333;">Uma decisão de <strong>alta relevância</strong> foi detectada pelo monitoramento automático.</p>
+        <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:16px 0;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:8px 0;color:#666;font-size:13px;">Tribunal</td><td style="padding:8px 0;text-align:right;font-weight:600;">${decision.tribunal}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:13px;">Número</td><td style="padding:8px 0;text-align:right;font-weight:600;">${decision.decisionNumber || "—"}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:13px;">Data</td><td style="padding:8px 0;text-align:right;font-weight:600;">${decisionDate}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:13px;">Resumo</td><td style="padding:8px 0;text-align:right;font-weight:600;">${decision.summary || "—"}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:13px;">Temas</td><td style="padding:8px 0;text-align:right;">${matchedThemes.map(t => `<span style="background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:9999px;font-size:12px;margin-left:4px;">${t}</span>`).join(" ")}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;font-size:13px;">Palavras-chave</td><td style="padding:8px 0;text-align:right;">${matchedKeywords.map(k => `<span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:9999px;font-size:12px;margin-left:4px;">${k}</span>`).join(" ")}</td></tr>
+          </table>
+        </div>
+        <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
+          <p style="color:#713f12;margin:0;font-size:14px;"><strong>Recomendação:</strong> ${recommendation}</p>
+        </div>
+        <p style="color:#555;font-size:14px;">Acesse o <strong>Monitoramento de Tribunais</strong> na plataforma para detalhes completos.</p>
+        <p style="color:#888;font-size:12px;margin-top:24px;border-top:1px solid #eee;padding-top:16px;">Email automático enviado por ${orgName} via Lexia.</p>
+      </div>
+    </div>`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: `${orgName} <onboarding@resend.dev>`,
+        to: recipients,
+        subject: `⚖️ Alerta: Decisão relevante no ${decision.tribunal} — ${matchedThemes.slice(0, 2).join(", ")}`,
+        html: htmlContent,
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Resend error [${res.status}]: ${await res.text()}`);
+    } else {
+      console.log(`Alert email sent to ${recipients.length} recipients for ${decision.tribunal}`);
+    }
+  } catch (err) {
+    console.error("Failed to send alert email:", err);
+  }
 }
