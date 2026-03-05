@@ -262,6 +262,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_GOVERNANCE",
     "VIEW_ASSETS",
     "USE_CHATBOT",
+    "VIEW_COURT_MONITORING",
+    "VIEW_LEGISLATIVE_UPDATES",
+    "VIEW_REGULATORY",
   ],
   client: [
     "VIEW_PROCESSES",
