@@ -23,6 +23,10 @@ const PREDICTION_TYPES = [
   { value: "bottleneck", label: "Gargalos Operacionais", icon: AlertTriangle },
   { value: "revenue_forecast", label: "Previsão de Faturamento", icon: TrendingUp },
   { value: "default_risk", label: "Risco de Inadimplência", icon: AlertTriangle },
+  { value: "procedural_risk", label: "Risco Processual", icon: AlertTriangle },
+  { value: "merit_risk", label: "Risco de Mérito", icon: AlertTriangle },
+  { value: "probatory_risk", label: "Risco Probatório", icon: AlertTriangle },
+  { value: "strategic_risk", label: "Risco Estratégico", icon: AlertTriangle },
 ];
 
 const TARGET_TYPES = [
