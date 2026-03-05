@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
-import { Clock, Target, Handshake, Sparkles, Loader2, Scale, AlertTriangle } from "lucide-react";
+import { Clock, Target, Handshake, Sparkles, Loader2, Scale, AlertTriangle, History } from "lucide-react";
 
 type PredictionType = "time_estimation" | "success_probability" | "settlement_recommendation";
 
@@ -37,9 +37,10 @@ const ProcessPredictions = () => {
   const { activeOrgId } = useOrganization();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
+  const queryClient = useQueryClient();
   const [selectedProcess, setSelectedProcess] = useState<string>("");
   const [activeTab, setActiveTab] = useState<PredictionType>("time_estimation");
-  const [results, setResults] = useState<Record<string, string>>({});
+  const [currentResult, setCurrentResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const canGenerate = hasPermission("GENERATE_PREDICTIONS");
@@ -57,6 +58,24 @@ const ProcessPredictions = () => {
       return data;
     },
     enabled: !!activeOrgId,
+  });
+
+  // Fetch prediction history for selected process + tab
+  const { data: history = [] } = useQuery({
+    queryKey: ["prediction-history-page", selectedProcess, activeTab],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("predictions")
+        .select("id, prediction_type, ai_explanation, generated_at, created_at, user_id")
+        .eq("target_id", selectedProcess)
+        .eq("target_type", "process")
+        .eq("prediction_type", activeTab)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedProcess,
   });
 
   const handleGenerate = async () => {
@@ -81,8 +100,9 @@ const ProcessPredictions = () => {
         return;
       }
 
-      setResults((prev) => ({ ...prev, [`${selectedProcess}_${activeTab}`]: data.result }));
-      toast.success("Análise gerada com sucesso!");
+      setCurrentResult(data.result);
+      queryClient.invalidateQueries({ queryKey: ["prediction-history-page", selectedProcess, activeTab] });
+      toast.success("Análise gerada e salva!");
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro ao gerar análise.");
@@ -91,8 +111,8 @@ const ProcessPredictions = () => {
     }
   };
 
-  const currentResult = results[`${selectedProcess}_${activeTab}`];
   const selectedProc = processes?.find((p) => p.id === selectedProcess);
+  const displayResult = currentResult || (history.length > 0 ? history[0].ai_explanation : null);
 
   return (
     <div className="space-y-6">
@@ -119,7 +139,6 @@ const ProcessPredictions = () => {
           <p className="text-sm text-muted-foreground">
             As análises são <strong>qualitativas e não vinculantes</strong>. A IA utiliza termos como
             curto/médio/longo prazo e alta/moderada/baixa probabilidade — nunca datas exatas, percentuais ou valores monetários.
-            As limitações são indicadas quando os dados são insuficientes.
           </p>
         </CardContent>
       </Card>
@@ -130,7 +149,7 @@ const ProcessPredictions = () => {
           <CardTitle className="text-base">Selecionar Processo</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={selectedProcess} onValueChange={setSelectedProcess}>
+          <Select value={selectedProcess} onValueChange={(v) => { setSelectedProcess(v); setCurrentResult(null); }}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Escolha um processo para análise..." />
             </SelectTrigger>
@@ -154,7 +173,7 @@ const ProcessPredictions = () => {
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PredictionType)}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as PredictionType); setCurrentResult(null); }}>
         <TabsList className="grid w-full grid-cols-3">
           {(Object.entries(TAB_CONFIG) as [PredictionType, typeof TAB_CONFIG[PredictionType]][]).map(
             ([key, cfg]) => (
@@ -186,9 +205,9 @@ const ProcessPredictions = () => {
                   )}
                 </CardHeader>
                 <CardContent>
-                  {results[`${selectedProcess}_${key}`] ? (
+                  {activeTab === key && displayResult ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>{results[`${selectedProcess}_${key}`]}</ReactMarkdown>
+                      <ReactMarkdown>{displayResult}</ReactMarkdown>
                     </div>
                   ) : (
                     <div className="text-center py-12 text-muted-foreground">
@@ -198,6 +217,45 @@ const ProcessPredictions = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* History section */}
+              {activeTab === key && history.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <History className="h-4 w-4 text-muted-foreground" />
+                      Histórico de Análises ({history.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {history.map((h, i) => (
+                      <button
+                        key={h.id}
+                        onClick={() => setCurrentResult(h.ai_explanation)}
+                        className="flex items-center gap-3 w-full p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0">
+                          <cfg.icon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {i === 0 ? "Análise mais recente" : `Análise ${history.length - i}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {h.ai_explanation?.slice(0, 80)}...
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {new Date(h.created_at).toLocaleDateString("pt-BR", {
+                            day: "2-digit", month: "short", year: "2-digit",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
+                      </button>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           )
         )}
