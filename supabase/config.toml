@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.extract-pdf-text]
 verify_jwt = false
+
+[functions.court-monitoring-scan]
+verify_jwt = false
