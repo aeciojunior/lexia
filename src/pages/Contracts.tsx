@@ -348,7 +348,7 @@ const Contracts = () => {
                     <div>
                       <p className="text-sm font-medium">{c.title}</p>
                       <div className="flex gap-1.5 mt-1">
-                        <LexBadge variant={isExpired ? "danger" : isNear ? "warning" : "success"}>{isExpired ? "Vencido" : isNear ? "Próximo" : "Regular"}</LexBadge>
+                        <LexBadge variant={isExpired ? "destructive" : isNear ? "warning" : "success"}>{isExpired ? "Vencido" : isNear ? "Próximo" : "Regular"}</LexBadge>
                         {noClauses && <LexBadge variant="warning">Sem cláusulas</LexBadge>}
                       </div>
                     </div>
