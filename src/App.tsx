@@ -145,6 +145,11 @@ const App = () => (
               <Route path="/court-monitoring" element={<CourtMonitoring />} />
               <Route path="/legislative-updates" element={<LegislativeUpdates />} />
               <Route path="/regulatory" element={<RegulatoryIntelligence />} />
+              <Route path="/legal-intelligence" element={<LegalIntelligence />} />
+              <Route path="/precedents" element={<InternalPrecedents />} />
+              <Route path="/legal-strategy" element={<LegalStrategy />} />
+              <Route path="/case-clustering" element={<CaseClustering />} />
+              <Route path="/financial-impact" element={<FinancialImpact />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

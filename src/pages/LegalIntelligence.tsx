@@ -65,7 +65,7 @@ export default function LegalIntelligence() {
   const { data: criticalProcesses = [] } = useQuery({
     queryKey: ["li-processes", activeOrgId],
     queryFn: async () => {
-      const { data } = await supabase.from("processes").select("id, title, number, status, type, priority").eq("archived", false).in("priority", ["high", "urgent"]).limit(10);
+      const { data } = await supabase.from("processes").select("id, title, number, status, type, priority").eq("archived", false).limit(10);
       return data || [];
     },
     enabled: !!activeOrgId,
