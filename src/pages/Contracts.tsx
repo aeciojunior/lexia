@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollText, Plus, Search, Pencil, Trash2, Users, Scale, Calendar, DollarSign, Tag, FileText, Eye, PenTool, Receipt, Loader2 } from "lucide-react";
+import { ScrollText, Plus, Search, Pencil, Trash2, Users, Scale, Calendar, DollarSign, Tag, FileText, Eye, PenTool, Receipt, Loader2, Brain } from "lucide-react";
+import { ContractIntelligencePanel } from "@/components/contracts/ContractIntelligencePanel";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { format } from "date-fns";
