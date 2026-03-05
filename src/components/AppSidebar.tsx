@@ -5,7 +5,7 @@ import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText, KeyRound, Target, Landmark, Lock, Package, Building, Bot, BookText,
+  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText, KeyRound, Target, Landmark, Lock, Package, Building, Bot, BookText, Eye,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
