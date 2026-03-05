@@ -12,14 +12,22 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, ShieldAlert, TrendingDown, CheckCircle2 } from "lucide-react";
+import { Plus, AlertTriangle, ShieldAlert, TrendingDown, CheckCircle2, Sparkles, Clock } from "lucide-react";
 import { format } from "date-fns";
 
 const RISK_TYPES = [
   { value: "legal", label: "Jurídico" },
   { value: "operational", label: "Operacional" },
   { value: "financial", label: "Financeiro" },
+  { value: "procedural", label: "Processual" },
+  { value: "probatory", label: "Probatório" },
+  { value: "merit", label: "Mérito" },
+  { value: "contractual", label: "Contratual" },
+  { value: "regulatory", label: "Regulatório" },
+  { value: "legislative", label: "Legislativo" },
+  { value: "strategic", label: "Estratégico" },
 ];
 
 const LEVELS = [
@@ -47,6 +55,7 @@ const Risks = () => {
   const [probability, setProbability] = useState("medium");
   const [impact, setImpact] = useState("medium");
   const [mitigation, setMitigation] = useState("");
+  const [cause, setCause] = useState("");
 
   const { data: risks, isLoading } = useQuery({
     queryKey: ["risks", activeOrgId],
@@ -77,7 +86,7 @@ const Risks = () => {
       const { error } = await supabase.from("risks").insert({
         organization_id: activeOrgId!,
         title,
-        description,
+        description: description || null,
         risk_type: riskType,
         probability,
         impact,
@@ -87,7 +96,11 @@ const Risks = () => {
       } as any);
       if (error) throw error;
       await supabase.from("audit_logs").insert({
-        action: "risk_created", user_id: user!.id, organization_id: activeOrgId, resource_type: "risk",
+        action: "legal_risk_detected",
+        user_id: user!.id,
+        organization_id: activeOrgId,
+        resource_type: "risk",
+        metadata: { risk_type: riskType, risk_level: riskLevel, cause: cause || null },
       } as any);
     },
     onSuccess: () => {
@@ -96,6 +109,7 @@ const Risks = () => {
       setTitle("");
       setDescription("");
       setMitigation("");
+      setCause("");
       toast({ title: "Risco registrado com sucesso" });
     },
   });
@@ -106,9 +120,13 @@ const Risks = () => {
       if (status === "closed") update.resolved_at = new Date().toISOString();
       const { error } = await supabase.from("risks").update(update).eq("id", id);
       if (error) throw error;
+      const action = status === "mitigated" ? "legal_risk_mitigated" : status === "closed" ? "risk_closed" : "legal_risk_updated";
       await supabase.from("audit_logs").insert({
-        action: status === "mitigated" ? "risk_mitigated" : status === "closed" ? "risk_closed" : "risk_updated",
-        user_id: user!.id, organization_id: activeOrgId, resource_type: "risk", resource_id: id,
+        action,
+        user_id: user!.id,
+        organization_id: activeOrgId,
+        resource_type: "risk",
+        resource_id: id,
       } as any);
     },
     onSuccess: () => {
@@ -119,24 +137,34 @@ const Risks = () => {
 
   const openRisks = risks?.filter((r: any) => r.status === "open" || r.status === "mitigating").length || 0;
   const criticalRisks = risks?.filter((r: any) => r.risk_level === "critical" || r.risk_level === "high").length || 0;
+  const mitigatedRisks = risks?.filter((r: any) => r.status === "mitigated" || r.status === "closed").length || 0;
+
+  // Group by type for analysis
+  const byType: Record<string, any[]> = {};
+  risks?.forEach((r: any) => {
+    const type = r.risk_type || "legal";
+    if (!byType[type]) byType[type] = [];
+    byType[type].push(r);
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Gestão de Riscos</h1>
-          <p className="text-muted-foreground">Identifique, classifique e mitigue riscos</p>
+          <h1 className="text-2xl font-bold text-foreground">Gestão de Riscos Jurídicos</h1>
+          <p className="text-muted-foreground">RF-063 — Identifique, classifique, monitore e mitigue riscos</p>
         </div>
         <RoleGuard permissions={["MANAGE_RISKS"]}>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />Novo Risco</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader><DialogTitle>Registrar Risco</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
-                <Textarea placeholder="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} />
+                <Textarea placeholder="Descrição detalhada" value={description} onChange={(e) => setDescription(e.target.value)} />
+                <Input placeholder="Causa do risco" value={cause} onChange={(e) => setCause(e.target.value)} />
                 <Select value={riskType} onValueChange={setRiskType}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{RISK_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
@@ -159,44 +187,123 @@ const Risks = () => {
         </RoleGuard>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card><CardContent className="pt-6 text-center"><ShieldAlert className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{openRisks}</p><p className="text-sm text-muted-foreground">Riscos Abertos</p></CardContent></Card>
-        <Card><CardContent className="pt-6 text-center"><AlertTriangle className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{criticalRisks}</p><p className="text-sm text-muted-foreground">Alto/Crítico</p></CardContent></Card>
-        <Card><CardContent className="pt-6 text-center"><TrendingDown className="h-8 w-8 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{risks?.filter((r: any) => r.status === "mitigated" || r.status === "closed").length || 0}</p><p className="text-sm text-muted-foreground">Mitigados/Fechados</p></CardContent></Card>
-      </div>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="by-type">Por Tipo</TabsTrigger>
+          <TabsTrigger value="timeline">Linha do Tempo</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>Risco</TableHead><TableHead>Tipo</TableHead><TableHead>Nível</TableHead><TableHead>Status</TableHead><TableHead>Data</TableHead><TableHead>Ações</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={6}>Carregando...</TableCell></TableRow>}
-            {risks?.map((risk: any) => (
-              <TableRow key={risk.id}>
-                <TableCell>
-                  <div><p className="font-medium">{risk.title}</p>{risk.description && <p className="text-xs text-muted-foreground truncate max-w-xs">{risk.description}</p>}</div>
-                </TableCell>
-                <TableCell><Badge variant="outline">{RISK_TYPES.find((t) => t.value === risk.risk_type)?.label}</Badge></TableCell>
-                <TableCell><Badge variant={LEVELS.find((l) => l.value === risk.risk_level)?.color as any}>{LEVELS.find((l) => l.value === risk.risk_level)?.label}</Badge></TableCell>
-                <TableCell><Badge variant={risk.status === "closed" ? "secondary" : "outline"}>{STATUS_OPTIONS.find((s) => s.value === risk.status)?.label}</Badge></TableCell>
-                <TableCell className="text-sm">{format(new Date(risk.created_at), "dd/MM/yyyy")}</TableCell>
-                <TableCell>
-                  <RoleGuard permissions={["MANAGE_RISKS"]}>
-                    {risk.status !== "closed" && (
-                      <Select value={risk.status} onValueChange={(v) => updateStatus.mutate({ id: risk.id, status: v })}>
-                        <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
-                        <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    )}
-                  </RoleGuard>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!isLoading && risks?.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum risco registrado.</TableCell></TableRow>}
-          </TableBody>
-        </Table>
-      </Card>
+        <TabsContent value="overview">
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <Card><CardContent className="pt-6 text-center"><ShieldAlert className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{openRisks}</p><p className="text-sm text-muted-foreground">Riscos Abertos</p></CardContent></Card>
+            <Card><CardContent className="pt-6 text-center"><AlertTriangle className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{criticalRisks}</p><p className="text-sm text-muted-foreground">Alto/Crítico</p></CardContent></Card>
+            <Card><CardContent className="pt-6 text-center"><TrendingDown className="h-8 w-8 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{mitigatedRisks}</p><p className="text-sm text-muted-foreground">Mitigados/Fechados</p></CardContent></Card>
+          </div>
+
+          <Card>
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Risco</TableHead><TableHead>Tipo</TableHead><TableHead>Nível</TableHead><TableHead>Status</TableHead><TableHead>Data</TableHead><TableHead>Ações</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {isLoading && <TableRow><TableCell colSpan={6}>Carregando...</TableCell></TableRow>}
+                {risks?.map((risk: any) => (
+                  <TableRow key={risk.id}>
+                    <TableCell>
+                      <div><p className="font-medium">{risk.title}</p>{risk.description && <p className="text-xs text-muted-foreground truncate max-w-xs">{risk.description}</p>}</div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{RISK_TYPES.find((t) => t.value === risk.risk_type)?.label || risk.risk_type}</Badge></TableCell>
+                    <TableCell><Badge variant={LEVELS.find((l) => l.value === risk.risk_level)?.color as any}>{LEVELS.find((l) => l.value === risk.risk_level)?.label}</Badge></TableCell>
+                    <TableCell><Badge variant={risk.status === "closed" ? "secondary" : "outline"}>{STATUS_OPTIONS.find((s) => s.value === risk.status)?.label}</Badge></TableCell>
+                    <TableCell className="text-sm">{format(new Date(risk.created_at), "dd/MM/yyyy")}</TableCell>
+                    <TableCell>
+                      <RoleGuard permissions={["MANAGE_RISKS"]}>
+                        {risk.status !== "closed" && (
+                          <Select value={risk.status} onValueChange={(v) => updateStatus.mutate({ id: risk.id, status: v })}>
+                            <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
+                      </RoleGuard>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!isLoading && risks?.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhum risco registrado.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="by-type">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Object.entries(byType).length === 0 && (
+              <Card className="col-span-full"><CardContent className="py-8 text-center text-muted-foreground">Sem riscos para análise por tipo.</CardContent></Card>
+            )}
+            {Object.entries(byType).sort((a, b) => b[1].length - a[1].length).map(([type, items]) => {
+              const critical = items.filter((r) => r.risk_level === "critical" || r.risk_level === "high").length;
+              return (
+                <Card key={type}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center justify-between">
+                      <span>{RISK_TYPES.find((t) => t.value === type)?.label || type}</span>
+                      <Badge variant="outline">{items.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {critical > 0 && <p className="text-xs text-destructive font-medium mb-2">⚠ {critical} alto/crítico</p>}
+                    <div className="space-y-1">
+                      {items.slice(0, 4).map((r: any) => (
+                        <div key={r.id} className="flex items-center justify-between text-sm">
+                          <span className="truncate max-w-[180px]">{r.title}</span>
+                          <Badge variant={LEVELS.find((l) => l.value === r.risk_level)?.color as any} className="text-xs">
+                            {LEVELS.find((l) => l.value === r.risk_level)?.label}
+                          </Badge>
+                        </div>
+                      ))}
+                      {items.length > 4 && <p className="text-xs text-muted-foreground">+{items.length - 4} mais</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="timeline">
+          <Card>
+            <CardContent className="pt-6">
+              {(!risks || risks.length === 0) && <p className="text-center text-muted-foreground">Sem riscos para exibir na linha do tempo.</p>}
+              <div className="space-y-4">
+                {risks?.slice(0, 20).map((risk: any) => (
+                  <div key={risk.id} className="flex gap-4 items-start">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full ${risk.risk_level === "critical" || risk.risk_level === "high" ? "bg-destructive" : "bg-primary"}`} />
+                      <div className="w-px h-full bg-border min-h-[40px]" />
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{risk.title}</span>
+                        <Badge variant={LEVELS.find((l) => l.value === risk.risk_level)?.color as any} className="text-xs">
+                          {LEVELS.find((l) => l.value === risk.risk_level)?.label}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {RISK_TYPES.find((t) => t.value === risk.risk_type)?.label}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <Clock className="h-3 w-3" /> {format(new Date(risk.created_at), "dd/MM/yyyy HH:mm")}
+                        {risk.resolved_at && <span className="ml-2">→ Resolvido em {format(new Date(risk.resolved_at), "dd/MM/yyyy")}</span>}
+                      </p>
+                      {risk.description && <p className="text-xs text-muted-foreground mt-1">{risk.description}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
