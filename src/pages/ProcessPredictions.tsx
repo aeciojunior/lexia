@@ -146,7 +146,8 @@ const ProcessPredictions = () => {
           {selectedProc && (
             <div className="flex gap-2 mt-3">
               <Badge variant="outline">{selectedProc.status}</Badge>
-              {selectedProc.legal_area && <Badge variant="secondary">{selectedProc.legal_area}</Badge>}
+              {selectedProc.type && <Badge variant="secondary">{selectedProc.type}</Badge>}
+              {selectedProc.classe && <Badge variant="outline">{selectedProc.classe}</Badge>}
             </div>
           )}
         </CardContent>
