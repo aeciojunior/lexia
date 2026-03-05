@@ -2832,6 +2832,71 @@ export type Database = {
           },
         ]
       }
+      internal_precedents: {
+        Row: {
+          context: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          legal_area: string | null
+          limitations: string | null
+          organization_id: string
+          precedent_type: string
+          recommendations: string | null
+          relevant_excerpts: string | null
+          result_obtained: string | null
+          tags: string[] | null
+          title: string
+          tribunal: string | null
+          updated_at: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          legal_area?: string | null
+          limitations?: string | null
+          organization_id: string
+          precedent_type?: string
+          recommendations?: string | null
+          relevant_excerpts?: string | null
+          result_obtained?: string | null
+          tags?: string[] | null
+          title: string
+          tribunal?: string | null
+          updated_at?: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          legal_area?: string | null
+          limitations?: string | null
+          organization_id?: string
+          precedent_type?: string
+          recommendations?: string | null
+          relevant_excerpts?: string | null
+          result_obtained?: string | null
+          tags?: string[] | null
+          title?: string
+          tribunal?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_precedents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount_cents: number
