@@ -74,6 +74,8 @@ import InternalPrecedents from "./pages/InternalPrecedents";
 import LegalStrategy from "./pages/LegalStrategy";
 import CaseClustering from "./pages/CaseClustering";
 import FinancialImpact from "./pages/FinancialImpact";
+import DueDiligence from "./pages/DueDiligence";
+import MassLitigation from "./pages/MassLitigation";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
