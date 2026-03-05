@@ -6,6 +6,7 @@ import ProcessTimeline from "@/components/process/ProcessTimeline";
 import ProcessClassification from "@/components/process/ProcessClassification";
 import DecisionExtraction from "@/components/process/DecisionExtraction";
 import ProcessSummary360 from "@/components/process/ProcessSummary360";
+import ProcessPredictionsPanel from "@/components/process/ProcessPredictionsPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
