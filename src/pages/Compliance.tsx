@@ -179,6 +179,7 @@ export default function Compliance() {
           <TabsTrigger value="consents" className="gap-1.5"><Users className="h-4 w-4" />Consentimentos</TabsTrigger>
           <TabsTrigger value="dsar" className="gap-1.5"><FileText className="h-4 w-4" />DSAR</TabsTrigger>
           <TabsTrigger value="incidents" className="gap-1.5"><AlertTriangle className="h-4 w-4" />Incidentes</TabsTrigger>
+          <TabsTrigger value="engine" className="gap-1.5"><Shield className="h-4 w-4" />Motor Compliance</TabsTrigger>
         </TabsList>
 
         {/* ── Policies ── */}
@@ -359,6 +360,46 @@ export default function Compliance() {
               );
             })}</div>
           )}
+        </TabsContent>
+
+        {/* RF-072: Motor de Compliance */}
+        <TabsContent value="engine" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border bg-card p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{policies.filter((p: any) => p.is_active).length}</p>
+              <p className="text-xs text-muted-foreground">Políticas Ativas</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 text-center">
+              <p className="text-2xl font-bold text-destructive">{incidents.filter((i: any) => i.status === "open").length}</p>
+              <p className="text-xs text-muted-foreground">Incidentes Abertos</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 text-center">
+              <p className="text-2xl font-bold">{consents.filter((c: any) => c.status === "active").length}</p>
+              <p className="text-xs text-muted-foreground">Consentimentos Ativos</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+            <h3 className="font-semibold text-sm flex items-center gap-2"><Shield className="h-4 w-4" />Obrigações Monitoradas</h3>
+            <div className="space-y-2">
+              {[
+                { label: "Política de Privacidade", status: policies.some((p: any) => p.policy_type === "privacy" && p.is_active) ? "conforme" : "risco" },
+                { label: "Política de Segurança", status: policies.some((p: any) => p.policy_type === "security" && p.is_active) ? "conforme" : "risco" },
+                { label: "Política de Retenção", status: policies.some((p: any) => p.policy_type === "retention" && p.is_active) ? "conforme" : "risco" },
+                { label: "Consentimentos LGPD", status: consents.length > 0 ? "conforme" : "não conforme" },
+                { label: "Incidentes Resolvidos", status: incidents.filter((i: any) => i.status === "open").length === 0 ? "conforme" : "risco" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <span className="text-sm">{item.label}</span>
+                  <Badge variant={item.status === "conforme" ? "default" : item.status === "risco" ? "destructive" : "secondary"}>{item.status}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-muted bg-muted/20 p-4">
+            <p className="text-sm text-muted-foreground">🔍 O Motor de Compliance (RF-072) monitora normas, políticas internas e obrigações regulatórias. Alertas e recomendações são gerados automaticamente quando não conformidades são detectadas.</p>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

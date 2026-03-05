@@ -23,6 +23,10 @@ const PREDICTION_TYPES = [
   { value: "bottleneck", label: "Gargalos Operacionais", icon: AlertTriangle },
   { value: "revenue_forecast", label: "Previsão de Faturamento", icon: TrendingUp },
   { value: "default_risk", label: "Risco de Inadimplência", icon: AlertTriangle },
+  { value: "procedural_risk", label: "Risco Processual", icon: AlertTriangle },
+  { value: "merit_risk", label: "Risco de Mérito", icon: AlertTriangle },
+  { value: "probatory_risk", label: "Risco Probatório", icon: AlertTriangle },
+  { value: "strategic_risk", label: "Risco Estratégico", icon: AlertTriangle },
 ];
 
 const TARGET_TYPES = [
@@ -71,6 +75,12 @@ export default function Predictions() {
         confidence_score: Math.round(Math.random() * 30 + 65),
         ai_explanation: "Análise baseada em dados históricos da organização, padrões jurisprudenciais e tendências operacionais identificadas.",
       });
+      if (error) throw error;
+      await supabase.from("audit_logs").insert({
+        action: "procedural_risk_predicted", user_id: user!.id,
+        organization_id: activeOrgId!, resource_type: "prediction",
+        metadata: { prediction_type: form.prediction_type, target_type: form.target_type },
+      } as any);
       if (error) throw error;
       await supabase.from("audit_logs").insert({
         action: "prediction_generated", user_id: user!.id,

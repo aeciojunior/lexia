@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.court-monitoring-scan]
 verify_jwt = false
+
+[functions.generate-legal-strategy]
+verify_jwt = false

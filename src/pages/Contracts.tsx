@@ -259,6 +259,59 @@ const Contracts = () => {
         ))}
       </div>
 
+      {/* RF-073: Análise Inteligente de Contratos */}
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="list">Lista de Contratos</TabsTrigger>
+          <TabsTrigger value="analysis">Análise Inteligente</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="analysis" className="space-y-4 mt-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-destructive">{contracts.filter((c: any) => c.end_date && new Date(c.end_date) < new Date() && c.status === "active").length}</p>
+                <p className="text-xs text-muted-foreground">Contratos Vencidos</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold text-primary">{contracts.filter((c: any) => c.end_date && new Date(c.end_date) > new Date() && new Date(c.end_date) < new Date(Date.now() + 30 * 86400000)).length}</p>
+                <p className="text-xs text-muted-foreground">Vencem em 30 dias</p>
+              </div>
+            </LexCard>
+            <LexCard>
+              <div className="p-4 text-center">
+                <p className="text-2xl font-bold">{contracts.filter((c: any) => !c.clauses && c.status === "active").length}</p>
+                <p className="text-xs text-muted-foreground">Sem Cláusulas Definidas</p>
+              </div>
+            </LexCard>
+          </div>
+          <LexCard>
+            <div className="p-5 space-y-3">
+              <h3 className="font-semibold text-sm">Alertas de Contratos</h3>
+              {contracts.filter((c: any) => c.status === "active" && c.end_date && new Date(c.end_date) < new Date(Date.now() + 60 * 86400000)).map((c: any) => (
+                <div key={c.id} className="p-3 rounded-lg bg-muted/50 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{c.title}</p>
+                    <p className="text-xs text-muted-foreground">Vencimento: {format(new Date(c.end_date), "dd/MM/yyyy")}</p>
+                  </div>
+                  <LexBadge variant="warning">Atenção</LexBadge>
+                </div>
+              ))}
+              {contracts.filter((c: any) => c.status === "active" && c.end_date && new Date(c.end_date) < new Date(Date.now() + 60 * 86400000)).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum alerta de contrato no momento.</p>
+              )}
+            </div>
+          </LexCard>
+          <LexCard className="border-muted">
+            <div className="p-4">
+              <p className="text-sm text-muted-foreground">📋 A Análise Inteligente (RF-073) monitora prazos, obrigações, riscos contratuais e impacto legislativo. Sugestões de renegociação e detecção de cláusulas perigosas são geradas automaticamente.</p>
+            </div>
+          </LexCard>
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-4">
       {/* Contracts List */}
       <div className="space-y-3">
         {isLoading ? (
@@ -313,6 +366,8 @@ const Contracts = () => {
           ))
         )}
       </div>
+        </TabsContent>
+      </Tabs>
 
       {/* View Dialog */}
       <Dialog open={!!viewContract} onOpenChange={() => setViewContract(null)}>

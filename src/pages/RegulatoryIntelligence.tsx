@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Plus, ShieldCheck, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
@@ -168,6 +169,13 @@ const RegulatoryIntelligence = () => {
       </div>
 
       {/* Table */}
+      <Tabs defaultValue="updates">
+        <TabsList>
+          <TabsTrigger value="updates">Atualizações</TabsTrigger>
+          <TabsTrigger value="risks">Riscos Regulatórios</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="updates">
       <Card>
         <Table>
           <TableHeader>
@@ -198,6 +206,33 @@ const RegulatoryIntelligence = () => {
           </TableBody>
         </Table>
       </Card>
+        </TabsContent>
+
+        {/* RF-077: Riscos Regulatórios */}
+        <TabsContent value="risks" className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            {[
+              { label: "Risco de Não Conformidade", count: updates?.filter((u: any) => u.urgency === "high").length || 0, variant: "destructive" as const },
+              { label: "Risco de Penalidade", count: updates?.filter((u: any) => u.change_type === "revocation").length || 0, variant: "default" as const },
+              { label: "Monitoramento Ativo", count: updates?.length || 0, variant: "secondary" as const },
+            ].map((item, i) => (
+              <Card key={i}><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{item.count}</p><p className="text-xs text-muted-foreground">{item.label}</p></CardContent></Card>
+            ))}
+          </div>
+          {updates?.filter((u: any) => u.urgency === "high").map((u: any) => (
+            <Card key={u.id}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-sm">{u.norm_title}</p>
+                  <div className="flex gap-2 mt-1"><Badge variant="outline">{u.agency}</Badge>{urgencyBadge(u.urgency)}</div>
+                  {u.recommendations && <p className="text-xs text-muted-foreground mt-2">{u.recommendations}</p>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">⚠️ A Inteligência de Risco Regulatório (RF-077) monitora normas de agências reguladoras e identifica riscos setoriais, penalidades e obrigações de reporte.</p></CardContent></Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
