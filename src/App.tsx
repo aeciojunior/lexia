@@ -76,6 +76,7 @@ import CaseClustering from "./pages/CaseClustering";
 import FinancialImpact from "./pages/FinancialImpact";
 import DueDiligence from "./pages/DueDiligence";
 import MassLitigation from "./pages/MassLitigation";
+import ProcessPredictions from "./pages/ProcessPredictions";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
