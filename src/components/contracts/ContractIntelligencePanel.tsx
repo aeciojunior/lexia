@@ -18,9 +18,10 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
-  Brain, Shield, RefreshCw, BarChart3, AlertTriangle, FileText, Loader2, History, ChevronDown, ChevronUp,
+  Brain, Shield, RefreshCw, BarChart3, AlertTriangle, FileText, Loader2, History, ChevronDown, ChevronUp, Download,
 } from "lucide-react";
 import { ContractDraftForm } from "./ContractDraftForm";
+import { exportContractPDF } from "./contractPdfExport";
 
 type AnalysisType = "full_analysis" | "clause_analysis" | "renegotiation" | "benchmarking" | "abusive_detection" | "draft_contract";
 
