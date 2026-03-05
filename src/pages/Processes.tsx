@@ -1638,6 +1638,9 @@ const ProcessDetailsContent = ({ process, getMemberName, activeOrgId }: { proces
       {/* Court Sync */}
       <CourtSyncSection processId={process.id} processNumber={process.number} />
 
+      {/* Previsão Processual (RF-070/071/072) */}
+      <ProcessPredictionsPanel processId={process.id} organizationId={activeOrgId || ""} />
+
       {/* Linha do Tempo */}
       <ProcessTimeline processId={process.id} />
 
