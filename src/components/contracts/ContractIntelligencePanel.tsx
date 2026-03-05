@@ -197,6 +197,23 @@ export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
             {/* Result */}
             {results[tab.type] && (
               <LexCard variant="glow">
+                <div className="flex items-center justify-between px-5 pt-4">
+                  <span className="text-xs text-muted-foreground font-medium">Resultado da análise</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => exportContractPDF({
+                      title: tab.label,
+                      contractTitle: contract.title,
+                      analysisType: tab.type,
+                      content: results[tab.type],
+                    })}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Exportar PDF
+                  </Button>
+                </div>
                 <ScrollArea className="max-h-[500px]">
                   <div className="p-5 prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown>{results[tab.type]}</ReactMarkdown>
