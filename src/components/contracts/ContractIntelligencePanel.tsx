@@ -58,7 +58,6 @@ export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
         .from("predictions")
         .select("*")
         .eq("target_id", contract.id)
-        .eq("target_type" as any, "contract")
         .eq("prediction_type", activeTab)
         .order("created_at", { ascending: false })
         .limit(10);
