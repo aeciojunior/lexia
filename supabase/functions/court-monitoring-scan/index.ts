@@ -213,7 +213,6 @@ async function processConfig(
                 },
               } as any);
 
-              // Also create a jurisprudence alert audit log
               await supabase.from("audit_logs").insert({
                 action: "jurisprudence_alert_generated",
                 organization_id: config.organization_id,
@@ -225,6 +224,16 @@ async function processConfig(
                   themes: matchedThemes,
                 },
               } as any);
+
+              // Send email notification to org members
+              await sendAlertEmail(
+                supabase,
+                config.organization_id,
+                decision,
+                matchedThemes,
+                matchedKeywords,
+                generateRecommendation(relevance, impactLevel, matchedThemes)
+              );
             }
           }
         }
