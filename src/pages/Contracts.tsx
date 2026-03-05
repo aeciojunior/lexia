@@ -45,6 +45,7 @@ const Contracts = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [viewContract, setViewContract] = useState<any>(null);
+  const [intelligenceContract, setIntelligenceContract] = useState<any>(null);
   const [form, setForm] = useState(emptyForm);
   const [tagInput, setTagInput] = useState("");
   const [signDialogOpen, setSignDialogOpen] = useState(false);
