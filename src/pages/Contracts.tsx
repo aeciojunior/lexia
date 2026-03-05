@@ -366,6 +366,8 @@ const Contracts = () => {
           ))
         )}
       </div>
+        </TabsContent>
+      </Tabs>
 
       {/* View Dialog */}
       <Dialog open={!!viewContract} onOpenChange={() => setViewContract(null)}>

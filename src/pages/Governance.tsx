@@ -168,6 +168,28 @@ const Governance = () => {
             </Card>
           ))}
         </TabsContent>
+
+        {/* RF-075: Inteligência de Governança */}
+        <TabsContent value="intelligence" className="space-y-4">
+          <Card><CardContent className="p-5 space-y-3">
+            <h3 className="font-semibold flex items-center gap-2"><Landmark className="h-5 w-5 text-primary" />Mapa de Riscos Corporativos</h3>
+            <div className="space-y-2">
+              {[
+                { label: "Comitês ativos", status: committees.filter((c: any) => c.status === "active").length > 0 ? "conforme" : "risco" },
+                { label: "Reuniões recentes", status: meetings.length > 0 ? "conforme" : "atenção" },
+                { label: "Decisões implementadas", status: decisions.filter((d: any) => d.status === "implemented").length > 0 ? "conforme" : "pendente" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <span className="text-sm">{item.label}</span>
+                  <Badge variant={item.status === "conforme" ? "default" : "destructive"}>{item.status}</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent></Card>
+          <Card><CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">🏛️ O Motor de Governança (RF-075) integra dados jurídicos, regulatórios e operacionais para apoiar decisões estratégicas e garantir conformidade.</p>
+          </CardContent></Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
