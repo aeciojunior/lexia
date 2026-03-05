@@ -49,7 +49,7 @@ const ProcessPredictions = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("processes")
-        .select("id, title, number, status, legal_area")
+        .select("id, title, number, status, type, classe")
         .eq("organization_id", activeOrgId!)
         .order("updated_at", { ascending: false })
         .limit(100);
