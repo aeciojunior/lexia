@@ -1484,6 +1484,162 @@ export type Database = {
           },
         ]
       }
+      court_monitoring_configs: {
+        Row: {
+          chambers: string[] | null
+          courts: string[] | null
+          created_at: string
+          created_by: string
+          decision_types: string[] | null
+          frequency: string
+          id: string
+          is_active: boolean
+          keywords: string[] | null
+          last_run_at: string | null
+          legal_areas: string[] | null
+          name: string
+          organization_id: string
+          themes: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          chambers?: string[] | null
+          courts?: string[] | null
+          created_at?: string
+          created_by: string
+          decision_types?: string[] | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[] | null
+          last_run_at?: string | null
+          legal_areas?: string[] | null
+          name: string
+          organization_id: string
+          themes?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          chambers?: string[] | null
+          courts?: string[] | null
+          created_at?: string
+          created_by?: string
+          decision_types?: string[] | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[] | null
+          last_run_at?: string | null
+          legal_areas?: string[] | null
+          name?: string
+          organization_id?: string
+          themes?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_monitoring_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_monitoring_decisions: {
+        Row: {
+          ai_recommendation: string | null
+          alert_sent: boolean
+          chamber: string | null
+          config_id: string | null
+          created_at: string
+          decision_date: string | null
+          decision_number: string | null
+          full_text: string | null
+          id: string
+          impact_level: string
+          matched_keywords: string[] | null
+          matched_themes: string[] | null
+          metadata: Json | null
+          organization_id: string
+          related_process_id: string | null
+          relevance_level: string
+          status: string
+          summary: string | null
+          thesis: string | null
+          tribunal: string
+          updated_at: string
+        }
+        Insert: {
+          ai_recommendation?: string | null
+          alert_sent?: boolean
+          chamber?: string | null
+          config_id?: string | null
+          created_at?: string
+          decision_date?: string | null
+          decision_number?: string | null
+          full_text?: string | null
+          id?: string
+          impact_level?: string
+          matched_keywords?: string[] | null
+          matched_themes?: string[] | null
+          metadata?: Json | null
+          organization_id: string
+          related_process_id?: string | null
+          relevance_level?: string
+          status?: string
+          summary?: string | null
+          thesis?: string | null
+          tribunal: string
+          updated_at?: string
+        }
+        Update: {
+          ai_recommendation?: string | null
+          alert_sent?: boolean
+          chamber?: string | null
+          config_id?: string | null
+          created_at?: string
+          decision_date?: string | null
+          decision_number?: string | null
+          full_text?: string | null
+          id?: string
+          impact_level?: string
+          matched_keywords?: string[] | null
+          matched_themes?: string[] | null
+          metadata?: Json | null
+          organization_id?: string
+          related_process_id?: string | null
+          relevance_level?: string
+          status?: string
+          summary?: string | null
+          thesis?: string | null
+          tribunal?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_monitoring_decisions_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "court_monitoring_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "court_monitoring_decisions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "court_monitoring_decisions_related_process_id_fkey"
+            columns: ["related_process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deadlines: {
         Row: {
           created_at: string
@@ -3024,6 +3180,83 @@ export type Database = {
           },
         ]
       }
+      legislative_updates: {
+        Row: {
+          affected_areas: string[] | null
+          affected_client_ids: string[] | null
+          change_type: string
+          created_at: string
+          created_by: string
+          id: string
+          impact_analysis: Json | null
+          new_text: string | null
+          norm_identifier: string
+          norm_title: string
+          norm_type: string
+          old_text: string | null
+          organization_id: string
+          published_at: string | null
+          recommendations: string | null
+          scenarios: Json | null
+          status: string
+          summary: string | null
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          affected_areas?: string[] | null
+          affected_client_ids?: string[] | null
+          change_type?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          impact_analysis?: Json | null
+          new_text?: string | null
+          norm_identifier: string
+          norm_title: string
+          norm_type?: string
+          old_text?: string | null
+          organization_id: string
+          published_at?: string | null
+          recommendations?: string | null
+          scenarios?: Json | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          affected_areas?: string[] | null
+          affected_client_ids?: string[] | null
+          change_type?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          impact_analysis?: Json | null
+          new_text?: string | null
+          norm_identifier?: string
+          norm_title?: string
+          norm_type?: string
+          old_text?: string | null
+          organization_id?: string
+          published_at?: string | null
+          recommendations?: string | null
+          scenarios?: Json | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legislative_updates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nl_queries: {
         Row: {
           answer: string | null
@@ -4471,6 +4704,74 @@ export type Database = {
             columns: ["process_id"]
             isOneToOne: false
             referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_updates: {
+        Row: {
+          affected_client_ids: string[] | null
+          affected_sectors: string[] | null
+          agency: string
+          change_type: string
+          created_at: string
+          created_by: string
+          id: string
+          impact_analysis: Json | null
+          norm_identifier: string
+          norm_title: string
+          organization_id: string
+          published_at: string | null
+          recommendations: string | null
+          status: string
+          summary: string | null
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          affected_client_ids?: string[] | null
+          affected_sectors?: string[] | null
+          agency: string
+          change_type?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          impact_analysis?: Json | null
+          norm_identifier: string
+          norm_title: string
+          organization_id: string
+          published_at?: string | null
+          recommendations?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          affected_client_ids?: string[] | null
+          affected_sectors?: string[] | null
+          agency?: string
+          change_type?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          impact_analysis?: Json | null
+          norm_identifier?: string
+          norm_title?: string
+          organization_id?: string
+          published_at?: string | null
+          recommendations?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_updates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
