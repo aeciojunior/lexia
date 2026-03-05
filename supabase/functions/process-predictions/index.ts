@@ -166,19 +166,39 @@ Precedentes internos: ${JSON.stringify(precedentsRes.data || [])}`;
     const aiData = await response.json();
     const result = aiData.choices?.[0]?.message?.content || "Não foi possível gerar a análise.";
 
-    // Audit log
+    // Persist to predictions table
+    let predictionId: string | null = null;
     if (user_id) {
+      const { data: predRow } = await supabase.from("predictions").insert({
+        user_id,
+        organization_id,
+        prediction_type,
+        target_type: "process",
+        target_id: process_id,
+        ai_explanation: result,
+        status: "completed",
+        generated_at: new Date().toISOString(),
+        result: { markdown: result },
+        input_data: {
+          process_title: process.title,
+          process_number: process.number,
+          process_type: process.type,
+        },
+      }).select("id").single();
+      predictionId = predRow?.id || null;
+
+      // Audit log
       await supabase.from("audit_logs").insert({
         action: AUDIT_ACTIONS[prediction_type as PredictionType],
         user_id,
         organization_id,
-        resource_type: "process",
-        resource_id: process_id,
-        metadata: { prediction_type },
+        resource_type: "prediction",
+        resource_id: predictionId || process_id,
+        metadata: { prediction_type, process_id },
       });
     }
 
-    return new Response(JSON.stringify({ result }), {
+    return new Response(JSON.stringify({ result, prediction_id: predictionId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
