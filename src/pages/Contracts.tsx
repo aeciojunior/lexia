@@ -420,34 +420,47 @@ const Contracts = () => {
 
       {/* View Dialog */}
       <Dialog open={!!viewContract} onOpenChange={() => setViewContract(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{viewContract?.title}</DialogTitle></DialogHeader>
           {viewContract && (
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-muted-foreground">Tipo</p><p className="font-medium">{typeLabels[viewContract.contract_type] || viewContract.contract_type}</p></div>
-                <div><p className="text-muted-foreground">Status</p><LexBadge variant={statusVariants[viewContract.status] as any}>{statusLabels[viewContract.status]}</LexBadge></div>
-                <div><p className="text-muted-foreground">Valor</p><p className="font-medium">{formatCurrency(viewContract.amount_cents)}</p></div>
-                <div><p className="text-muted-foreground">Periodicidade</p><p className="font-medium">{periodicityLabels[viewContract.periodicity] || "—"}</p></div>
-                <div><p className="text-muted-foreground">Forma de Pagamento</p><p className="font-medium">{paymentMethodLabels[viewContract.payment_method] || "—"}</p></div>
-                <div><p className="text-muted-foreground">Cliente</p><p className="font-medium">{viewContract.client_id ? getClientName(viewContract.client_id) : "—"}</p></div>
-                <div><p className="text-muted-foreground">Processo</p><p className="font-medium">{viewContract.process_id ? getProcessTitle(viewContract.process_id) : "—"}</p></div>
-                <div><p className="text-muted-foreground">Responsável</p><p className="font-medium">{viewContract.responsible_id ? getResponsibleName(viewContract.responsible_id) : "—"}</p></div>
-                <div><p className="text-muted-foreground">Início</p><p className="font-medium">{viewContract.start_date ? format(new Date(viewContract.start_date), "dd/MM/yyyy") : "—"}</p></div>
-                <div><p className="text-muted-foreground">Término</p><p className="font-medium">{viewContract.end_date ? format(new Date(viewContract.end_date), "dd/MM/yyyy") : "—"}</p></div>
-              </div>
-              {viewContract.description && <div><p className="text-muted-foreground mb-1">Descrição</p><p>{viewContract.description}</p></div>}
-              {viewContract.clauses && <div><p className="text-muted-foreground mb-1">Cláusulas</p><p className="whitespace-pre-wrap">{viewContract.clauses}</p></div>}
-              {viewContract.terms && <div><p className="text-muted-foreground mb-1">Termos</p><p className="whitespace-pre-wrap">{viewContract.terms}</p></div>}
-              {viewContract.notes && <div><p className="text-muted-foreground mb-1">Observações Internas</p><p>{viewContract.notes}</p></div>}
-              {viewContract.metadata?.clicksign_document_key && (
-                <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-muted-foreground text-xs mb-1">Assinatura Digital (Clicksign)</p>
-                  <p className="text-sm font-medium">Doc Key: {viewContract.metadata.clicksign_document_key}</p>
-                  <p className="text-xs text-muted-foreground">Status: {viewContract.metadata.clicksign_status}</p>
+            <Tabs defaultValue="details">
+              <TabsList className="w-full">
+                <TabsTrigger value="details" className="flex-1">Detalhes</TabsTrigger>
+                <TabsTrigger value="intelligence" className="flex-1 gap-1">
+                  <Brain className="h-3.5 w-3.5" />Inteligência
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="space-y-4 text-sm mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><p className="text-muted-foreground">Tipo</p><p className="font-medium">{typeLabels[viewContract.contract_type] || viewContract.contract_type}</p></div>
+                  <div><p className="text-muted-foreground">Status</p><LexBadge variant={statusVariants[viewContract.status] as any}>{statusLabels[viewContract.status]}</LexBadge></div>
+                  <div><p className="text-muted-foreground">Valor</p><p className="font-medium">{formatCurrency(viewContract.amount_cents)}</p></div>
+                  <div><p className="text-muted-foreground">Periodicidade</p><p className="font-medium">{periodicityLabels[viewContract.periodicity] || "—"}</p></div>
+                  <div><p className="text-muted-foreground">Forma de Pagamento</p><p className="font-medium">{paymentMethodLabels[viewContract.payment_method] || "—"}</p></div>
+                  <div><p className="text-muted-foreground">Cliente</p><p className="font-medium">{viewContract.client_id ? getClientName(viewContract.client_id) : "—"}</p></div>
+                  <div><p className="text-muted-foreground">Processo</p><p className="font-medium">{viewContract.process_id ? getProcessTitle(viewContract.process_id) : "—"}</p></div>
+                  <div><p className="text-muted-foreground">Responsável</p><p className="font-medium">{viewContract.responsible_id ? getResponsibleName(viewContract.responsible_id) : "—"}</p></div>
+                  <div><p className="text-muted-foreground">Início</p><p className="font-medium">{viewContract.start_date ? format(new Date(viewContract.start_date), "dd/MM/yyyy") : "—"}</p></div>
+                  <div><p className="text-muted-foreground">Término</p><p className="font-medium">{viewContract.end_date ? format(new Date(viewContract.end_date), "dd/MM/yyyy") : "—"}</p></div>
                 </div>
-              )}
-            </div>
+                {viewContract.description && <div><p className="text-muted-foreground mb-1">Descrição</p><p>{viewContract.description}</p></div>}
+                {viewContract.clauses && <div><p className="text-muted-foreground mb-1">Cláusulas</p><p className="whitespace-pre-wrap">{viewContract.clauses}</p></div>}
+                {viewContract.terms && <div><p className="text-muted-foreground mb-1">Termos</p><p className="whitespace-pre-wrap">{viewContract.terms}</p></div>}
+                {viewContract.notes && <div><p className="text-muted-foreground mb-1">Observações Internas</p><p>{viewContract.notes}</p></div>}
+                {viewContract.metadata?.clicksign_document_key && (
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <p className="text-muted-foreground text-xs mb-1">Assinatura Digital (Clicksign)</p>
+                    <p className="text-sm font-medium">Doc Key: {viewContract.metadata.clicksign_document_key}</p>
+                    <p className="text-xs text-muted-foreground">Status: {viewContract.metadata.clicksign_status}</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="intelligence" className="mt-4">
+                <ContractIntelligencePanel contract={viewContract} contracts={contracts} />
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
