@@ -91,6 +91,7 @@ const Governance = () => {
           <TabsTrigger value="committees">Comitês ({committees.length})</TabsTrigger>
           <TabsTrigger value="meetings">Reuniões ({meetings.length})</TabsTrigger>
           <TabsTrigger value="decisions">Decisões ({decisions.length})</TabsTrigger>
+          <TabsTrigger value="intelligence">Inteligência</TabsTrigger>
         </TabsList>
 
         <TabsContent value="committees" className="space-y-4">
