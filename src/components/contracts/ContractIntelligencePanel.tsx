@@ -12,12 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   Brain, Shield, RefreshCw, BarChart3, AlertTriangle, FileText, Loader2, History, ChevronDown, ChevronUp,
 } from "lucide-react";
+import { ContractDraftForm } from "./ContractDraftForm";
 
 type AnalysisType = "full_analysis" | "clause_analysis" | "renegotiation" | "benchmarking" | "abusive_detection" | "draft_contract";
 
@@ -32,7 +35,7 @@ const TAB_CONFIG: { type: AnalysisType; label: string; icon: any; description: s
   { type: "renegotiation", label: "Renegociação", icon: RefreshCw, description: "Identifica gatilhos e sugere tipos de renegociação com justificativas e cenários.", permission: "ANALYZE_CONTRACTS" },
   { type: "benchmarking", label: "Benchmarking", icon: BarChart3, description: "Compara cláusulas e estrutura com padrões do setor econômico.", permission: "ANALYZE_CONTRACTS" },
   { type: "abusive_detection", label: "Abusivas", icon: AlertTriangle, description: "Detecta cláusulas abusivas ou ilegais com base no CDC, LGPD, CLT e Código Civil.", permission: "ANALYZE_CONTRACTS" },
-  { type: "draft_contract", label: "Redação", icon: FileText, description: "Gera um contrato completo com base em parâmetros e contexto fornecidos.", permission: "DRAFT_CONTRACTS" },
+  { type: "draft_contract", label: "Redação", icon: FileText, description: "Gera um contrato completo com base em parâmetros, modelos internos, compliance e benchmarking setorial.", permission: "DRAFT_CONTRACTS" },
 ];
 
 export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
@@ -48,6 +51,9 @@ export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
   // Draft form state
   const [draftForm, setDraftForm] = useState({
     parties: "", object: "", sector: "tecnologia", contractType: "service",
+    value: "", currency: "BRL", duration: "", jurisdiction: "",
+    riskLevel: "moderate", formality: "formal", complexity: "technical",
+    lgpdRequired: false, arbitration: false, includeAnnexes: false,
   });
 
   const { data: history = [] } = useQuery({
@@ -66,22 +72,38 @@ export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
     enabled: !!contract?.id && showHistory,
   });
 
+  const buildDraftContext = () => {
+    const lines: string[] = [];
+    if (draftForm.parties) lines.push(`**Partes**: ${draftForm.parties}`);
+    if (draftForm.object) lines.push(`**Objeto**: ${draftForm.object}`);
+    lines.push(`**Setor econômico**: ${draftForm.sector}`);
+    lines.push(`**Tipo de contrato**: ${draftForm.contractType}`);
+    if (draftForm.value) lines.push(`**Valor do contrato**: ${draftForm.currency} ${draftForm.value}`);
+    if (draftForm.duration) lines.push(`**Duração**: ${draftForm.duration} meses`);
+    if (draftForm.jurisdiction) lines.push(`**Foro/Jurisdição**: ${draftForm.jurisdiction}`);
+    lines.push(`**Nível de risco**: ${draftForm.riskLevel}`);
+    lines.push(`**Formalidade**: ${draftForm.formality}`);
+    lines.push(`**Complexidade**: ${draftForm.complexity}`);
+    if (draftForm.lgpdRequired) lines.push(`**LGPD**: Incluir cláusulas completas de proteção de dados`);
+    if (draftForm.arbitration) lines.push(`**Arbitragem**: Incluir cláusula compromissória de arbitragem`);
+    if (draftForm.includeAnnexes) lines.push(`**Anexos**: Gerar estrutura de anexos (técnicos, financeiros, regulatórios)`);
+    if (extraContext) lines.push(`\n**Contexto adicional**: ${extraContext}`);
+    return lines.join("\n");
+  };
+
   const runAnalysis = async (type: AnalysisType) => {
     if (!activeOrgId) return;
     setLoading(prev => ({ ...prev, [type]: true }));
 
     try {
-      let context = extraContext;
-      if (type === "draft_contract") {
-        context = `Partes: ${draftForm.parties}\nObjeto: ${draftForm.object}\nSetor: ${draftForm.sector}\nTipo: ${draftForm.contractType}\n${extraContext}`;
-      }
+      const context = type === "draft_contract" ? buildDraftContext() : (extraContext || undefined);
 
       const { data, error } = await supabase.functions.invoke("analyze-contract", {
         body: {
           contract_id: contract?.id || null,
           organization_id: activeOrgId,
           analysis_type: type,
-          extra_context: context || undefined,
+          extra_context: context,
           user_id: user?.id,
         },
       });
@@ -95,7 +117,7 @@ export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
       }
 
       setResults(prev => ({ ...prev, [type]: data.result }));
-      toast.success("Análise concluída!");
+      toast.success(type === "draft_contract" ? "Minuta gerada com sucesso!" : "Análise concluída!");
     } catch (e: any) {
       toast.error(e.message || "Erro ao gerar análise");
     } finally {
@@ -143,49 +165,22 @@ export const ContractIntelligencePanel = ({ contract, contracts }: Props) => {
                 <p className="text-sm text-muted-foreground">{tab.description}</p>
 
                 {tab.type === "draft_contract" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Partes</label>
-                      <Textarea placeholder="Descreva as partes do contrato..." value={draftForm.parties} onChange={e => setDraftForm(f => ({ ...f, parties: e.target.value }))} rows={2} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Objeto</label>
-                      <Textarea placeholder="Descreva o objeto do contrato..." value={draftForm.object} onChange={e => setDraftForm(f => ({ ...f, object: e.target.value }))} rows={2} />
-                    </div>
-                    <Select value={draftForm.sector} onValueChange={v => setDraftForm(f => ({ ...f, sector: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Setor" /></SelectTrigger>
-                      <SelectContent>
-                        {["tecnologia", "energia", "telecomunicações", "saúde", "financeiro", "varejo", "logística", "indústria", "agronegócio", "transporte", "setor público"].map(s => (
-                          <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={draftForm.contractType} onValueChange={v => setDraftForm(f => ({ ...f, contractType: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                      <SelectContent>
-                        {[
-                          { k: "service", l: "Prestação de Serviços" }, { k: "supply", l: "Fornecimento" },
-                          { k: "nda", l: "Confidencialidade (NDA)" }, { k: "partnership", l: "Parceria Comercial" },
-                          { k: "regulated", l: "Contrato Regulado" }, { k: "financial", l: "Financeiro" },
-                          { k: "tech", l: "Tecnologia (SaaS/DPA)" }, { k: "labor", l: "Trabalhista" },
-                          { k: "international", l: "Internacional" },
-                        ].map(t => <SelectItem key={t.k} value={t.k}>{t.l}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <ContractDraftForm form={draftForm} onChange={setDraftForm} />
                 )}
 
-                <Textarea
-                  placeholder="Contexto adicional (opcional)..."
-                  value={extraContext}
-                  onChange={e => setExtraContext(e.target.value)}
-                  rows={2}
-                  className="text-sm"
-                />
+                {tab.type !== "draft_contract" && (
+                  <Textarea
+                    placeholder="Contexto adicional (opcional)..."
+                    value={extraContext}
+                    onChange={e => setExtraContext(e.target.value)}
+                    rows={2}
+                    className="text-sm"
+                  />
+                )}
 
                 <div className="flex gap-2 items-center">
                   <Button onClick={() => runAnalysis(tab.type)} disabled={loading[tab.type]} size="sm">
-                    {loading[tab.type] ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analisando...</> : <>Gerar Análise</>}
+                    {loading[tab.type] ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analisando...</> : tab.type === "draft_contract" ? <>Gerar Minuta Completa</> : <>Gerar Análise</>}
                   </Button>
                   {contract?.id && (
                     <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)} className="text-xs gap-1">

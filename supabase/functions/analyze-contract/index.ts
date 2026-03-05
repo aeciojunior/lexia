@@ -123,25 +123,113 @@ IMPORTANTE: Use dados agregados e anonimizados. Indique limitações.`,
 
 IMPORTANTE: Não emita parecer conclusivo. Indique limitações.`,
 
-  draft_contract: `Você é um redator jurídico especializado. Gere um contrato completo, estruturado e contextualizado com base nos dados fornecidos.
+  draft_contract: `Você é um redator jurídico sênior especializado em minutas contratuais. Gere um contrato completo, estruturado, contextualizado e internamente consistente com base nos dados fornecidos.
 
-## Estrutura obrigatória do contrato:
-1. **Identificação das Partes** — dados completos e poderes
-2. **Objeto** — descrição clara, escopo e limitações
-3. **Obrigações das Partes** — principais, acessórias, regulatórias, compliance
-4. **Preço e Condições Financeiras** — valores, reajustes, índices, multas
-5. **Prazos** — vigência, renovação, rescisão, regulatórios
-6. **Garantias** — financeiras, operacionais, regulatórias
-7. **Responsabilidade** — limites, exclusões, exceções (CDC/LGPD)
-8. **LGPD** — bases legais, finalidades, retenção, compartilhamento
-9. **Confidencialidade** — escopo, exceções, prazo pós-contratual
-10. **Compliance** — anticorrupção, integridade, regulatório
-11. **Foro e Resolução de Conflitos** — foro adequado, arbitragem
-12. **Disposições Gerais**
+## ESTRUTURA OBRIGATÓRIA DO CONTRATO (12 seções):
 
-Aplique cláusulas adequadas ao setor, tipo e risco. Garanta consistência interna. Bloqueie cláusulas proibidas.
+### CLÁUSULA 1ª — IDENTIFICAÇÃO DAS PARTES
+- Dados completos de cada parte (nome/razão social, CNPJ/CPF, endereço, representante legal)
+- Poderes de representação
+- Qualificação jurídica
 
-IMPORTANTE: Este é um rascunho que requer revisão humana. Indique pontos que exigem atenção.`,
+### CLÁUSULA 2ª — OBJETO
+- Descrição clara e detalhada do objeto
+- Escopo dos serviços/fornecimento
+- Limitações expressas
+- Entregáveis (quando aplicável)
+
+### CLÁUSULA 3ª — OBRIGAÇÕES DAS PARTES
+- Obrigações principais de cada parte
+- Obrigações acessórias
+- Obrigações regulatórias específicas do setor
+- Obrigações de compliance e integridade
+
+### CLÁUSULA 4ª — PREÇO E CONDIÇÕES FINANCEIRAS
+- Valor do contrato (usar dados fornecidos)
+- Forma e condições de pagamento
+- Índice de reajuste (IPCA, IGP-M, etc.)
+- Multas e penalidades por inadimplemento
+- Impostos e encargos
+
+### CLÁUSULA 5ª — PRAZOS
+- Vigência do contrato
+- Condições de renovação (automática ou não)
+- Prazos de rescisão e notificação prévia
+- Prazos regulatórios aplicáveis
+- Cronograma de entregas (quando aplicável)
+
+### CLÁUSULA 6ª — GARANTIAS
+- Garantias financeiras (caução, fiança, seguro)
+- Garantias operacionais e de qualidade
+- Garantias regulatórias
+- Condições de execução e liberação
+
+### CLÁUSULA 7ª — RESPONSABILIDADE E LIMITAÇÃO
+- Limites de responsabilidade (cap financeiro)
+- Exclusões de responsabilidade
+- Exceções às limitações
+- Alinhamento com CDC (se aplicável) e LGPD
+- Responsabilidade solidária vs. subsidiária
+
+### CLÁUSULA 8ª — PROTEÇÃO DE DADOS (LGPD)
+(Incluir SOMENTE se solicitado ou se o tipo de contrato exigir)
+- Bases legais para tratamento de dados
+- Finalidades específicas
+- Prazo de retenção
+- Compartilhamento com terceiros
+- Transferência internacional de dados
+- Direitos dos titulares
+- Medidas de segurança técnicas e administrativas
+- Designação de Encarregado (DPO)
+
+### CLÁUSULA 9ª — CONFIDENCIALIDADE
+- Definição de informação confidencial
+- Escopo e abrangência
+- Exceções (informação pública, ordem judicial, etc.)
+- Prazo pós-contratual de confidencialidade
+- Penalidades por violação
+
+### CLÁUSULA 10ª — COMPLIANCE E INTEGRIDADE
+- Cláusula anticorrupção (Lei 12.846/2013)
+- Declaração de integridade
+- Obrigações regulatórias específicas do setor
+- Direito de auditoria
+- Código de conduta aplicável
+
+### CLÁUSULA 11ª — FORO E RESOLUÇÃO DE CONFLITOS
+- Foro competente (usar jurisdição fornecida ou inferir)
+- Cláusula de arbitragem (se solicitado): câmara, regras, idioma, sede
+- Mediação prévia obrigatória (quando aplicável)
+- Lei aplicável
+
+### CLÁUSULA 12ª — DISPOSIÇÕES GERAIS E ANEXOS
+- Comunicações entre as partes
+- Cessão e sub-contratação
+- Independência das cláusulas (severability)
+- Integralidade do acordo
+- Assinaturas e testemunhas
+- Lista de anexos (se solicitado): técnicos, financeiros, regulatórios
+
+---
+
+## REGRAS DE REDAÇÃO:
+1. **Consistência interna**: Verifique que obrigações, prazos e valores estão alinhados entre todas as cláusulas. Não pode haver conflitos entre seções.
+2. **Cláusulas proibidas**: NÃO inclua cláusulas que violem CDC, LGPD, CLT ou Código Civil. Se detectar risco, substitua por alternativa legal.
+3. **Adaptação ao setor**: Adapte linguagem, cláusulas regulatórias e garantias ao setor econômico informado.
+4. **Nível de risco**: Ajuste limites de responsabilidade, garantias e penalidades conforme o nível de risco (conservador = mais proteção, agressivo = mais flexibilidade).
+5. **Formalidade**: Ajuste o tom da linguagem conforme solicitado (formal = juridiquês completo, simplificado = linguagem acessível).
+6. **Complexidade**: Executivo = resumido e direto; Técnico = detalhado com cláusulas específicas.
+
+## SEÇÃO FINAL OBRIGATÓRIA:
+### ⚠️ PONTOS DE ATENÇÃO PARA REVISÃO HUMANA
+Liste todos os pontos que exigem validação por advogado humano:
+- Valores e índices a confirmar
+- Dados das partes a completar
+- Cláusulas que dependem de informação adicional
+- Riscos regulatórios específicos a validar
+- Aspectos setoriais que exigem parecer especializado
+
+IMPORTANTE: Este é um RASCUNHO JURÍDICO que requer REVISÃO HUMANA OBRIGATÓRIA antes de uso. A IA não emite parecer jurídico conclusivo e não substitui a análise de um advogado.`,
 };
 
 serve(async (req) => {
@@ -202,8 +290,58 @@ ${contract.tags?.length ? `\n## Tags: ${contract.tags.join(", ")}` : ""}`;
       }
     }
 
+    // For draft_contract, fetch additional context: similar contracts, templates, compliance policies
+    if (analysis_type === "draft_contract") {
+      // Fetch similar contracts from same org for reference
+      const { data: similarContracts } = await supabase
+        .from("contracts")
+        .select("title, contract_type, clauses, terms, description, amount_cents, currency, tags")
+        .eq("organization_id", organization_id)
+        .neq("id", contract_id || "00000000-0000-0000-0000-000000000000")
+        .limit(5);
+
+      if (similarContracts?.length) {
+        contractContext += `\n\n## Contratos Similares da Organização (referência)`;
+        for (const sc of similarContracts) {
+          contractContext += `\n- **${sc.title}** (${sc.contract_type}): ${sc.description?.slice(0, 200) || "sem descrição"}`;
+          if (sc.clauses) contractContext += `\n  Cláusulas-modelo: ${sc.clauses.slice(0, 500)}`;
+        }
+      }
+
+      // Fetch document templates tagged as contract models
+      const { data: templates } = await supabase
+        .from("ai_templates")
+        .select("title, content, template_type, tags")
+        .eq("organization_id", organization_id)
+        .eq("is_active", true)
+        .in("template_type", ["contract", "contract_model", "minuta"])
+        .limit(3);
+
+      if (templates?.length) {
+        contractContext += `\n\n## Modelos Internos de Contrato`;
+        for (const t of templates) {
+          contractContext += `\n### ${t.title}\n${t.content.slice(0, 1000)}`;
+        }
+      }
+
+      // Fetch compliance policies
+      const { data: policies } = await supabase
+        .from("compliance_policies")
+        .select("title, content, policy_type")
+        .eq("organization_id", organization_id)
+        .eq("is_active", true)
+        .limit(3);
+
+      if (policies?.length) {
+        contractContext += `\n\n## Políticas de Compliance Aplicáveis`;
+        for (const p of policies) {
+          contractContext += `\n### ${p.title} (${p.policy_type})\n${p.content.slice(0, 500)}`;
+        }
+      }
+    }
+
     if (extra_context) {
-      contractContext += `\n\n## Contexto Adicional\n${extra_context}`;
+      contractContext += `\n\n## Contexto Adicional / Parâmetros do Usuário\n${extra_context}`;
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -249,14 +387,14 @@ ${contract.tags?.length ? `\n## Tags: ${contract.tags.join(", ")}` : ""}`;
     const aiData = await aiResponse.json();
     const result = aiData.choices?.[0]?.message?.content || "Nenhum resultado gerado.";
 
-    // Map analysis_type to audit action
-    const auditActions: Record<string, string> = {
-      full_analysis: "contract_analyzed",
-      clause_analysis: "contract_clause_classified",
-      renegotiation: "contract_renegotiation_suggested",
-      benchmarking: "contract_benchmark_performed",
-      abusive_detection: "abusive_clause_detected",
-      draft_contract: "contract_generated",
+    // Map analysis_type to audit actions
+    const auditActions: Record<string, string[]> = {
+      full_analysis: ["contract_analyzed"],
+      clause_analysis: ["contract_clause_classified", "contract_clause_selected"],
+      renegotiation: ["contract_renegotiation_suggested"],
+      benchmarking: ["contract_benchmark_performed"],
+      abusive_detection: ["abusive_clause_detected"],
+      draft_contract: ["contract_generated", "contract_consistency_checked", "contract_compliance_checked", "contract_model_used"],
     };
 
     // Save to predictions for history
@@ -273,15 +411,18 @@ ${contract.tags?.length ? `\n## Tags: ${contract.tags.join(", ")}` : ""}`;
       predictionId = pred?.id || null;
     }
 
-    // Audit log
-    await supabase.from("audit_logs").insert({
-      action: auditActions[analysis_type] || "contract_analyzed",
+    // Audit logs — multiple actions for draft_contract
+    const actions = auditActions[analysis_type] || ["contract_analyzed"];
+    const auditInserts = actions.map(action => ({
+      action,
       user_id: user_id || null,
       resource_type: "contract",
       resource_id: predictionId || contract_id || null,
       organization_id,
       metadata: { analysis_type, contract_id },
-    } as any);
+    }));
+
+    await supabase.from("audit_logs").insert(auditInserts as any);
 
     return new Response(JSON.stringify({ result, prediction_id: predictionId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
