@@ -230,6 +230,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Permission[]> = {
     "VIEW_ASSETS",
     "VIEW_VENDORS",
     "USE_CHATBOT",
+    "VIEW_COURT_MONITORING",
+    "VIEW_LEGISLATIVE_UPDATES",
+    "VIEW_REGULATORY",
   ],
   intern: [
     "VIEW_PROCESSES",
