@@ -152,6 +152,8 @@ const App = () => (
               <Route path="/legal-strategy" element={<LegalStrategy />} />
               <Route path="/case-clustering" element={<CaseClustering />} />
               <Route path="/financial-impact" element={<FinancialImpact />} />
+              <Route path="/due-diligence" element={<DueDiligence />} />
+              <Route path="/mass-litigation" element={<MassLitigation />} />
             </Route>
             <Route path="/invite/:token" element={<InviteAccept />} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />

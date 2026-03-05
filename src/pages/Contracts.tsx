@@ -261,9 +261,10 @@ const Contracts = () => {
 
       {/* RF-073: Análise Inteligente de Contratos */}
       <Tabs defaultValue="list">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="list">Lista de Contratos</TabsTrigger>
           <TabsTrigger value="analysis">Análise Inteligente</TabsTrigger>
+          <TabsTrigger value="audit">Auditoria Contínua</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis" className="space-y-4 mt-4">
