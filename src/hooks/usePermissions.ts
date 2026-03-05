@@ -108,7 +108,9 @@ export type Permission =
   | "VIEW_LEGAL_PERFORMANCE"
   | "VIEW_DUE_DILIGENCE"
   | "PERFORM_DUE_DILIGENCE"
-  | "VIEW_MASS_LITIGATION";
+  | "VIEW_MASS_LITIGATION"
+  | "ANALYZE_CONTRACTS"
+  | "DRAFT_CONTRACTS";
 
 export type OrgRole = "owner" | "admin" | "user" | "intern" | "client";
 
