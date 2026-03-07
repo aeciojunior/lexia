@@ -130,8 +130,8 @@ const CourtMonitoring = () => {
   const highRelevance = decisions?.filter((d: any) => d.relevance_level === "high").length || 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Eye className="h-6 w-6 text-primary" /> Monitoramento de Tribunais
@@ -200,8 +200,8 @@ const CourtMonitoring = () => {
         </RoleGuard>
       </div>
 
-      <Tabs defaultValue="configs">
-        <TabsList>
+      <Tabs defaultValue="configs" className="space-y-6">
+        <TabsList className="gap-1">
           <TabsTrigger value="configs">Configurações</TabsTrigger>
           <TabsTrigger value="decisions">Decisões ({totalDecisions})</TabsTrigger>
           <TabsTrigger value="alerts">Alertas ({alerts.length})</TabsTrigger>
@@ -209,8 +209,8 @@ const CourtMonitoring = () => {
         </TabsList>
 
         {/* CONFIGS TAB */}
-        <TabsContent value="configs">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <TabsContent value="configs" className="mt-2">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {loadingConfigs && <p className="text-muted-foreground col-span-full">Carregando...</p>}
             {configs?.map((cfg: any) => (
               <Card key={cfg.id}>
@@ -238,14 +238,14 @@ const CourtMonitoring = () => {
               </Card>
             ))}
             {!loadingConfigs && configs?.length === 0 && (
-              <Card className="col-span-full"><CardContent className="py-8 text-center text-muted-foreground">Nenhuma configuração de monitoramento. Clique em "Nova Configuração" para começar.</CardContent></Card>
+              <Card className="col-span-full"><CardContent className="py-12 text-center text-muted-foreground">Nenhuma configuração de monitoramento. Clique em "Nova Configuração" para começar.</CardContent></Card>
             )}
           </div>
         </TabsContent>
 
         {/* DECISIONS TAB */}
-        <TabsContent value="decisions">
-          <Card>
+        <TabsContent value="decisions" className="mt-2">
+          <Card className="overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -276,9 +276,9 @@ const CourtMonitoring = () => {
         </TabsContent>
 
         {/* ALERTS TAB */}
-        <TabsContent value="alerts">
-          <div className="space-y-4">
-            {alerts.length === 0 && <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhum alerta pendente.</CardContent></Card>}
+        <TabsContent value="alerts" className="mt-2">
+          <div className="space-y-5">
+            {alerts.length === 0 && <Card><CardContent className="py-12 text-center text-muted-foreground">Nenhum alerta pendente.</CardContent></Card>}
             {alerts.map((a: any) => (
               <Card key={a.id} className="border-l-4 border-l-destructive">
                 <CardContent className="pt-4 space-y-2">
@@ -309,12 +309,12 @@ const CourtMonitoring = () => {
         </TabsContent>
 
         {/* STRATEGIC DASHBOARD TAB (RF-064) */}
-        <TabsContent value="dashboard">
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
-            <Card><CardContent className="pt-6 text-center"><Gavel className="h-8 w-8 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{totalDecisions}</p><p className="text-sm text-muted-foreground">Decisões Monitoradas</p></CardContent></Card>
-            <Card><CardContent className="pt-6 text-center"><AlertTriangle className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{highRelevance}</p><p className="text-sm text-muted-foreground">Alta Relevância</p></CardContent></Card>
-            <Card><CardContent className="pt-6 text-center"><TrendingUp className="h-8 w-8 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{decisions?.filter((d: any) => d.status === "favorable").length || 0}</p><p className="text-sm text-muted-foreground">Favoráveis</p></CardContent></Card>
-            <Card><CardContent className="pt-6 text-center"><TrendingDown className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{decisions?.filter((d: any) => d.status === "unfavorable").length || 0}</p><p className="text-sm text-muted-foreground">Desfavoráveis</p></CardContent></Card>
+        <TabsContent value="dashboard" className="mt-2">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <Card><CardContent className="pt-6 pb-5 text-center space-y-2"><Gavel className="h-8 w-8 mx-auto text-primary" /><p className="text-2xl font-bold">{totalDecisions}</p><p className="text-sm text-muted-foreground">Decisões Monitoradas</p></CardContent></Card>
+            <Card><CardContent className="pt-6 pb-5 text-center space-y-2"><AlertTriangle className="h-8 w-8 mx-auto text-destructive" /><p className="text-2xl font-bold">{highRelevance}</p><p className="text-sm text-muted-foreground">Alta Relevância</p></CardContent></Card>
+            <Card><CardContent className="pt-6 pb-5 text-center space-y-2"><TrendingUp className="h-8 w-8 mx-auto text-primary" /><p className="text-2xl font-bold">{decisions?.filter((d: any) => d.status === "favorable").length || 0}</p><p className="text-sm text-muted-foreground">Favoráveis</p></CardContent></Card>
+            <Card><CardContent className="pt-6 pb-5 text-center space-y-2"><TrendingDown className="h-8 w-8 mx-auto text-destructive" /><p className="text-2xl font-bold">{decisions?.filter((d: any) => d.status === "unfavorable").length || 0}</p><p className="text-sm text-muted-foreground">Desfavoráveis</p></CardContent></Card>
           </div>
 
           {/* Trend by tribunal */}
