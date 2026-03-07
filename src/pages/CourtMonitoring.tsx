@@ -309,9 +309,9 @@ const CourtMonitoring = () => {
         </TabsContent>
 
         {/* STRATEGIC DASHBOARD TAB (RF-064) */}
-        <TabsContent value="dashboard">
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
-            <Card><CardContent className="pt-6 text-center"><Gavel className="h-8 w-8 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{totalDecisions}</p><p className="text-sm text-muted-foreground">Decisões Monitoradas</p></CardContent></Card>
+        <TabsContent value="dashboard" className="mt-2">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <Card><CardContent className="pt-6 pb-5 text-center space-y-2"><Gavel className="h-8 w-8 mx-auto text-primary" /><p className="text-2xl font-bold">{totalDecisions}</p><p className="text-sm text-muted-foreground">Decisões Monitoradas</p></CardContent></Card>
             <Card><CardContent className="pt-6 text-center"><AlertTriangle className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{highRelevance}</p><p className="text-sm text-muted-foreground">Alta Relevância</p></CardContent></Card>
             <Card><CardContent className="pt-6 text-center"><TrendingUp className="h-8 w-8 mx-auto text-primary mb-2" /><p className="text-2xl font-bold">{decisions?.filter((d: any) => d.status === "favorable").length || 0}</p><p className="text-sm text-muted-foreground">Favoráveis</p></CardContent></Card>
             <Card><CardContent className="pt-6 text-center"><TrendingDown className="h-8 w-8 mx-auto text-destructive mb-2" /><p className="text-2xl font-bold">{decisions?.filter((d: any) => d.status === "unfavorable").length || 0}</p><p className="text-sm text-muted-foreground">Desfavoráveis</p></CardContent></Card>
