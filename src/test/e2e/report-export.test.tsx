@@ -5,6 +5,14 @@ import TextComparison from "@/pages/TextComparison";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+vi.mock("@/lib/file-extract", () => ({
+  extractTextFromFile: vi.fn(),
+  getSupportedFormats: vi.fn().mockReturnValue([]),
+  getFormatFromFile: vi.fn(),
+  imageFileToBase64: vi.fn(),
+  renderPdfPagesToImages: vi.fn(),
+}));
+
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "test-user-id", email: "test@test.com" } }),
 }));
