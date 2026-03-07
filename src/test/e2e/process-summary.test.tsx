@@ -17,7 +17,7 @@ describe("ProcessSummary360 — E2E", () => {
     const methods = ["select", "insert", "update", "delete", "eq", "neq", "gte", "order", "limit", "single"];
     methods.forEach(m => { chain[m] = vi.fn().mockReturnValue(chain); });
     chain.maybeSingle = vi.fn().mockResolvedValue({ data: finalData, error: null });
-    chain.then = vi.fn((cb: any) => cb({ data: finalData ? [finalData] : [], error: null }));
+    chain.then = vi.fn((cb: any) => Promise.resolve(cb({ data: finalData ? [finalData] : [], error: null })));
     return chain;
   };
 
