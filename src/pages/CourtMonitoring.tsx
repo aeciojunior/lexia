@@ -209,8 +209,8 @@ const CourtMonitoring = () => {
         </TabsList>
 
         {/* CONFIGS TAB */}
-        <TabsContent value="configs">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <TabsContent value="configs" className="mt-2">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {loadingConfigs && <p className="text-muted-foreground col-span-full">Carregando...</p>}
             {configs?.map((cfg: any) => (
               <Card key={cfg.id}>
