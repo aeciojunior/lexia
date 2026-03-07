@@ -53,37 +53,37 @@ export default function DueDiligence() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+    <div className="page-layout">
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
           <FileSearch className="h-5 w-5 text-primary" />
         </div>
-        <div>
+        <div className="space-y-1">
           <h1 className="text-2xl font-bold text-foreground">Due Diligence Automatizada</h1>
           <p className="text-sm text-muted-foreground">RF-078 — Análise jurídica automatizada de riscos e inconsistências</p>
         </div>
       </div>
 
       <Card>
-        <CardContent className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+        <CardContent className="space-y-5 p-6">
+          <div className="section-grid">
+            <div className="space-y-2">
               <Label>Tipo de Due Diligence</Label>
               <Select value={ddType} onValueChange={setDdType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{DD_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Alvo da Análise</Label>
               <Input value={targetName} onChange={e => setTargetName(e.target.value)} placeholder="Nome da empresa, contrato ou parte" />
             </div>
           </div>
-          <div>
+          <div className="space-y-2">
             <Label>Contexto e Documentos Relevantes</Label>
             <Textarea value={context} onChange={e => setContext(e.target.value)} placeholder="Descreva o contexto, cláusulas relevantes, partes envolvidas, documentos disponíveis..." rows={5} />
           </div>
-          <Button onClick={() => runDueDiligence.mutate()} disabled={!targetName || runDueDiligence.isPending} className="gap-2 w-full md:w-auto">
+          <Button onClick={() => runDueDiligence.mutate()} disabled={!targetName || runDueDiligence.isPending} className="w-full gap-2 md:w-auto">
             {runDueDiligence.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Executar Due Diligence
           </Button>
@@ -92,7 +92,7 @@ export default function DueDiligence() {
 
       {/* Checklist visual */}
       {!report && !runDueDiligence.isPending && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { icon: AlertTriangle, label: "Riscos Jurídicos", desc: "Análise de riscos contratuais e processuais" },
             { icon: Shield, label: "Compliance", desc: "Verificação de conformidade regulatória" },
@@ -100,8 +100,8 @@ export default function DueDiligence() {
             { icon: Scale, label: "Inconsistências", desc: "Detecção de conflitos documentais" },
           ].map((item, i) => (
             <Card key={i}>
-              <CardContent className="p-4 text-center space-y-2">
-                <item.icon className="h-8 w-8 text-muted-foreground mx-auto" />
+              <CardContent className="space-y-2 p-5 text-center">
+                <item.icon className="mx-auto h-8 w-8 text-muted-foreground" />
                 <p className="font-medium text-sm">{item.label}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </CardContent>

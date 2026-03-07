@@ -294,4 +294,13 @@
     background-image: radial-gradient(hsl(228 12% 22%) 1px, transparent 1px);
     background-size: 24px 24px;
   }
+
+  /* ── Page layout helpers ── */
+  .page-layout {
+    @apply mx-auto w-full max-w-[1400px] space-y-8;
+  }
+
+  .section-grid {
+    @apply grid grid-cols-1 gap-5 md:grid-cols-2 xl:gap-6;
+  }
 }
