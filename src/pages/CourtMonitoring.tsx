@@ -200,8 +200,8 @@ const CourtMonitoring = () => {
         </RoleGuard>
       </div>
 
-      <Tabs defaultValue="configs">
-        <TabsList>
+      <Tabs defaultValue="configs" className="space-y-6">
+        <TabsList className="gap-1">
           <TabsTrigger value="configs">Configurações</TabsTrigger>
           <TabsTrigger value="decisions">Decisões ({totalDecisions})</TabsTrigger>
           <TabsTrigger value="alerts">Alertas ({alerts.length})</TabsTrigger>
