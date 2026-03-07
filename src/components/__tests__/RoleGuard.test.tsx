@@ -48,6 +48,8 @@ describe("RoleGuard", () => {
     mockUsePermissions.mockReturnValue({
       hasPermission: () => false,
       hasAnyPermission: () => false,
+      hasAllPermissions: () => false,
+      isLoading: false,
       role: "viewer",
     });
     render(
