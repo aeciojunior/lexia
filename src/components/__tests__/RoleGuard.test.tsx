@@ -16,6 +16,8 @@ describe("RoleGuard", () => {
     mockUsePermissions.mockReturnValue({
       hasPermission: (p: string) => p === "VIEW_PROCESSES",
       hasAnyPermission: () => true,
+      hasAllPermissions: () => true,
+      isLoading: false,
       role: "admin",
     });
     render(
