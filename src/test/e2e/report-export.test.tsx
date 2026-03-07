@@ -110,6 +110,8 @@ const FULL_ANALYSIS = {
 
 describe("Report Export — PDF and HTML", () => {
   it("exports PDF with audit logs, then HTML with collapsible sections and audit trail", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    
     mockInvoke.mockResolvedValueOnce({
       data: { comparison: { id: "comp-1" }, analysis: FULL_ANALYSIS },
       error: null,
@@ -137,8 +139,8 @@ describe("Report Export — PDF and HTML", () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1), { timeout: 3000 });
     // Wait for loading to finish
     await waitFor(() => expect(screen.queryByText("Analisando...")).not.toBeInTheDocument());
-    // Debug: check what rendered
-    screen.debug(undefined, 50000);
+    // Check if any errors were caught
+    console.log("Console errors:", errorSpy.mock.calls);
     await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
 
     // ═══ 1. Verify all 6 export options ═══
