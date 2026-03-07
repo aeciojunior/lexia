@@ -115,7 +115,7 @@ export const AppSidebar = () => {
   return (
     <aside
       className={`flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-normal border-r border-sidebar-border relative ${
-        collapsed ? "w-[72px]" : "w-64"
+        collapsed ? "w-[72px]" : "w-72"
       }`}
     >
       {/* Ambient top glow */}
