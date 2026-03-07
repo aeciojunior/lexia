@@ -130,8 +130,8 @@ const CourtMonitoring = () => {
   const highRelevance = decisions?.filter((d: any) => d.relevance_level === "high").length || 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Eye className="h-6 w-6 text-primary" /> Monitoramento de Tribunais
