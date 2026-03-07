@@ -127,26 +127,24 @@ describe("Report Export — PDF and HTML", () => {
     // Before comparison — no export button
     expect(screen.queryByText("Exportar Relatório")).not.toBeInTheDocument();
 
-    // Run comparison
+    // Run comparison using fireEvent for synchronous click handling
     const user = userEvent.setup();
     const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
-    await user.type(textareas[0], "Texto A jurídico");
-    await user.type(textareas[1], "Texto B modificado");
+    fireEvent.change(textareas[0], { target: { value: "Texto A jurídico" } });
+    fireEvent.change(textareas[1], { target: { value: "Texto B modificado" } });
+    
     const btn = screen.getByText("Comparar Textos");
     expect(btn).not.toBeDisabled();
+    
     await act(async () => {
-      await user.click(btn);
+      fireEvent.click(btn);
+      // Flush the promise from mockInvoke
+      await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
+      // Let React process state updates
+      await new Promise(r => setTimeout(r, 0));
     });
 
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1), { timeout: 3000 });
-    // Wait for all state updates to flush
-    await act(async () => {
-      await new Promise(r => setTimeout(r, 100));
-    });
-    console.log("Console errors:", errorSpy.mock.calls);
-    console.log("mockInvoke calls:", mockInvoke.mock.calls.length);
-    console.log("mockInvoke result:", JSON.stringify(await mockInvoke.mock.results[0]?.value));
-    await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument(), { timeout: 3000 });
 
     // ═══ 1. Verify all 6 export options ═══
     await user.click(screen.getByText("Exportar Relatório"));
