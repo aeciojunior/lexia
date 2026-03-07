@@ -238,7 +238,7 @@ const CourtMonitoring = () => {
               </Card>
             ))}
             {!loadingConfigs && configs?.length === 0 && (
-              <Card className="col-span-full"><CardContent className="py-8 text-center text-muted-foreground">Nenhuma configuração de monitoramento. Clique em "Nova Configuração" para começar.</CardContent></Card>
+              <Card className="col-span-full"><CardContent className="py-12 text-center text-muted-foreground">Nenhuma configuração de monitoramento. Clique em "Nova Configuração" para começar.</CardContent></Card>
             )}
           </div>
         </TabsContent>
