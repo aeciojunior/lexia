@@ -31,21 +31,36 @@ vi.mock("@/integrations/supabase/client", () => ({
     }),
   },
 }));
-
 vi.mock("@/components/drafts/DiffView", () => ({
   default: ({ original, revised }: { original: string; revised: string }) => (
     <div data-testid="diff-view"><span>{original.slice(0, 50)}</span><span>{revised.slice(0, 50)}</span></div>
   ),
 }));
 
+vi.mock("react-markdown", () => ({
+  default: ({ children }: { children: string }) => <div>{children}</div>,
+}));
+
 const mockSave = vi.fn();
 vi.mock("jspdf", () => ({
   default: class MockJsPDF {
+    internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
     setFontSize = vi.fn();
+    setFont = vi.fn();
+    setTextColor = vi.fn();
+    setFillColor = vi.fn();
+    setDrawColor = vi.fn();
+    setLineWidth = vi.fn();
+    rect = vi.fn();
+    roundedRect = vi.fn();
+    line = vi.fn();
+    circle = vi.fn();
     text = vi.fn();
     splitTextToSize = vi.fn().mockReturnValue(["line"]);
     addPage = vi.fn();
     save = mockSave;
+    getNumberOfPages = vi.fn().mockReturnValue(1);
+    setPage = vi.fn();
   },
 }));
 
