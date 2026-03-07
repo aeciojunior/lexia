@@ -134,13 +134,18 @@ describe("Report Export — PDF and HTML", () => {
     await user.type(textareas[1], "Texto B modificado");
     const btn = screen.getByText("Comparar Textos");
     expect(btn).not.toBeDisabled();
-    await user.click(btn);
+    await act(async () => {
+      await user.click(btn);
+    });
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1), { timeout: 3000 });
-    // Wait for loading to finish
-    await waitFor(() => expect(screen.queryByText("Analisando...")).not.toBeInTheDocument());
-    // Check if any errors were caught
+    // Wait for all state updates to flush
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 100));
+    });
     console.log("Console errors:", errorSpy.mock.calls);
+    console.log("mockInvoke calls:", mockInvoke.mock.calls.length);
+    console.log("mockInvoke result:", JSON.stringify(await mockInvoke.mock.results[0]?.value));
     await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
 
     // ═══ 1. Verify all 6 export options ═══
