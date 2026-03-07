@@ -244,8 +244,8 @@ const CourtMonitoring = () => {
         </TabsContent>
 
         {/* DECISIONS TAB */}
-        <TabsContent value="decisions">
-          <Card>
+        <TabsContent value="decisions" className="mt-2">
+          <Card className="overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
