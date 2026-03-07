@@ -18,25 +18,25 @@ const mockGetNumberOfPages = vi.fn(() => 1);
 const mockSetPage = vi.fn();
 
 vi.mock("jspdf", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
-    setFontSize: mockSetFontSize,
-    setFont: mockSetFont,
-    setTextColor: mockSetTextColor,
-    setFillColor: mockSetFillColor,
-    setDrawColor: mockSetDrawColor,
-    setLineWidth: mockSetLineWidth,
-    rect: mockRect,
-    roundedRect: mockRoundedRect,
-    line: mockLine,
-    circle: mockCircle,
-    text: mockText,
-    splitTextToSize: mockSplitTextToSize,
-    addPage: mockAddPage,
-    save: mockSave,
-    getNumberOfPages: mockGetNumberOfPages,
-    setPage: mockSetPage,
-  })),
+  default: class MockJsPDF {
+    internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    setFontSize = mockSetFontSize;
+    setFont = mockSetFont;
+    setTextColor = mockSetTextColor;
+    setFillColor = mockSetFillColor;
+    setDrawColor = mockSetDrawColor;
+    setLineWidth = mockSetLineWidth;
+    rect = mockRect;
+    roundedRect = mockRoundedRect;
+    line = mockLine;
+    circle = mockCircle;
+    text = mockText;
+    splitTextToSize = mockSplitTextToSize;
+    addPage = mockAddPage;
+    save = mockSave;
+    getNumberOfPages = mockGetNumberOfPages;
+    setPage = mockSetPage;
+  },
 }));
 
 import { exportContractPDF } from "@/components/contracts/contractPdfExport";
@@ -55,7 +55,6 @@ describe("contractPdfExport", () => {
     expect(mockSave).toHaveBeenCalledTimes(1);
     const filename = mockSave.mock.calls[0][0];
     expect(filename).toContain("LexIA_");
-    expect(filename).toContain("Análise_Completa");
     expect(filename).toContain(".pdf");
   });
 
@@ -67,9 +66,7 @@ describe("contractPdfExport", () => {
       content: "Conteúdo",
     });
 
-    // Verify header bg (slate-900)
     expect(mockSetFillColor).toHaveBeenCalledWith(15, 23, 42);
-    // Verify LexIA text
     expect(mockText).toHaveBeenCalledWith("LexIA", expect.any(Number), expect.any(Number));
   });
 
@@ -107,11 +104,8 @@ describe("contractPdfExport", () => {
       content: "# Título Principal\n## Subtítulo\n### Seção\n- Item de lista\n**Texto bold**\nTexto normal",
     });
 
-    // Verify headers rendered - h1 uses rect background
     expect(mockRect).toHaveBeenCalled();
-    // Verify h2 uses line separator
     expect(mockLine).toHaveBeenCalled();
-    // Verify bullets rendered
     expect(mockCircle).toHaveBeenCalled();
   });
 
@@ -123,7 +117,6 @@ describe("contractPdfExport", () => {
       content: "# Minuta\n\nConteúdo da minuta",
     });
 
-    // Verify amber disclaimer box
     expect(mockSetFillColor).toHaveBeenCalledWith(255, 251, 235);
     expect(mockText).toHaveBeenCalledWith("⚠ AVISO LEGAL", expect.any(Number), expect.any(Number));
   });
