@@ -146,7 +146,7 @@ export const AppSidebar = () => {
             activeClassName="bg-sidebar-accent text-sidebar-primary shadow-sm neon-border"
           >
             <item.icon className={`h-5 w-5 shrink-0 ${item.accent ? "text-secondary" : ""}`} />
-            {!collapsed && <span>{item.title}</span>}
+            {!collapsed && <span className="leading-snug">{item.title}</span>}
             {!collapsed && item.accent && (
               <Sparkles className="h-3 w-3 text-secondary ml-auto animate-pulse-glow" />
             )}
