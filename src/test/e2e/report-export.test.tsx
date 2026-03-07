@@ -126,8 +126,11 @@ describe("Report Export — PDF and HTML", () => {
     const textareas = screen.getAllByPlaceholderText(/Cole texto aqui/);
     await user.type(textareas[0], "Texto A jurídico");
     await user.type(textareas[1], "Texto B modificado");
-    await user.click(screen.getByText("Comparar Textos"));
+    const btn = screen.getByText("Comparar Textos");
+    expect(btn).not.toBeDisabled();
+    await user.click(btn);
 
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1), { timeout: 3000 });
     await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
 
     // ═══ 1. Verify all 6 export options ═══
