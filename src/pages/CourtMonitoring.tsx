@@ -276,9 +276,9 @@ const CourtMonitoring = () => {
         </TabsContent>
 
         {/* ALERTS TAB */}
-        <TabsContent value="alerts">
-          <div className="space-y-4">
-            {alerts.length === 0 && <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhum alerta pendente.</CardContent></Card>}
+        <TabsContent value="alerts" className="mt-2">
+          <div className="space-y-5">
+            {alerts.length === 0 && <Card><CardContent className="py-12 text-center text-muted-foreground">Nenhum alerta pendente.</CardContent></Card>}
             {alerts.map((a: any) => (
               <Card key={a.id} className="border-l-4 border-l-destructive">
                 <CardContent className="pt-4 space-y-2">
