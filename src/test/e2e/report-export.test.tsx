@@ -135,6 +135,10 @@ describe("Report Export — PDF and HTML", () => {
     await user.click(btn);
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    // Wait for loading to finish
+    await waitFor(() => expect(screen.queryByText("Analisando...")).not.toBeInTheDocument());
+    // Debug: check what rendered
+    screen.debug(undefined, 50000);
     await waitFor(() => expect(screen.getByText(/Diferenças significativas/)).toBeInTheDocument());
 
     // ═══ 1. Verify all 6 export options ═══
