@@ -39,9 +39,9 @@ const navItems: NavItem[] = [
   { title: "Estratégia", url: "/legal-strategy", icon: Target, accent: true, permissions: ["VIEW_LEGAL_STRATEGY"] },
   { title: "Previsões", url: "/process-predictions", icon: TrendingUp, accent: true, permissions: ["VIEW_PREDICTIONS"] },
   { title: "Clusters", url: "/case-clustering", icon: GitBranch, permissions: ["VIEW_CASE_CLUSTERING"] },
-  { title: "Impacto Fin.", url: "/financial-impact", icon: DollarSign, accent: true, permissions: ["VIEW_FINANCIAL_IMPACT"] },
+  { title: "Impacto Financeiro", url: "/financial-impact", icon: DollarSign, accent: true, permissions: ["VIEW_FINANCIAL_IMPACT"] },
   { title: "Due Diligence", url: "/due-diligence", icon: FileSearch, accent: true, permissions: ["VIEW_DUE_DILIGENCE"] },
-  { title: "Litígios Rep.", url: "/mass-litigation", icon: Users, permissions: ["VIEW_MASS_LITIGATION"] },
+  { title: "Litígios Repetitivos", url: "/mass-litigation", icon: Users, permissions: ["VIEW_MASS_LITIGATION"] },
   { title: "Clientes", url: "/clients", icon: Users, permissions: ["VIEW_CLIENTS"] },
   { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
   { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },
@@ -61,7 +61,7 @@ const navItems: NavItem[] = [
   { title: "ACL", url: "/acl", icon: ShieldCheck, permissions: ["MANAGE_ACL"] },
   { title: "Compliance", url: "/compliance", icon: ShieldAlert, permissions: ["VIEW_COMPLIANCE"] },
   { title: "Integrações", url: "/integrations", icon: Plug, permissions: ["MANAGE_INTEGRATIONS"] },
-  { title: "Regras Notif.", url: "/notification-rules", icon: BellRing, permissions: ["MANAGE_NOTIFICATION_RULES"] },
+  { title: "Regras de Notificação", url: "/notification-rules", icon: BellRing, permissions: ["MANAGE_NOTIFICATION_RULES"] },
   { title: "IA Preditiva", url: "/predictions", icon: TrendingUp, accent: true, permissions: ["VIEW_PREDICTIONS"] },
   { title: "Workflows", url: "/workflows", icon: GitBranch, permissions: ["VIEW_WORKFLOWS"] },
   { title: "Tickets", url: "/tickets", icon: Ticket, permissions: ["VIEW_TICKETS"] },
@@ -70,8 +70,8 @@ const navItems: NavItem[] = [
   { title: "Auditoria", url: "/audit-logs", icon: FileSearch, permissions: ["VIEW_AUDIT_ADVANCED"] },
   { title: "Riscos", url: "/risks", icon: AlertTriangle, permissions: ["VIEW_RISKS"] },
   { title: "Assinaturas", url: "/signatures", icon: PenLine, permissions: ["VIEW_SIGNATURES"] },
-  { title: "Rel. Financeiros", url: "/financial-reports", icon: PieChart, permissions: ["VIEW_FINANCIAL_REPORTS"] },
-  { title: "Templates Msg", url: "/communication-templates", icon: MessageSquareText, permissions: ["VIEW_COMMUNICATION_TEMPLATES"] },
+  { title: "Relatórios Financeiros", url: "/financial-reports", icon: PieChart, permissions: ["VIEW_FINANCIAL_REPORTS"] },
+  { title: "Templates de Mensagens", url: "/communication-templates", icon: MessageSquareText, permissions: ["VIEW_COMMUNICATION_TEMPLATES"] },
   { title: "OKRs & KPIs", url: "/okrs", icon: Target, permissions: ["VIEW_OKRS"] },
   { title: "Governança", url: "/governance", icon: Landmark, permissions: ["VIEW_GOVERNANCE"] },
   { title: "Cofre Seguro", url: "/vault", icon: Lock, permissions: ["MANAGE_VAULT"] },
@@ -115,7 +115,7 @@ export const AppSidebar = () => {
   return (
     <aside
       className={`flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-normal border-r border-sidebar-border relative ${
-        collapsed ? "w-[72px]" : "w-64"
+        collapsed ? "w-[72px]" : "w-72"
       }`}
     >
       {/* Ambient top glow */}
@@ -146,7 +146,7 @@ export const AppSidebar = () => {
             activeClassName="bg-sidebar-accent text-sidebar-primary shadow-sm neon-border"
           >
             <item.icon className={`h-5 w-5 shrink-0 ${item.accent ? "text-secondary" : ""}`} />
-            {!collapsed && <span>{item.title}</span>}
+            {!collapsed && <span className="leading-snug">{item.title}</span>}
             {!collapsed && item.accent && (
               <Sparkles className="h-3 w-3 text-secondary ml-auto animate-pulse-glow" />
             )}
