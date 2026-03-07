@@ -13,6 +13,10 @@ vi.mock("@/lib/file-extract", () => ({
   renderPdfPagesToImages: vi.fn(),
 }));
 
+vi.mock("@/hooks/use-toast", () => ({
+  toast: vi.fn(),
+}));
+
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "test-user-id", email: "test@test.com" } }),
 }));
