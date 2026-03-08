@@ -134,14 +134,14 @@ const Metrics = () => {
 
   const KPICard = ({ icon: Icon, label, value, sub, color = "primary" }: any) => (
     <LexCard>
-      <div className="p-4 flex items-center gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-${color}/10`}>
+      <div className="p-5 flex flex-col items-center text-center gap-3">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-${color}/10`}>
           <Icon className={`h-5 w-5 text-${color}`} />
         </div>
-        <div>
-          <p className="text-overline text-muted-foreground">{label}</p>
-          <p className="text-xl font-bold">{value}</p>
-          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+          <p className="text-2xl font-bold leading-none">{value}</p>
+          {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
         </div>
       </div>
     </LexCard>
