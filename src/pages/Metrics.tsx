@@ -257,12 +257,12 @@ const Metrics = () => {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <KPICard icon={Scale} label="Processos Ativos" value={activeProcesses} />
         <KPICard icon={CheckCircle} label="Tarefas Concluídas" value={completedTasks} sub={`${pendingTasks} pendentes`} />
         <KPICard icon={AlertTriangle} label="Tarefas Atrasadas" value={overdueTasks} color="destructive" />
         <KPICard icon={CalendarDays} label="Prazos Pendentes" value={pendingDeadlines} sub={`${overdueDeadlines} vencidos`} />
-        <KPICard icon={Target} label="Taxa Cumprimento" value={`${complianceRate}%`} />
+        <KPICard icon={Target} label="Taxa de Cumprimento" value={`${complianceRate}%`} />
         <KPICard icon={Gavel} label="Audiências Futuras" value={futureHearings} sub={`${pastHearings} realizadas`} />
       </div>
 
