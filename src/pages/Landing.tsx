@@ -230,6 +230,9 @@ const Landing = () => (
       </div>
     </section>
 
+    {/* FAQ */}
+    <FAQSection />
+
     {/* CTA */}
     <section className="py-24">
       <div className="container mx-auto px-6 max-w-3xl text-center">
