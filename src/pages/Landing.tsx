@@ -163,6 +163,15 @@ const Landing = () => (
       </div>
     </section>
 
+    {/* How it works */}
+    <HowItWorksSection />
+
+    {/* Integrations */}
+    <IntegrationsSection />
+
+    {/* Testimonials */}
+    <TestimonialsSection />
+
     {/* Pricing */}
     <section id="pricing" className="py-24 border-t border-border/50">
       <div className="container mx-auto px-6 max-w-5xl">
