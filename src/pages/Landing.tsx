@@ -8,6 +8,10 @@ import {
   CheckCircle, ArrowRight, Bot, Calendar, BarChart3
 } from "lucide-react";
 import heroImage from "@/assets/hero-bg.jpg";
+import HowItWorksSection from "@/components/landing/HowItWorksSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import IntegrationsSection from "@/components/landing/IntegrationsSection";
+import FAQSection from "@/components/landing/FAQSection";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
