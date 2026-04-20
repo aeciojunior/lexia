@@ -65,6 +65,33 @@ describe("Landing Page — E2E", () => {
     expect(screen.getByText("Pronto para transformar seu escritório?")).toBeInTheDocument();
   });
 
+  it("renders how it works section with 4 steps", () => {
+    renderWithProviders(<Landing />);
+    expect(screen.getByText("Crie sua conta")).toBeInTheDocument();
+    expect(screen.getByText("Importe seus processos")).toBeInTheDocument();
+    expect(screen.getByText("IA analisa e sugere")).toBeInTheDocument();
+    expect(screen.getByText("Acompanhe resultados")).toBeInTheDocument();
+  });
+
+  it("renders testimonials section", () => {
+    renderWithProviders(<Landing />);
+    expect(screen.getByText("Dra. Camila Ferreira")).toBeInTheDocument();
+    expect(screen.getByText("Dr. Rafael Mendes")).toBeInTheDocument();
+    expect(screen.getByText("Dra. Juliana Costa")).toBeInTheDocument();
+  });
+
+  it("renders integrations section", () => {
+    renderWithProviders(<Landing />);
+    expect(screen.getByText("Tribunais Estaduais")).toBeInTheDocument();
+    expect(screen.getByText("API Aberta")).toBeInTheDocument();
+  });
+
+  it("renders FAQ section", () => {
+    renderWithProviders(<Landing />);
+    expect(screen.getByText("O LexIA é seguro para armazenar dados sensíveis de processos?")).toBeInTheDocument();
+    expect(screen.getByText("Existe período de teste gratuito?")).toBeInTheDocument();
+  });
+
   it("renders footer with copyright", () => {
     renderWithProviders(<Landing />);
     expect(screen.getByText("© 2026 LexIA. Todos os direitos reservados.")).toBeInTheDocument();

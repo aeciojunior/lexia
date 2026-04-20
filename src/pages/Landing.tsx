@@ -8,6 +8,10 @@ import {
   CheckCircle, ArrowRight, Bot, Calendar, BarChart3
 } from "lucide-react";
 import heroImage from "@/assets/hero-bg.jpg";
+import HowItWorksSection from "@/components/landing/HowItWorksSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import IntegrationsSection from "@/components/landing/IntegrationsSection";
+import FAQSection from "@/components/landing/FAQSection";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -159,6 +163,15 @@ const Landing = () => (
       </div>
     </section>
 
+    {/* How it works */}
+    <HowItWorksSection />
+
+    {/* Integrations */}
+    <IntegrationsSection />
+
+    {/* Testimonials */}
+    <TestimonialsSection />
+
     {/* Pricing */}
     <section id="pricing" className="py-24 border-t border-border/50">
       <div className="container mx-auto px-6 max-w-5xl">
@@ -216,6 +229,9 @@ const Landing = () => (
         </div>
       </div>
     </section>
+
+    {/* FAQ */}
+    <FAQSection />
 
     {/* CTA */}
     <section className="py-24">
