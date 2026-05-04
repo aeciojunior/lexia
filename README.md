@@ -2,6 +2,55 @@
 
 Plataforma SaaS multi-tenant para escritórios de advocacia e departamentos jurídicos, com automação de processos, integração com tribunais, geração de minutas por IA, gestão de contratos, assinaturas eletrônicas e portal do cliente.
 
+## 🏷️ Identidade da marca: nome "LexIA"
+
+O nome oficial do produto é **LexIA** e deve ser grafado sempre da mesma forma em todos os contextos (código, UI, documentação, e-mails, materiais de marketing, mensagens de erro, metadados e comunicações com o cliente).
+
+### ✅ Forma correta
+
+- **LexIA** — `L` maiúsculo, `e` e `x` minúsculos, `I` e `A` maiúsculos, sem espaço, sem hífen, sem ponto.
+
+### ❌ Variações proibidas
+
+Nunca use nenhuma das formas abaixo, mesmo informalmente:
+
+| Errado          | Motivo                                    |
+| --------------- | ----------------------------------------- |
+| `LegalFlow`     | Nome legado, descontinuado                |
+| `Lex IA`        | Espaço no meio quebra a identidade visual |
+| `Lexia`         | Sem destaque para o sufixo "IA"           |
+| `LEXIA`         | Caixa alta total não é a marca oficial    |
+| `lexia`         | Caixa baixa total não é a marca oficial   |
+| `LexAI` / `Lex.IA` | Outras variações não autorizadas       |
+
+### 📐 Regras de uso
+
+- **Em texto corrido**: trate "LexIA" como nome próprio — não traduza, não pluralize ("LexIAs" ❌) e não use possessivo apostrofado ("LexIA's" ❌).
+- **Em títulos e headings**: mantenha exatamente "LexIA", mesmo que o restante do título esteja em caixa alta (ex.: `BEM-VINDO À LexIA`).
+- **Em URLs, IDs e nomes de arquivo**: use `lexia` em minúsculas (ex.: `src/components/lexia/`, rota `/lexia-chat`). Esta é a única exceção à regra de capitalização e aplica-se apenas a identificadores técnicos.
+- **Em e-mails e comunicações**: sempre "LexIA" no corpo da mensagem; o domínio/handle pode usar `lexia` minúsculo.
+- **Logo e assinatura visual**: ver `src/components/lexia/LexLogo.tsx` — não recriar o nome manualmente em SVG/imagem sem seguir o componente oficial.
+
+### 🔧 Aplicação no projeto
+
+A regra é reforçada em múltiplas camadas:
+
+1. **Memória do agente Lovable** (`mem://produto/nome` e regra Core em `mem://index.md`): garante que qualquer alteração feita por IA respeite a grafia.
+2. **Metadados da aplicação** (`index.html`): `<title>`, `<meta name="description">` e tags Open Graph usam "LexIA".
+3. **Componentes de marca** (`src/components/lexia/LexLogo.tsx`, `LexBadge.tsx`, `LexCard.tsx`): centralizam a identidade visual.
+4. **Documentação** (`README.md`): este documento é a referência canônica para colaboradores humanos.
+5. **Revisão de PRs**: qualquer ocorrência de `LegalFlow`, `Lex IA`, `Lexia`, `LEXIA` ou `LexAI` deve ser corrigida antes do merge.
+
+### 🔍 Como auditar rapidamente
+
+```sh
+# Procura variações proibidas no código-fonte
+grep -rEn "LegalFlow|Lex IA|Lexia|LEXIA|LexAI|Lex\.IA" src index.html README.md \
+  --exclude-dir=node_modules
+```
+
+Se o comando retornar resultados, substitua todas as ocorrências por **LexIA** (ou `lexia` quando se tratar de identificador técnico).
+
 ## ✨ Principais funcionalidades
 
 - **Núcleo Jurídico**: cadastro de processos com validação CNJ (`0000000-00.0000.0.00.0000`), audiências, prazos, movimentações e timeline visual.
