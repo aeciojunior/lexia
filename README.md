@@ -107,6 +107,103 @@ Publicação via [Lovable](https://lovable.dev) → **Share → Publish**.
 
 Para conectar um domínio customizado: **Project → Settings → Domains → Connect Domain**.
 
+## 🛟 Troubleshooting
+
+Erros comuns e como resolvê-los rapidamente.
+
+### 🔐 Autenticação
+
+**`Invalid login credentials` mesmo com senha correta**
+- Confirme que o e-mail foi confirmado em **Supabase → Authentication → Users**.
+- Em desenvolvimento, desabilite "Confirm email" em **Authentication → Providers → Email** para acelerar testes.
+- Verifique se o provider Email está habilitado.
+
+**Loop infinito de redirecionamento após login**
+- Verifique a ordem dos listeners em `useAuth`: `onAuthStateChange` deve ser registrado **antes** de `getSession()`.
+- Nunca chame funções `async` diretamente dentro do callback de `onAuthStateChange` — use `setTimeout(() => {...}, 0)`.
+
+**Reset de senha falha silenciosamente**
+- Tokens de recuperação expiram em **30 minutos**. Solicite um novo link.
+- A URL de redirect deve estar listada em **Authentication → URL Configuration → Redirect URLs**.
+- Mensagens genéricas são intencionais (anti-enumeração) — verifique os logs do Supabase para detalhes.
+
+**`AuthSessionMissingError`**
+- Garanta que `persistSession: true` e `autoRefreshToken: true` estão configurados no client Supabase.
+- Limpe `localStorage` e faça login novamente.
+
+### 🛡️ RLS (Row Level Security)
+
+**`new row violates row-level security policy`**
+- Confirme que o `INSERT` define **explicitamente** `user_id` e `organization_id` com os valores do usuário autenticado.
+- Esses campos **não devem ser nullable** quando usados em policies.
+- Confirme que o usuário pertence à organização (tabela `organization_members`).
+
+**Query retorna array vazio mesmo com dados existentes**
+- A RLS está filtrando — verifique a policy de `SELECT` para a tabela.
+- Confirme que `auth.uid()` está disponível (usuário autenticado, não anônimo).
+- Para checagem de role, **sempre** use a função `has_role(auth.uid(), 'admin')` — nunca consulte `user_roles` diretamente em policies (causa recursão).
+
+**Recursão infinita em policy (`infinite recursion detected`)**
+- Substitua subqueries em `user_roles` ou `organization_members` por funções `SECURITY DEFINER`.
+- Exemplo: `public.has_role()`, `public.is_org_member()`.
+
+**Limite de 1000 linhas**
+- Use `.range(start, end)` para paginação. O limite padrão do PostgREST é 1000 linhas por query.
+
+### 🧪 Testes (Vitest / E2E)
+
+**`ReferenceError: IS_REACT_ACT_ENVIRONMENT is not defined`**
+- Adicione `globalThis.IS_REACT_ACT_ENVIRONMENT = true;` em `src/test/setup.ts`.
+
+**`Cannot find module '@/...'` nos testes**
+- Confirme que `vitest.config.ts` possui o alias `@` apontando para `./src`.
+
+**Testes E2E falham com `useNavigate must be used within a Router`**
+- Envolva o componente em `<MemoryRouter>` (use o helper `renderWithProviders` em `src/test/helpers.tsx`).
+
+**Testes que dependem do Supabase falham com `fetch is not defined` ou erros de rede**
+- Faça mock do client: `vi.mock('@/integrations/supabase/client')`.
+- Nunca chame Supabase real em testes unitários.
+
+**Timeouts em testes assíncronos**
+- Use `await waitFor(() => expect(...))` em vez de `setTimeout`.
+- Aumente o timeout pontualmente: `it('...', async () => {...}, 10000)`.
+
+### 🏗️ Build / Dev
+
+**`Module not found` após instalar dependência**
+- Reinicie o dev server. Dependências novas exigem reload do Vite.
+
+**TypeScript: `Cannot find name 'X'` em arquivos do Supabase**
+- Não edite `src/integrations/supabase/types.ts` manualmente — ele é regenerado a partir do schema.
+- Após alterar o schema, aguarde a regeneração automática dos tipos.
+
+**Build falha com `Out of memory`**
+- Aumente o heap do Node: `NODE_OPTIONS=--max-old-space-size=4096 npm run build`.
+
+**HMR não atualiza o navegador**
+- Limpe o cache do Vite: `rm -rf node_modules/.vite && npm run dev`.
+- Verifique se há erros de sintaxe bloqueando o reload no terminal.
+
+**Erro em produção mas não em dev**
+- Rode `npm run build && npm run preview` localmente para reproduzir.
+- Confira variáveis `VITE_*` — apenas variáveis com esse prefixo são expostas ao client.
+
+### ⚡ Edge Functions
+
+**`401 Unauthorized` ao chamar edge function**
+- Use a **anon key** (`VITE_SUPABASE_PUBLISHABLE_KEY`) no client, **nunca** a `service_role_key`.
+- Dentro da função, use `Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')` para operações privilegiadas.
+
+**Secret retorna `undefined` na edge function**
+- Adicione o secret em **Supabase → Edge Functions → Settings**.
+- Após adicionar, a função é redeployada automaticamente — aguarde alguns segundos.
+
+**CORS bloqueando chamadas**
+- Inclua os headers `Access-Control-Allow-Origin: *` e trate o método `OPTIONS` no início do handler.
+
+---
+
 ## 📄 Licença
 
 Projeto proprietário. Todos os direitos reservados.
