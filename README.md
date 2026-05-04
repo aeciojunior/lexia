@@ -1,73 +1,112 @@
-# Welcome to your Lovable project
+# LegalFlow — Plataforma Jurídica Inteligente
 
-## Project info
+Plataforma SaaS multi-tenant para escritórios de advocacia e departamentos jurídicos, com automação de processos, integração com tribunais, geração de minutas por IA, gestão de contratos, assinaturas eletrônicas e portal do cliente.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## ✨ Principais funcionalidades
 
-## How can I edit this code?
+- **Núcleo Jurídico**: cadastro de processos com validação CNJ (`0000000-00.0000.0.00.0000`), audiências, prazos, movimentações e timeline visual.
+- **Integração com Tribunais**: sincronização automática (PJe, PROJUDI, eSAJ) com identificação do sistema a partir do número CNJ.
+- **Inteligência Artificial**:
+  - Geração de minutas e peças processuais
+  - Resumos 360° de processos com Human-in-the-Loop
+  - Classificação automática de documentos com badge de confiança
+  - Comandos por voz (Web Speech API)
+  - Predições processuais (sem fornecer datas, valores ou percentuais exatos)
+- **Gestão de Contratos**: editor com seções obrigatórias, geração de PDF, assinatura via ClickSign e faturamento automático.
+- **Comparação Avançada de Documentos**: suporte a PDF, DOCX e TXT com diff visual.
+- **Due Diligence** automatizada e relatórios em PDF.
+- **Portal do Cliente** (`/portal`): área restrita ao papel `client`, sem modo de pré-visualização administrativo.
+- **Governança & Auditoria**: logs de segurança, ACL granular, gestão de organização e detecção de anomalias.
+- **Automação Agendada**: rotinas em background via cron (notificações de prazos, faturas, movimentações, etc.).
 
-There are several ways of editing your application.
+## 🛠️ Stack Tecnológica
 
-**Use Lovable**
+- **Frontend**: React 18 + Vite 5 + TypeScript 5
+- **UI**: Tailwind CSS v3 + shadcn/ui + Framer Motion
+- **Tema**: Dark Midnight com Electric Cyan, Vivid Violet e Neon Emerald — tipografia Outfit (títulos) + Inter (corpo)
+- **Backend**: Lovable Cloud (Supabase) com RLS estrita por `organization_id`
+- **IA**: Lovable AI Gateway (Azure OpenAI)
+- **Pagamentos**: PagSeguro
+- **Assinatura eletrônica**: ClickSign
+- **Testes**: Vitest + Testing Library (unitários e E2E)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## 🚀 Como executar localmente
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Pré-requisitos: Node.js 18+ e npm (recomendado instalar via [nvm](https://github.com/nvm-sh/nvm)).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# 1. Clonar o repositório
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 2. Instalar dependências
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Iniciar o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+A aplicação ficará disponível em `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📜 Scripts disponíveis
 
-**Use GitHub Codespaces**
+| Script              | Descrição                                       |
+| ------------------- | ----------------------------------------------- |
+| `npm run dev`       | Servidor de desenvolvimento com HMR             |
+| `npm run build`     | Build de produção                               |
+| `npm run build:dev` | Build em modo desenvolvimento                   |
+| `npm run preview`   | Preview do build de produção                    |
+| `npm run lint`      | Lint com ESLint                                 |
+| `npm run test`      | Executa todos os testes (Vitest)                |
+| `npm run test:watch`| Testes em modo watch                            |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🧪 Testes
 
-## What technologies are used for this project?
+O projeto possui cobertura ampla de testes unitários e end-to-end localizados em:
 
-This project is built with:
+- `src/**/__tests__/` — testes unitários de componentes, hooks e libs
+- `src/test/e2e/` — testes end-to-end de fluxos completos
+- `supabase/functions/**/*.test.ts` — testes de edge functions
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```sh
+npm run test
+```
 
-## How can I deploy this project?
+## 📁 Estrutura do projeto
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```
+src/
+├── components/        # Componentes reutilizáveis (UI, layout, domínio)
+│   ├── ui/            # shadcn/ui
+│   ├── landing/       # Seções da landing page
+│   ├── contracts/     # Contratos e geração de PDF
+│   ├── lexia/         # Componentes da assistente IA
+│   └── process/       # Componentes do núcleo processual
+├── hooks/             # Hooks customizados (auth, organização, permissões)
+├── integrations/      # Cliente Supabase e tipos gerados
+├── lib/               # Utilitários (validação fiscal, extração PDF/DOCX)
+├── pages/             # Rotas da aplicação
+└── test/              # Setup, helpers e testes E2E
 
-## Can I connect a custom domain to my Lovable project?
+supabase/
+├── functions/         # Edge Functions (IA, integrações, automações)
+└── config.toml
+```
 
-Yes, you can!
+## 🔒 Segurança & Multi-tenancy
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- Isolamento estrito por `organization_id` em todas as queries (RLS)
+- Tokens de recuperação de senha expiram em 30 minutos
+- Mensagens genéricas em fluxos de autenticação para evitar enumeração de usuários
+- Roles armazenadas em tabela dedicada (`user_roles`) com função `SECURITY DEFINER` para evitar escalonamento de privilégios
+- Auditoria completa via `audit_logs`
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🌐 Deploy
+
+Publicação via [Lovable](https://lovable.dev) → **Share → Publish**.
+
+Para conectar um domínio customizado: **Project → Settings → Domains → Connect Domain**.
+
+## 📄 Licença
+
+Projeto proprietário. Todos os direitos reservados.
