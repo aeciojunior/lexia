@@ -97,6 +97,23 @@ describe("Landing Page — E2E", () => {
     expect(screen.getByText("© 2026 LexIA. Todos os direitos reservados.")).toBeInTheDocument();
   });
 
+  it("renders the brand name 'LexIA' on the homepage", () => {
+    const { container } = renderWithProviders(<Landing />);
+    const matches = container.textContent?.match(/LexIA/g) ?? [];
+    expect(matches.length).toBeGreaterThan(0);
+  });
+
+  it("never renders forbidden brand variations", () => {
+    const { container } = renderWithProviders(<Landing />);
+    const text = container.textContent ?? "";
+    expect(text).not.toMatch(/LegalFlow/);
+    expect(text).not.toMatch(/Lex IA/);
+    expect(text).not.toMatch(/\bLexia\b/);
+    expect(text).not.toMatch(/\bLEXIA\b/);
+    expect(text).not.toMatch(/LexAI/);
+    expect(text).not.toMatch(/Lex\.IA/);
+  });
+
   it("has navigation links pointing to /auth", () => {
     renderWithProviders(<Landing />);
     const enterLink = screen.getByText("Entrar").closest("a");
