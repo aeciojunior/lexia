@@ -1,4 +1,4 @@
-# LegalFlow — Plataforma Jurídica Inteligente
+# LexIA — Plataforma Jurídica Inteligente
 
 Plataforma SaaS multi-tenant para escritórios de advocacia e departamentos jurídicos, com automação de processos, integração com tribunais, geração de minutas por IA, gestão de contratos, assinaturas eletrônicas e portal do cliente.
 
