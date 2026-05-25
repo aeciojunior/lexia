@@ -6,29 +6,53 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const escapeHtml = (value: unknown) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { signature_id } = await req.json();
-    if (!signature_id) {
-      return new Response(JSON.stringify({ error: "signature_id is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: authData, error: authError } = await authClient.auth.getUser(token);
+    if (authError || !authData.user) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const { signature_id } = await req.json();
+    if (!signature_id) {
+      return jsonResponse({ error: "signature_id is required" }, 400);
+    }
+
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     if (!resendApiKey) {
-      return new Response(JSON.stringify({ error: "RESEND_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "RESEND_API_KEY not configured" }, 500);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -41,15 +65,26 @@ Deno.serve(async (req) => {
       .single();
 
     if (sigError || !sig) {
-      return new Response(JSON.stringify({ error: "Signature not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Signature not found" }, 404);
     }
 
     const contract = sig.contracts;
     const client = contract?.clients;
     const orgId = contract?.organization_id;
+
+    const { data: membership } = await supabase
+      .from("user_organizations")
+      .select("role")
+      .eq("user_id", authData.user.id)
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    const isSigner = sig.user_id === authData.user.id;
+    const isOrgAdmin = ["owner", "admin"].includes(membership?.role ?? "");
+    if (!isSigner && !isOrgAdmin) {
+      return jsonResponse({ error: "Forbidden" }, 403);
+    }
 
     // Get organization name
     const { data: org } = await supabase
@@ -75,11 +110,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    const contractTitle = contract?.title || "Contrato";
-    const clientName = client?.full_name || "Cliente";
+    const rawContractTitle = contract?.title || "Contrato";
+    const rawClientName = client?.full_name || "Cliente";
+    const contractTitle = escapeHtml(rawContractTitle);
+    const clientName = escapeHtml(rawClientName);
     const clientEmail = client?.email;
-    const orgName = org?.name || "Escritório";
-    const signedAt = new Date(sig.signed_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const orgName = escapeHtml(org?.name || "Escritório");
+    const signedAt = escapeHtml(new Date(sig.signed_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }));
 
     const formatCurrency = (cents: number) =>
       new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
@@ -105,7 +142,7 @@ Deno.serve(async (req) => {
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #888; font-size: 13px;">Valor</td>
-              <td style="padding: 8px 0; font-size: 13px;">${formatCurrency(contract?.amount_cents || 0)}</td>
+              <td style="padding: 8px 0; font-size: 13px;">${escapeHtml(formatCurrency(contract?.amount_cents || 0))}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #888; font-size: 13px;">Assinado em</td>
@@ -137,7 +174,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: "Lexia <onboarding@resend.dev>",
             to: adminEmails,
-            subject: `Contrato "${contractTitle}" assinado por ${clientName}`,
+            subject: `Contrato "${rawContractTitle}" assinado por ${rawClientName}`,
             html: htmlBody,
           }),
         })
@@ -176,7 +213,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: "Lexia <onboarding@resend.dev>",
             to: [clientEmail],
-            subject: `Confirmação: Contrato "${contractTitle}" assinado`,
+            subject: `Confirmação: Contrato "${rawContractTitle}" assinado`,
             html: clientHtml,
           }),
         })
@@ -186,18 +223,14 @@ Deno.serve(async (req) => {
     const results = await Promise.allSettled(emailPromises);
     const failures = results.filter((r) => r.status === "rejected");
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: true,
         emails_sent: results.length - failures.length,
         emails_failed: failures.length,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: (error as Error).message }, 500);
   }
 });

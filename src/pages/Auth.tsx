@@ -23,7 +23,7 @@ const PASSWORD_CHECKS: PasswordCheck[] = [
   { label: "Letra maiúscula", test: (pw) => /[A-Z]/.test(pw) },
   { label: "Letra minúscula", test: (pw) => /[a-z]/.test(pw) },
   { label: "Número", test: (pw) => /\d/.test(pw) },
-  { label: "Caractere especial", test: (pw) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/~`]/.test(pw) },
+  { label: "Caractere especial", test: (pw) => /[^A-Za-z0-9]/.test(pw) },
 ];
 
 const getStrengthLevel = (passed: number): { label: string; color: string; width: string } => {

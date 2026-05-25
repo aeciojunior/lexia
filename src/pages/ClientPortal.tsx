@@ -48,11 +48,6 @@ const ClientPortal = () => {
   const [signContractId, setSignContractId] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // Redirect non-clients to dashboard
-  if (!loadingPerms && !isClient) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   // Fetch processes (RLS already scopes to org)
   const { data: processes = [], isLoading: loadingProcesses } = useQuery({
     queryKey: ["client-processes", activeOrgId],
@@ -193,16 +188,9 @@ const ClientPortal = () => {
 
       // Fire-and-forget email notification
       if (insertedSig?.id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        fetch(`https://dnpakncqtzjdtkwcjpsw.supabase.co/functions/v1/send-signed-contract`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            "Content-Type": "application/json",
-            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucGFrbmNxdHpqZHRrd2NqcHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTYzMjcsImV4cCI6MjA4NjQ3MjMyN30.BYLKOhlr-ekFWDQStd5ieSlUuhgypxRvgpO6L7gLc6U",
-          },
-          body: JSON.stringify({ signature_id: insertedSig.id }),
-        }).catch(() => {}); // fire-and-forget
+        supabase.functions
+          .invoke("send-signed-contract", { body: { signature_id: insertedSig.id } })
+          .catch(() => {}); // fire-and-forget
       }
     },
     onSuccess: () => {
@@ -356,22 +344,10 @@ const ClientPortal = () => {
   const createChargeMutation = useMutation({
     mutationFn: async () => {
       if (!chargeInvoiceId) throw new Error("Fatura não selecionada");
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Não autenticado");
-      const res = await fetch(
-        `https://dnpakncqtzjdtkwcjpsw.supabase.co/functions/v1/pagseguro-charge`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucGFrbmNxdHpqZHRrd2NqcHN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTYzMjcsImV4cCI6MjA4NjQ3MjMyN30.BYLKOhlr-ekFWDQStd5ieSlUuhgypxRvgpO6L7gLc6U",
-          },
-          body: JSON.stringify({ invoice_id: chargeInvoiceId, method: chargeMethod }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao gerar cobrança");
+      const { data, error } = await supabase.functions.invoke("pagseguro-charge", {
+        body: { invoice_id: chargeInvoiceId, method: chargeMethod },
+      });
+      if (error) throw new Error(error.message || "Erro ao gerar cobrança");
       return data;
     },
     onSuccess: (data) => {
@@ -389,6 +365,7 @@ const ClientPortal = () => {
   });
 
   if (loadingPerms) return null;
+  if (!isClient) return <Navigate to="/dashboard" replace />;
 
   const pendingInvoices = invoices.filter((i: any) => i.status === "pending" || i.status === "overdue");
   const paidInvoices = invoices.filter((i: any) => i.status === "paid");

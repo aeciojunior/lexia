@@ -338,7 +338,7 @@ const Automations = () => {
     setWorkflow(emptyWorkflow);
   };
 
-  const useTemplate = (template: AutomationTemplate) => {
+  const applyTemplate = (template: AutomationTemplate) => {
     setEditingId(null);
     setWorkflowName(template.name);
     setWorkflowDesc(template.description);
@@ -484,7 +484,7 @@ const Automations = () => {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => useTemplate(tpl)}>
+                      <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => applyTemplate(tpl)}>
                         <Pencil className="h-3 w-3 mr-1" /> Personalizar
                       </Button>
                       <Button size="sm" className="flex-1 text-xs h-8" onClick={() => activateTemplate(tpl)}>

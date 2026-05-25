@@ -165,7 +165,7 @@ export function exportContractPDF({ title, contractTitle, analysisType, content,
         y += 6;
         break;
 
-      case "bold":
+      case "bold": {
         checkPage(8);
         doc.setTextColor(30, 30, 50);
         doc.setFontSize(9);
@@ -174,8 +174,9 @@ export function exportContractPDF({ title, contractTitle, analysisType, content,
         doc.text(boldLines, marginLeft, y);
         y += boldLines.length * 5;
         break;
+      }
 
-      case "bullet":
+      case "bullet": {
         checkPage(8);
         doc.setTextColor(50, 50, 70);
         doc.setFontSize(9);
@@ -186,9 +187,10 @@ export function exportContractPDF({ title, contractTitle, analysisType, content,
         doc.text(bulletLines, marginLeft + 6, y);
         y += bulletLines.length * 4.5;
         break;
+      }
 
       case "body":
-      default:
+      default: {
         checkPage(8);
         doc.setTextColor(50, 50, 70);
         doc.setFontSize(9);
@@ -197,6 +199,7 @@ export function exportContractPDF({ title, contractTitle, analysisType, content,
         doc.text(bodyLines, marginLeft, y);
         y += bodyLines.length * 4.5;
         break;
+      }
     }
   }
 
