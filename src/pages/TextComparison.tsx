@@ -208,7 +208,11 @@ export default function TextComparison() {
   useEffect(() => {
     if (navState?.sourceDocA && navState?.sourceDocB && !autoLoadedRef.current) {
       autoLoadedRef.current = true;
+      let cancelled = false;
+      const controller = new AbortController();
+
       const loadDocText = async (doc: any, side: "A" | "B") => {
+        if (cancelled) return;
         const setExtracting = side === "A" ? setExtractingA : setExtractingB;
         const setText = side === "A" ? setTextA : setTextB;
         const setFileInfo = side === "A" ? setFileInfoA : setFileInfoB;
@@ -220,10 +224,12 @@ export default function TextComparison() {
           const { data: signedData, error: signedErr } = await supabase.storage
             .from("documents")
             .createSignedUrl(doc.file_url, 120);
+          if (cancelled) return;
           if (signedErr || !signedData?.signedUrl) throw new Error("Erro ao obter URL do documento");
 
-          const response = await fetch(signedData.signedUrl);
+          const response = await fetch(signedData.signedUrl, { signal: controller.signal });
           const blob = await response.blob();
+          if (cancelled) return;
           const file = new File([blob], doc.file_name, { type: doc.file_type || "application/octet-stream" });
 
           const fileFormat = getFormatFromFile(file);
@@ -231,6 +237,7 @@ export default function TextComparison() {
           setFileSize(file.size);
 
           const extractResult = await extractTextFromFile(file);
+          if (cancelled) return;
 
           if (extractResult.needsOcr) {
             setFileInfo(`${fileFormat} • Executando OCR...`);
@@ -241,9 +248,11 @@ export default function TextComparison() {
             } else {
               images = await renderPdfPagesToImages(file, 10);
             }
+            if (cancelled) return;
             const { data: ocrData, error: ocrErr } = await supabase.functions.invoke("extract-pdf-text", {
               body: { images, organizationId: activeOrgId },
             });
+            if (cancelled) return;
             if (ocrErr) throw ocrErr;
             const ocrText = ocrData?.text || "";
             setText(ocrText);
@@ -253,15 +262,22 @@ export default function TextComparison() {
             setFileInfo(`${fileFormat} • ${extractResult.text.length.toLocaleString()} caracteres`);
           }
         } catch (e: any) {
+          if (cancelled || e?.name === "AbortError") return;
           console.error(`Error loading doc ${side}:`, e);
           setFileInfo("Erro ao carregar documento");
           toast({ title: `Erro ao carregar ${doc.file_name}`, description: e.message, variant: "destructive" });
         } finally {
-          setExtracting(false);
+          if (!cancelled) setExtracting(false);
         }
       };
+
       loadDocText(navState.sourceDocA, "A");
       loadDocText(navState.sourceDocB, "B");
+
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,14 +10,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const auth = await requireAuth(req);
+    if (!auth.ok) return auth.response;
+
     const { process_id, organization_id } = await req.json();
     if (!process_id || !organization_id) {
       return new Response(JSON.stringify({ error: "process_id and organization_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const memberError = await requireOrgMember(auth.supabase, auth.userId, organization_id);
+    if (memberError) return memberError;
+
+    const supabase = auth.supabase;
 
     // Fetch process data
     const { data: process } = await supabase.from("processes").select("*").eq("id", process_id).single();

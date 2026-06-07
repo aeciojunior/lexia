@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAccessToken } from "@/lib/supabaseAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,12 +94,13 @@ export default function ArgumentSuggestionsPanel({ draftId, processId, pieceType
     if (!activeOrgId) return;
     setIsGenerating(true);
     try {
+      const token = await getAccessToken();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/suggest-arguments`;
       const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           organization_id: activeOrgId,

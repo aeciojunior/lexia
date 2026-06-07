@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth, requireOrgMember, verifyCronSecret } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,74 +31,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-    const datajudKey = Deno.env.get("DATAJUD_API_KEY");
-
     const body = await req.json().catch(() => ({}));
     const { integration_id, sync_all, process_id } = body;
+    const datajudKey = Deno.env.get("DATAJUD_API_KEY");
 
-    // If process_id is provided, find or create integration then sync
-    if (process_id && !integration_id && !sync_all) {
-      const { data: existingInteg } = await supabase
-        .from("court_integrations")
-        .select("id")
-        .eq("process_id", process_id)
-        .eq("status", "active")
-        .maybeSingle();
-
-      if (existingInteg) {
-        const result = await syncIntegration(supabase, existingInteg.id, datajudKey, body);
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // No integration exists — try to auto-create from process data
-      const { data: proc } = await supabase
-        .from("processes")
-        .select("id, number, organization_id, user_id, court")
-        .eq("id", process_id)
-        .single();
-
-      if (!proc?.number) {
-        return new Response(
-          JSON.stringify({ error: "Processo não encontrado ou sem número." }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Detect court system from number
-      const courtSystem = detectCourtSystem(proc.number);
-
-      const { data: newInteg, error: createErr } = await supabase
-        .from("court_integrations")
-        .insert({
-          organization_id: proc.organization_id,
-          process_id: proc.id,
-          court_system: courtSystem,
-          court_process_id: proc.number,
-          status: "active",
-        })
-        .select("id")
-        .single();
-
-      if (createErr) {
-        return new Response(
-          JSON.stringify({ error: "Erro ao criar integração: " + createErr.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const result = await syncIntegration(supabase, newInteg.id, datajudKey, body);
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // If sync_all is true, process all active integrations (called by pg_cron)
     if (sync_all) {
+      const cronDenied = verifyCronSecret(req);
+      if (cronDenied) return cronDenied;
+
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
       console.log("Starting batch sync for all active integrations...");
       const { data: integrations, error } = await supabase
         .from("court_integrations")
@@ -138,12 +84,87 @@ Deno.serve(async (req) => {
       );
     }
 
+    const auth = await requireAuth(req);
+    if (!auth.ok) return auth.response;
+
+    const supabase = auth.supabase;
+
+    // If process_id is provided, find or create integration then sync
+    if (process_id && !integration_id) {
+      const { data: proc } = await supabase
+        .from("processes")
+        .select("id, number, organization_id, user_id, court")
+        .eq("id", process_id)
+        .single();
+
+      if (!proc?.number) {
+        return new Response(
+          JSON.stringify({ error: "Processo não encontrado ou sem número." }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const memberError = await requireOrgMember(auth.supabase, auth.userId, proc.organization_id);
+      if (memberError) return memberError;
+
+      const { data: existingInteg } = await supabase
+        .from("court_integrations")
+        .select("id")
+        .eq("process_id", process_id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (existingInteg) {
+        const result = await syncIntegration(supabase, existingInteg.id, datajudKey, body);
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const courtSystem = detectCourtSystem(proc.number);
+
+      const { data: newInteg, error: createErr } = await supabase
+        .from("court_integrations")
+        .insert({
+          organization_id: proc.organization_id,
+          process_id: proc.id,
+          court_system: courtSystem,
+          court_process_id: proc.number,
+          status: "active",
+        })
+        .select("id")
+        .single();
+
+      if (createErr) {
+        return new Response(
+          JSON.stringify({ error: "Erro ao criar integração: " + createErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const result = await syncIntegration(supabase, newInteg.id, datajudKey, body);
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Single integration sync
     if (!integration_id) {
       return new Response(
         JSON.stringify({ error: "integration_id, process_id or sync_all required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    const { data: integRow } = await supabase
+      .from("court_integrations")
+      .select("organization_id")
+      .eq("id", integration_id)
+      .maybeSingle();
+
+    if (integRow?.organization_id) {
+      const memberError = await requireOrgMember(auth.supabase, auth.userId, integRow.organization_id);
+      if (memberError) return memberError;
     }
 
     const result = await syncIntegration(supabase, integration_id, datajudKey, body);

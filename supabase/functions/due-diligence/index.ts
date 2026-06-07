@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,14 +10,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const auth = await requireAuth(req);
+    if (!auth.ok) return auth.response;
+
     const { type, target_name, context, organization_id } = await req.json();
     if (!target_name || !organization_id) {
       return new Response(JSON.stringify({ error: "target_name e organization_id são obrigatórios." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const memberError = await requireOrgMember(auth.supabase, auth.userId, organization_id);
+    if (memberError) return memberError;
+
+    const supabase = auth.supabase;
 
     // Fetch related contracts
     const { data: contracts } = await supabase.from("contracts").select("title, contract_type, status, amount_cents, clauses, start_date, end_date").eq("organization_id", organization_id).eq("status", "active").limit(10);

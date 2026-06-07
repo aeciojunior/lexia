@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LexLogo } from "@/components/lexia/LexLogo";
@@ -84,8 +85,23 @@ const Auth = () => {
   const lockoutLevel = useRef(0);
   const lockoutTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const rawRedirect = searchParams.get("redirect") || "/dashboard";
+  const redirectTo =
+    rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/dashboard";
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    return () => {
+      if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [user, authLoading, redirectTo, navigate]);
 
   const passwordValid = useMemo(() => {
     return PASSWORD_CHECKS.every((c) => c.test(password));
@@ -139,9 +155,9 @@ const Auth = () => {
 
     setLoading(true);
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       failedAttempts.current++;
       const remaining = MAX_ATTEMPTS - failedAttempts.current;
 
@@ -154,11 +170,9 @@ const Auth = () => {
       return;
     }
 
-    // Reset on success
     failedAttempts.current = 0;
     lockoutLevel.current = 0;
 
-    // Audit log for login
     if (data.user) {
       supabase.from("audit_logs").insert({
         action: "login",
@@ -171,7 +185,15 @@ const Auth = () => {
       } as any).then(() => {});
     }
 
-    navigate(redirectTo);
+    const { data: { session } } = await supabase.auth.getSession();
+    setLoading(false);
+
+    if (!session) {
+      toast.error("Erro ao estabelecer sessão. Tente novamente.");
+      return;
+    }
+
+    navigate(redirectTo, { replace: true });
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -217,25 +239,19 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleOAuthLogin = async (provider: "google" | "apple") => {
+    sessionStorage.setItem("oauth_redirect", redirectTo);
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: {
-        redirectTo: window.location.origin + redirectTo,
+        redirectTo: window.location.origin,
       },
     });
     if (error) toast.error(error.message);
   };
 
-  const handleAppleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: window.location.origin + redirectTo,
-      },
-    });
-    if (error) toast.error(error.message);
-  };
+  const handleGoogleLogin = () => handleOAuthLogin("google");
+  const handleAppleLogin = () => handleOAuthLogin("apple");
 
   const onSubmit = mode === "login" ? handleLogin : mode === "register" ? handleRegister : handleForgot;
 

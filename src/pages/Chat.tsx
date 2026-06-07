@@ -60,6 +60,13 @@ const Chat = () => {
     setIsListening(false);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort?.();
+      recognitionRef.current = null;
+    };
+  }, []);
+
   // Fetch org processes for context selector
   const { data: processes = [] } = useQuery({
     queryKey: ["chat-processes", activeOrgId],

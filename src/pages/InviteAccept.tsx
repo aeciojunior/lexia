@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 import { LexCard } from "@/components/lexia/LexCard";
 import { LexLogo } from "@/components/lexia/LexLogo";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { motion } from "framer-motion";
 const InviteAccept = () => {
   const { token } = useParams<{ token: string }>();
   const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [status, setStatus] = useState<"loading" | "success" | "error" | "login-required">("loading");
   const [message, setMessage] = useState("");
@@ -24,23 +26,36 @@ const InviteAccept = () => {
       return;
     }
 
+    let cancelled = false;
+
     const acceptInvite = async () => {
       try {
         const { data, error } = await supabase.functions.invoke("org-invites", {
           body: { action: "accept-invite", token },
         });
+        if (cancelled) return;
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
+
+        await queryClient.invalidateQueries({ queryKey: ["active-org", user.id] });
+        await queryClient.invalidateQueries({ queryKey: ["user-organizations", user.id] });
+
         setStatus("success");
         setMessage(data?.message || "Convite aceito! Você agora faz parte da organização.");
       } catch (err: any) {
-        setStatus("error");
-        setMessage(err.message || "Erro ao aceitar convite.");
+        if (!cancelled) {
+          setStatus("error");
+          setMessage(err.message || "Erro ao aceitar convite.");
+        }
       }
     };
 
     acceptInvite();
-  }, [token, user, authLoading]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, user, authLoading, queryClient]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">

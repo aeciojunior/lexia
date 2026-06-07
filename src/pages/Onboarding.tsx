@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,17 +39,41 @@ const Onboarding = () => {
   const [clientName, setClientName] = useState("");
   const [court, setCourt] = useState("");
 
-  // Load org data on mount
-  const loadOrg = async () => {
-    if (orgLoaded) return;
-    const { data: profile } = await supabase.from("profiles").select("active_organization_id").eq("user_id", user!.id).single();
-    if (profile?.active_organization_id) {
-      const { data: org } = await supabase.from("organizations").select("name, tax_id").eq("id", profile.active_organization_id).single();
-      if (org) { setOrgName(org.name || ""); setTaxId((org as any).tax_id || ""); }
-    }
-    setOrgLoaded(true);
-  };
-  if (user && !orgLoaded) loadOrg();
+  useEffect(() => {
+    if (!user?.id || orgLoaded) return;
+
+    let cancelled = false;
+
+    const loadOrg = async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active_organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (profile?.active_organization_id) {
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("name, tax_id")
+          .eq("id", profile.active_organization_id)
+          .maybeSingle();
+        if (org && !cancelled) {
+          setOrgName(org.name || "");
+          setTaxId((org as any).tax_id || "");
+        }
+      }
+
+      if (!cancelled) setOrgLoaded(true);
+    };
+
+    loadOrg();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, orgLoaded]);
 
   const handleOrgSetup = async () => {
     if (!orgName.trim()) { toast.error("Informe o nome do escritório"); return; }

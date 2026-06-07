@@ -62,6 +62,12 @@ serve(async (req) => {
 
     if (!organization_id) throw new Error("organization_id is required");
 
+    const { data: isMember } = await supabase.rpc("is_org_member", {
+      _user_id: user.id,
+      _org_id: organization_id,
+    });
+    if (!isMember) throw new Error("Sem acesso à organização");
+
     // Aggregate context
     let processContext = "";
     let clientContext = "";

@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getAccessToken } from "@/lib/supabaseAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useToast } from "@/hooks/use-toast";
@@ -84,6 +85,13 @@ export default function Drafts() {
   const [showReview, setShowReview] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [diffOriginal, setDiffOriginal] = useState("");
+  const streamAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort();
+    };
+  }, []);
 
   // Fetch drafts
   const { data: drafts, isLoading } = useQuery({
@@ -143,21 +151,27 @@ export default function Drafts() {
     rewrite_content?: string;
     rewrite_instructions?: string;
   }) => {
+    streamAbortRef.current?.abort();
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
+
     setIsStreaming(true);
     setStreamContent("");
 
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-draft`;
     try {
+      const token = await getAccessToken();
       const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           organization_id: activeOrgId,
           ...params,
         }),
+        signal: controller.signal,
       });
 
       if (!resp.ok) {
@@ -173,6 +187,7 @@ export default function Drafts() {
       let fullContent = "";
 
       while (true) {
+        if (controller.signal.aborted) break;
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -189,7 +204,7 @@ export default function Drafts() {
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
+            if (content && !controller.signal.aborted) {
               fullContent += content;
               setStreamContent(fullContent);
             }
@@ -201,8 +216,13 @@ export default function Drafts() {
       }
 
       return fullContent;
+    } catch (e: any) {
+      if (e?.name === "AbortError") return "";
+      throw e;
     } finally {
-      setIsStreaming(false);
+      if (!controller.signal.aborted) {
+        setIsStreaming(false);
+      }
     }
   }, [activeOrgId]);
 

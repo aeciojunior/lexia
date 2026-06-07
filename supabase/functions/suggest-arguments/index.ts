@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,6 +44,9 @@ serve(async (req) => {
   }
 
   try {
+    const auth = await requireAuth(req);
+    if (!auth.ok) return auth.response;
+
     const { organization_id, process_id, draft_id, suggestion_type, piece_type, context } = await req.json();
 
     if (!organization_id || !suggestion_type) {
@@ -53,9 +56,10 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const memberError = await requireOrgMember(auth.supabase, auth.userId, organization_id);
+    if (memberError) return memberError;
+
+    const supabase = auth.supabase;
 
     // Aggregate context
     let processContext = "";

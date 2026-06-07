@@ -331,9 +331,9 @@ export function roleHasPermission(role: OrgRole, permission: Permission): boolea
 
 export const usePermissions = () => {
   const { user } = useAuth();
-  const { activeOrgId } = useOrganization();
+  const { activeOrgId, loadingOrg } = useOrganization();
 
-  const { data: orgRole, isLoading } = useQuery({
+  const { data: orgRole, isLoading: roleLoading } = useQuery({
     queryKey: ["org-role", user?.id, activeOrgId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -350,6 +350,7 @@ export const usePermissions = () => {
 
   const role: OrgRole = orgRole || "user";
   const permissions = getPermissionsForRole(role);
+  const isLoading = !!user && (loadingOrg || (!!activeOrgId && roleLoading));
 
   const hasPermission = (permission: Permission) => permissions.includes(permission);
   const hasAnyPermission = (...perms: Permission[]) => perms.some((p) => permissions.includes(p));

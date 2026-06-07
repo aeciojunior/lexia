@@ -37,13 +37,15 @@ const useCountUp = (end: number, duration = 800) => {
     prevEnd.current = end;
     if (end === 0) { setValue(0); return; }
     const startTime = performance.now();
+    let frameId: number;
     const tick = (now: number) => {
       const progress = Math.min((now - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setValue(Math.round(start + (end - start) * eased));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) frameId = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
   }, [end, duration]);
   return value;
 };

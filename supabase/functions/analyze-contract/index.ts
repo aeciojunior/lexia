@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,6 +236,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const auth = await requireAuth(req);
+    if (!auth.ok) return auth.response;
+
     const { contract_id, organization_id, analysis_type, extra_context, user_id } = await req.json();
 
     if (!organization_id || !analysis_type) {
@@ -244,6 +247,9 @@ serve(async (req) => {
       });
     }
 
+    const memberError = await requireOrgMember(auth.supabase, auth.userId, organization_id);
+    if (memberError) return memberError;
+
     const systemPrompt = SYSTEM_PROMPTS[analysis_type];
     if (!systemPrompt) {
       return new Response(JSON.stringify({ error: `analysis_type inválido: ${analysis_type}` }), {
@@ -251,9 +257,7 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = auth.supabase;
 
     // Build context
     let contractContext = "";

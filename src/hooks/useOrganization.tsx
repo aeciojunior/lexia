@@ -1,9 +1,23 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { ORG_CHANGED_EVENT } from "@/lib/orgEvents";
+import { useEffect } from "react";
 
 export const useOrganization = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handler = () => {
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ["active-org", user.id] });
+        queryClient.invalidateQueries({ queryKey: ["user-organizations", user.id] });
+      }
+    };
+    window.addEventListener(ORG_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(ORG_CHANGED_EVENT, handler);
+  }, [user?.id, queryClient]);
 
   const { data: activeOrgId, isLoading: loadingOrg } = useQuery({
     queryKey: ["active-org", user?.id],
@@ -19,7 +33,7 @@ export const useOrganization = () => {
     enabled: !!user,
   });
 
-  const { data: organizations = [] } = useQuery({
+  const { data: organizations = [], isLoading: loadingOrganizations } = useQuery({
     queryKey: ["user-organizations", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -41,7 +55,9 @@ export const useOrganization = () => {
       .eq("user_id", user.id);
     if (error) throw error;
 
-    // Register audit log for org switch
+    await queryClient.invalidateQueries({ queryKey: ["active-org", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["user-organizations", user.id] });
+
     await supabase.from("audit_logs").insert({
       action: "change_active_organization",
       user_id: user.id,
@@ -56,6 +72,7 @@ export const useOrganization = () => {
     activeOrgId: activeOrgId || null,
     organizations,
     loadingOrg,
+    loadingOrganizations,
     switchOrganization,
   };
 };

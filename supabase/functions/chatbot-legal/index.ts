@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,12 +10,21 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const auth = await requireAuth(req);
+    if (!auth.ok) return auth.response;
+
     const { conversationId, organizationId, message, userId } = await req.json();
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    if (!organizationId || !message) {
+      return new Response(JSON.stringify({ error: "organizationId and message required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const memberError = await requireOrgMember(auth.supabase, auth.userId, organizationId);
+    if (memberError) return memberError;
+
+    const supabase = auth.supabase;
 
     // Get chatbot config
     const { data: config } = await supabase

@@ -44,20 +44,35 @@ const ResetPassword = () => {
   const passedCount = results.filter((r) => r.passed).length;
   const strength = getStrengthLevel(passedCount);
 
-  // Supabase sends a RECOVERY event when the user clicks the reset link
   useEffect(() => {
+    let cancelled = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+      if (!cancelled && event === "PASSWORD_RECOVERY") {
         setSessionReady(true);
       }
     });
 
-    // Also check if there's already a session (user may have already loaded)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!cancelled && session) setSessionReady(true);
+      })
+      .catch(() => {});
 
-    return () => subscription.unsubscribe();
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setSessionReady((ready) => {
+          if (!ready) setError("Link inválido ou expirado. Solicite uma nova recuperação de senha.");
+          return ready;
+        });
+      }
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {

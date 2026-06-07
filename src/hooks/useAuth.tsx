@@ -23,21 +23,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
+      if (!cancelled) {
+        setSession(session);
+        setLoading(false);
+      }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!cancelled) {
+          setSession(session);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // Redirect after OAuth login
+  useEffect(() => {
+    if (loading || !session) return;
+    const stored = sessionStorage.getItem("oauth_redirect");
+    if (!stored) return;
+    sessionStorage.removeItem("oauth_redirect");
+    const path = stored.startsWith("/") && !stored.startsWith("//") ? stored : "/dashboard";
+    if (window.location.pathname !== path) {
+      window.location.replace(path);
+    }
+  }, [session, loading]);
+
   const signOut = async () => {
-    // Audit log for logout
     if (session?.user) {
       try {
         await supabase.from("audit_logs").insert({
