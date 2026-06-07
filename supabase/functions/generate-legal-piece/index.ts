@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { hfChat, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,16 +56,6 @@ serve(async (req) => {
       });
     }
 
-    const AZURE_API_KEY = Deno.env.get("AZURE_OPENAI_API_KEY");
-    const AZURE_ENDPOINT = Deno.env.get("AZURE_OPENAI_ENDPOINT");
-
-    if (!AZURE_API_KEY || !AZURE_ENDPOINT) {
-      return new Response(JSON.stringify({ error: "Azure OpenAI not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const pieceLabel = PIECE_TYPE_LABELS[piece_type] || piece_type;
 
     let contextBlock = "";
@@ -95,26 +86,20 @@ ${contextBlock}
 INSTRUÇÕES DO USUÁRIO:
 ${instructions}`;
 
-    // Call Azure OpenAI
-    const response = await fetch(AZURE_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "api-key": AZURE_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 4000,
-      }),
+    requireHfToken();
+
+    const response = await hfChat({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 4000,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Azure OpenAI error:", response.status, errorText);
+      console.error("HF error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {

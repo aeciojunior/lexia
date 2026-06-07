@@ -271,7 +271,7 @@ async function searchDataJud(
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==`,
+        "Authorization": `APIKey ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,8 +62,9 @@ serve(async (req) => {
 
     const orgId = process.organization_id;
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) {
+    try {
+      requireHfToken();
+    } catch {
       return new Response(JSON.stringify({ error: "IA não configurada." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
@@ -93,14 +95,8 @@ Regras de prazos:
 
     const userPrompt = `Analise a seguinte decisão judicial do processo ${process.number} (${process.title}):\n\n${decision_text.substring(0, 8000)}`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    const aiResponse = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -171,8 +167,7 @@ Regras de prazos:
           },
         ],
         tool_choice: { type: "function", function: { name: "extract_decision" } },
-      }),
-    });
+      });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();

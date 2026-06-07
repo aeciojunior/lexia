@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -348,27 +349,15 @@ ${contract.tags?.length ? `\n## Tags: ${contract.tags.join(", ")}` : ""}`;
       contractContext += `\n\n## Contexto Adicional / Parâmetros do Usuário\n${extra_context}`;
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    requireHfToken();
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    const aiResponse = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: contractContext || "Gere um contrato com base no contexto adicional fornecido." },
         ],
-      }),
-    });
+      });
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {

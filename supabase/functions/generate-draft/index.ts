@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,10 +35,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
-
+    requireHfToken();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Verify user
@@ -198,21 +196,16 @@ ${instructions ? `## Instruções Adicionais do Usuário\n${instructions}\n` : "
       ? `Reescreva esta peça jurídica conforme as instruções acima.`
       : `Gere uma ${pieceLabel} completa para o processo descrito acima, no estilo ${styleLabel}, com nível de detalhe "${detail_level}".`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    requireHfToken();
+
+    const response = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
         stream: true,
-      }),
-    });
+      });
 
     if (!response.ok) {
       if (response.status === 429) {

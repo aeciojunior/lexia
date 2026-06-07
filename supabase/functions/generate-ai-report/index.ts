@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
+import { hfChat, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,21 +55,22 @@ Dados da organização:
 
 Estruture o relatório com seções claras, insights e recomendações.`;
 
-    const endpoint = Deno.env.get("AZURE_OPENAI_ENDPOINT")!;
-    const apiKey = Deno.env.get("AZURE_OPENAI_API_KEY")!;
+    requireHfToken();
 
-    const aiResponse = await fetch(`${endpoint}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": apiKey },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere o relatório "${title}" do tipo "${reportType}" com base nos dados fornecidos.` },
-        ],
-        max_tokens: 2000,
-        temperature: 0.7,
-      }),
+    const aiResponse = await hfChat({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Gere o relatório "${title}" do tipo "${reportType}" com base nos dados fornecidos.` },
+      ],
+      max_tokens: 2000,
+      temperature: 0.7,
     });
+
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+      console.error("HF error:", aiResponse.status, errText);
+      throw new Error("Erro na geração do relatório");
+    }
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "Erro ao gerar relatório.";

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireAuth } from "../_shared/auth.ts";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,12 +24,7 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    requireHfToken();
 
     const systemPrompt = `Você é um analista de produtividade jurídica. Analise os dados operacionais de um escritório de advocacia e forneça insights acionáveis.
 
@@ -75,22 +71,15 @@ ${JSON.stringify(metrics.teamsData?.slice(0, 5))}
 TENDÊNCIA MENSAL:
 ${JSON.stringify(metrics.monthlyData)}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    const response = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.4,
         max_tokens: 2000,
-      }),
-    });
+      });
 
     if (!response.ok) {
       if (response.status === 429) {

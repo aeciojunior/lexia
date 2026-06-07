@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -315,8 +316,9 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) {
+    try {
+      requireHfToken();
+    } catch {
       return new Response(
         JSON.stringify({ content: "Serviço de IA não configurado." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
@@ -359,21 +361,14 @@ REGRAS OBRIGATÓRIAS:
 7. Cite artigos de lei e jurisprudência quando relevante.
 8. Para cálculos/valores, explique a metodologia e os índices aplicados. Nunca invente valores.${roleContext}${contextSection}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    const response = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
         ],
         max_tokens: 3000,
-      }),
-    });
+      });
 
     if (!response.ok) {
       const status = response.status;

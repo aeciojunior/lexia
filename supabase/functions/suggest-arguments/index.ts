@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,22 +105,10 @@ serve(async (req) => {
     const systemPrompt = SYSTEM_PROMPTS[suggestion_type] || SYSTEM_PROMPTS.argument;
     const userPrompt = `${processContext}${draftContext}${context ? `\n## Contexto adicional\n${context}` : ""}${piece_type ? `\n## Tipo de peça: ${piece_type}` : ""}\n\nGere sugestões de ${suggestion_type === "counter_argument" ? "contra-argumentos" : suggestion_type === "request" ? "pedidos" : suggestion_type === "legal_basis" ? "fundamentos jurídicos" : suggestion_type === "evidence" ? "provas" : "argumentos"} para este caso.`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    requireHfToken();
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    const aiResp = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -158,8 +147,7 @@ serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "return_suggestions" } },
-      }),
-    });
+      });
 
     if (!aiResp.ok) {
       if (aiResp.status === 429) {

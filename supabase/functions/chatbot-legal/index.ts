@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireAuth, requireOrgMember } from "../_shared/auth.ts";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,14 +76,22 @@ Tom: ${config?.tone || "professional"}.`;
       ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
     ];
 
-    const endpoint = Deno.env.get("AZURE_OPENAI_ENDPOINT")!;
-    const apiKey = Deno.env.get("AZURE_OPENAI_API_KEY")!;
+    requireHfToken();
 
-    const aiResponse = await fetch(`${endpoint}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": apiKey },
-      body: JSON.stringify({ messages, max_tokens: 1500, temperature: 0.7 }),
+    const aiResponse = await hfChat({
+      messages: [...messages, { role: "user", content: message }],
+      max_tokens: 1500,
+      temperature: 0.7,
     });
+
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+      console.error("HF error:", aiResponse.status, errText);
+      return new Response(JSON.stringify({ error: "Erro na geração de resposta." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const aiData = await aiResponse.json();
     const reply = aiData.choices?.[0]?.message?.content || "Desculpe, não consegui processar sua solicitação.";

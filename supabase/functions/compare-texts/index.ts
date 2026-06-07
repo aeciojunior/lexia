@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -358,21 +359,11 @@ serve(async (req) => {
     const tA = textA.slice(0, maxLen);
     const tB = textB.slice(0, maxLen);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY não configurada");
-    }
-
+    requireHfToken();
     const toolSchema = buildToolSchema(comparisonType);
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    const aiResponse = await hfChat({
+        model: getHfModel(),
         messages: [
           { role: "system", content: getSystemPrompt(comparisonType) },
           {
@@ -391,8 +382,7 @@ serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "comparison_analysis" } },
-      }),
-    });
+      });
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
