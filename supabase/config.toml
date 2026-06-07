@@ -104,3 +104,9 @@ verify_jwt = false
 
 [functions.analyze-contract]
 verify_jwt = false
+
+[functions.index-document]
+verify_jwt = false
+
+[functions.semantic-search]
+verify_jwt = false

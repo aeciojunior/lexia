@@ -18,3 +18,28 @@ services:
         sync: false
       - key: VITE_SUPABASE_PUBLISHABLE_KEY
         sync: false
+
+  - type: web
+    name: lexia-turbovec
+    runtime: python
+    repo: https://github.com/aeciojunior/lexia
+    branch: main
+    rootDir: services/turbovec-api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    envVars:
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+      - key: HUGGINGFACE_EMBEDDING_MODEL
+        value: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      - key: TURBOVEC_API_SECRET
+        sync: false
+      - key: INDEX_DIR
+        value: /var/data/indices
+      - key: TURBOVEC_BIT_WIDTH
+        value: "4"
+    disk:
+      name: turbovec-indices
+      mountPath: /var/data
+      sizeGB: 1

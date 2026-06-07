@@ -25,3 +25,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# TurboVec API local data
+services/turbovec-api/data/
+services/turbovec-api/.venv/

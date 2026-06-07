@@ -145,6 +145,57 @@ const Documents = () => {
     } as any);
   };
 
+  const readTextFromFile = async (file: File): Promise<string> => {
+    const textTypes = ["text/plain", "text/markdown", "application/json"];
+    const textExtensions = [".txt", ".md", ".csv", ".json"];
+    const lowerName = file.name.toLowerCase();
+    const isTextLike =
+      textTypes.includes(file.type) ||
+      textExtensions.some((ext) => lowerName.endsWith(ext));
+
+    if (!isTextLike || file.size > 512 * 1024) return "";
+
+    try {
+      return (await file.text()).trim();
+    } catch {
+      return "";
+    }
+  };
+
+  const indexDocumentForSearch = async (
+    docId: string,
+    file: File,
+    notes?: string | null,
+    processId?: string | null,
+  ) => {
+    if (!activeOrgId) return;
+
+    const extracted = await readTextFromFile(file);
+    const text = [
+      `Arquivo: ${file.name}`,
+      uploadCategory !== "other" ? `Categoria: ${categoryMap[uploadCategory] || uploadCategory}` : "",
+      notes?.trim() || "",
+      extracted,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (text.length < 20) return;
+
+    try {
+      await supabase.functions.invoke("index-document", {
+        body: {
+          document_id: docId,
+          organization_id: activeOrgId,
+          text,
+          process_id: processId || null,
+        },
+      });
+    } catch (err) {
+      console.warn("index-document failed:", err);
+    }
+  };
+
   // Upload mutation
   const handleUpload = async () => {
     if (!uploadFile || !user) return;
@@ -173,6 +224,14 @@ const Documents = () => {
 
       // Auto-classify after upload
       classifyDocument(inserted.id, uploadFile.name);
+
+      // Index for semantic search (TurboVec)
+      void indexDocumentForSearch(
+        inserted.id,
+        uploadFile,
+        uploadNotes,
+        uploadProcessId === "none" ? null : uploadProcessId,
+      );
 
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       setUploadDialog(false);

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { hfChat, getHfModel, requireHfToken } from "../_shared/huggingface.ts";
+import { isTurbovecConfigured, turbovecSearch } from "../_shared/turbovec.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,10 +77,87 @@ function detectIntent(text: string): DetectedIntent {
 }
 
 // --- Context Fetching ---
+async function fetchSemanticChunks(
+  supabase: any,
+  orgId: string,
+  userQuery: string,
+  processId?: string,
+  documentId?: string,
+): Promise<{ section: string; sources: any[] }> {
+  if (!isTurbovecConfigured() || userQuery.trim().length < 8) {
+    return { section: "", sources: [] };
+  }
+
+  let allowlist: number[] | undefined;
+
+  if (documentId || processId) {
+    let chunkQuery = supabase
+      .from("document_chunks")
+      .select("vector_id")
+      .eq("organization_id", orgId);
+
+    if (documentId) chunkQuery = chunkQuery.eq("document_id", documentId);
+    if (processId) chunkQuery = chunkQuery.eq("process_id", processId);
+
+    const { data: scopedChunks } = await chunkQuery.limit(5000);
+    allowlist = (scopedChunks || []).map((c: { vector_id: number }) => Number(c.vector_id));
+    if (!allowlist.length) return { section: "", sources: [] };
+  }
+
+  const hits = await turbovecSearch(orgId, userQuery, 6, allowlist);
+  if (!hits.length) return { section: "", sources: [] };
+
+  const vectorIds = hits.map((h) => h.vector_id);
+  const { data: chunks } = await supabase
+    .from("document_chunks")
+    .select("vector_id, content, document_id, chunk_index")
+    .in("vector_id", vectorIds);
+
+  const chunkMap = new Map(
+    (chunks || []).map((c: { vector_id: number; content: string; document_id: string | null; chunk_index: number }) => [
+      Number(c.vector_id),
+      c,
+    ]),
+  );
+
+  const docIds = [...new Set((chunks || []).map((c: { document_id: string | null }) => c.document_id).filter(Boolean))];
+  const { data: docs } = docIds.length
+    ? await supabase.from("documents").select("id, file_name").in("id", docIds)
+    : { data: [] };
+  const docMap = new Map((docs || []).map((d: { id: string; file_name: string }) => [d.id, d.file_name]));
+
+  const lines: string[] = [];
+  const sources: any[] = [];
+
+  for (const hit of hits) {
+    const chunk = chunkMap.get(hit.vector_id);
+    if (!chunk) continue;
+    const fileName = chunk.document_id ? docMap.get(chunk.document_id) : "Documento";
+    lines.push(
+      `- [${fileName} · trecho ${chunk.chunk_index + 1} · score ${hit.score.toFixed(3)}]\n  ${chunk.content.substring(0, 600)}`,
+    );
+    sources.push({
+      type: "semantic_chunk",
+      vector_id: hit.vector_id,
+      document_id: chunk.document_id,
+      file_name: fileName,
+      score: hit.score,
+    });
+  }
+
+  if (!lines.length) return { section: "", sources: [] };
+
+  return {
+    section: `## Trechos relevantes (busca semântica TurboVec)\n${lines.join("\n")}`,
+    sources,
+  };
+}
+
 async function fetchContext(
   supabase: any,
   orgId: string,
   intent: DetectedIntent,
+  userQuery: string,
   processId?: string,
   documentId?: string,
   clientId?: string
@@ -221,6 +299,21 @@ async function fetchContext(
       sections.push(`## Glossário Jurídico (use estes termos)\n${glossary.map((g: any) => `- "${g.term}" → "${g.preferred_term}"`).join("\n")}`);
     }
 
+    const semanticIntents = ["documents", "general", "jurisprudence", "history", "risk"];
+    if (semanticIntents.includes(intent.type)) {
+      const { section, sources: semanticSources } = await fetchSemanticChunks(
+        supabase,
+        orgId,
+        userQuery,
+        processId,
+        documentId,
+      );
+      if (section) {
+        sections.unshift(section);
+        sources.push(...semanticSources);
+      }
+    }
+
     let context = sections.join("\n\n");
     if (context.length > MAX_CONTEXT) {
       context = context.substring(0, MAX_CONTEXT) + "\n\n[... contexto truncado por limite de tokens]";
@@ -329,7 +422,7 @@ serve(async (req) => {
     const lastUserMessage = messages?.[messages.length - 1]?.content || "";
     const intent = detectIntent(lastUserMessage);
     const { context: dataContext, sources } = await fetchContext(
-      supabaseAdmin, orgId, intent, processId, documentId, clientId
+      supabaseAdmin, orgId, intent, lastUserMessage, processId, documentId, clientId
     );
 
     // Build system prompt
