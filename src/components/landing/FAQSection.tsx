@@ -1,4 +1,3 @@
-import React from "react";
 import { motion } from "framer-motion";
 import {
   Accordion,
@@ -6,15 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.5 },
-  }),
-};
-
+import { useLandingMotion } from "./landing-motion";
 const faqs = [
   {
     q: "O LexIA é seguro para armazenar dados sensíveis de processos?",
@@ -42,16 +33,17 @@ const faqs = [
   },
 ];
 
-const FAQSection = () => (
-  <section className="py-24 border-t border-border/50">
-    <div className="container mx-auto px-6 max-w-3xl">
+const FAQSection = () => {
+  const motionVariant = useLandingMotion();
+
+  return (
+  <section className="border-t border-border/50 py-20 sm:py-24">    <div className="container mx-auto px-6 max-w-3xl">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="text-center mb-16">
-        <motion.p variants={fadeUp} custom={0} className="text-overline text-primary mb-3">FAQ</motion.p>
-        <motion.h2 variants={fadeUp} custom={1} className="text-display-xl mb-4">
+        <motion.p variants={motionVariant} custom={0} className="text-overline text-primary mb-3">FAQ</motion.p>
+        <motion.h2 variants={motionVariant} custom={1} className="text-display-xl mb-4 text-balance">
           Perguntas <span className="gradient-text-accent">frequentes</span>
         </motion.h2>
-        <motion.p variants={fadeUp} custom={2} className="text-body-lg text-muted-foreground">
-          Tire suas dúvidas sobre o LexIA.
+        <motion.p variants={motionVariant} custom={2} className="text-body-lg text-muted-foreground">          Tire suas dúvidas sobre o LexIA.
         </motion.p>
       </motion.div>
 
@@ -59,7 +51,7 @@ const FAQSection = () => (
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
-        variants={fadeUp}
+        variants={motionVariant}
         custom={3}
       >
         <Accordion type="single" collapsible className="space-y-3">
@@ -81,6 +73,7 @@ const FAQSection = () => (
       </motion.div>
     </div>
   </section>
-);
+  );
+};
 
 export default FAQSection;

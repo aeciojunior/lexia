@@ -1,15 +1,6 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { UserPlus, Upload, Brain, TrendingUp } from "lucide-react";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.12, duration: 0.5 },
-  }),
-};
-
+import { useLandingMotion } from "./landing-motion";
 const steps = [
   {
     icon: UserPlus,
@@ -37,16 +28,19 @@ const steps = [
   },
 ];
 
-const HowItWorksSection = () => (
-  <section className="py-24 border-t border-border/50 relative overflow-hidden">
+const HowItWorksSection = () => {
+  const motionVariant = useLandingMotion();
+
+  return (
+  <section className="relative overflow-hidden border-t border-border/50 py-20 sm:py-24">
     <div className="absolute inset-0 dot-grid opacity-5" />
     <div className="relative container mx-auto px-6 max-w-5xl">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="text-center mb-16">
-        <motion.p variants={fadeUp} custom={0} className="text-overline text-primary mb-3">Como funciona</motion.p>
-        <motion.h2 variants={fadeUp} custom={1} className="text-display-xl mb-4">
+        <motion.p variants={motionVariant} custom={0} className="text-overline text-primary mb-3">Como funciona</motion.p>
+        <motion.h2 variants={motionVariant} custom={1} className="text-display-xl mb-4 text-balance">
           Comece em <span className="gradient-text">4 passos</span> simples
         </motion.h2>
-        <motion.p variants={fadeUp} custom={2} className="text-body-lg text-muted-foreground max-w-2xl mx-auto">
+        <motion.p variants={motionVariant} custom={2} className="text-body-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
           Do cadastro ao primeiro insight jurídico em poucos minutos.
         </motion.p>
       </motion.div>
@@ -55,12 +49,12 @@ const HowItWorksSection = () => (
         {steps.map((s, i) => (
           <motion.div
             key={s.step}
-            variants={fadeUp}
+            variants={motionVariant}
             custom={i}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="relative text-center group"
+            className="relative text-center group rounded-2xl border border-transparent p-4 transition-colors hover:border-border/60 hover:bg-card/40"
           >
             {/* Connector line */}
             {i < steps.length - 1 && (
@@ -77,6 +71,7 @@ const HowItWorksSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 export default HowItWorksSection;

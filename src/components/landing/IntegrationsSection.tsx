@@ -1,15 +1,6 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { Scale, Building2, Globe, Database, Lock, Webhook } from "lucide-react";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.1, duration: 0.5 },
-  }),
-};
-
+import { useLandingMotion } from "./landing-motion";
 const integrations = [
   { icon: Scale, name: "Tribunais Estaduais", desc: "TJ de todos os estados" },
   { icon: Building2, name: "Tribunais Superiores", desc: "STF, STJ, TST, TSE" },
@@ -19,17 +10,18 @@ const integrations = [
   { icon: Webhook, name: "API Aberta", desc: "Integre com seus sistemas" },
 ];
 
-const IntegrationsSection = () => (
-  <section className="py-24 border-t border-border/50 relative overflow-hidden">
-    <div className="absolute inset-0 dot-grid opacity-5" />
+const IntegrationsSection = () => {
+  const motionVariant = useLandingMotion();
+
+  return (
+  <section className="relative overflow-hidden border-t border-border/50 py-20 sm:py-24">    <div className="absolute inset-0 dot-grid opacity-5" />
     <div className="relative container mx-auto px-6 max-w-5xl">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} className="text-center mb-16">
-        <motion.p variants={fadeUp} custom={0} className="text-overline text-primary mb-3">Integrações</motion.p>
-        <motion.h2 variants={fadeUp} custom={1} className="text-display-xl mb-4">
+        <motion.p variants={motionVariant} custom={0} className="text-overline text-primary mb-3">Integrações</motion.p>
+        <motion.h2 variants={motionVariant} custom={1} className="text-display-xl mb-4 text-balance">
           Conectado aos <span className="gradient-text">principais</span> sistemas
         </motion.h2>
-        <motion.p variants={fadeUp} custom={2} className="text-body-lg text-muted-foreground max-w-2xl mx-auto">
-          Sincronize processos, documentos e movimentações automaticamente com tribunais e ferramentas do ecossistema jurídico.
+        <motion.p variants={motionVariant} custom={2} className="text-body-lg text-muted-foreground max-w-2xl mx-auto text-pretty">          Sincronize processos, documentos e movimentações automaticamente com tribunais e ferramentas do ecossistema jurídico.
         </motion.p>
       </motion.div>
 
@@ -37,7 +29,7 @@ const IntegrationsSection = () => (
         {integrations.map((item, i) => (
           <motion.div
             key={item.name}
-            variants={fadeUp}
+            variants={motionVariant}
             custom={i}
             initial="hidden"
             whileInView="visible"
@@ -54,6 +46,7 @@ const IntegrationsSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 export default IntegrationsSection;

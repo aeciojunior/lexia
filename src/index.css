@@ -161,21 +161,21 @@
 @layer utilities {
   .text-display-2xl {
     font-family: var(--font-display);
-    font-size: 4.5rem;
+    font-size: clamp(2.25rem, 5vw + 1rem, 4.5rem);
     line-height: 1.05;
     font-weight: 800;
     letter-spacing: -0.035em;
   }
   .text-display-xl {
     font-family: var(--font-display);
-    font-size: 3.5rem;
+    font-size: clamp(1.875rem, 3.5vw + 0.75rem, 3.5rem);
     line-height: 1.1;
     font-weight: 800;
     letter-spacing: -0.03em;
   }
   .text-display-lg {
     font-family: var(--font-display);
-    font-size: 2.25rem;
+    font-size: clamp(1.5rem, 2vw + 0.75rem, 2.25rem);
     line-height: 1.15;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -302,5 +302,63 @@
 
   .section-grid {
     @apply grid grid-cols-1 gap-5 md:grid-cols-2 xl:gap-6;
+  }
+
+  /* ── Landing page ── */
+  .landing-display {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4.5vw + 0.75rem, 4.25rem);
+    line-height: 1.06;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+  }
+
+  .landing-hero-mesh {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 20%, hsl(270 80% 62% / 0.12), transparent 55%),
+      radial-gradient(ellipse 70% 45% at 80% 30%, hsl(192 95% 55% / 0.1), transparent 50%);
+  }
+
+  .landing-orb {
+    border-radius: 9999px;
+    filter: blur(60px);
+    pointer-events: none;
+    animation: landing-float 14s ease-in-out infinite;
+  }
+
+  .landing-orb-primary {
+    background: hsl(192 95% 55% / 0.18);
+  }
+
+  .landing-orb-secondary {
+    background: hsl(270 80% 62% / 0.14);
+    animation-delay: -5s;
+  }
+
+  .landing-preview {
+    box-shadow:
+      0 0 0 1px hsl(192 95% 55% / 0.08),
+      0 24px 48px hsl(0 0% 0% / 0.45);
+  }
+
+  .landing-preview-glow {
+    background: linear-gradient(135deg, hsl(192 95% 55% / 0.25), hsl(270 80% 62% / 0.2));
+  }
+
+  .landing-security-bg {
+    background:
+      radial-gradient(ellipse at 50% 0%, hsl(192 95% 55% / 0.06), transparent 55%),
+      radial-gradient(ellipse at 100% 100%, hsl(270 80% 62% / 0.05), transparent 45%);
+  }
+
+  @keyframes landing-float {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(0, -16px, 0) scale(1.04); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-orb {
+      animation: none;
+    }
   }
 }
