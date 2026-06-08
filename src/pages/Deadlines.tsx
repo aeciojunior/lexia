@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -156,17 +157,17 @@ const Deadlines = () => {
   const dayDeadlines = selectedDay ? (deadlinesByDate[format(selectedDay, "yyyy-MM-dd")] || []) : [];
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <p className="text-overline text-primary mb-1">Controle</p>
-          <h1 className="text-display-lg">Prazos</h1>
-          <p className="text-body-sm text-muted-foreground mt-1">Gerencie prazos processuais e receba alertas</p>
-        </div>
-        <Button variant="hero" onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" /> Novo Prazo
-        </Button>
-      </motion.div>
+    <div className="space-y-6">
+      <LexPageHeader
+        overline="Controle"
+        title="Prazos"
+        description="Gerencie prazos processuais e receba alertas"
+        actions={
+          <Button variant="hero" onClick={() => { setEditingId(null); setForm(emptyForm); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" /> Novo Prazo
+          </Button>
+        }
+      />
 
       {/* Alerts */}
       {overdue.length > 0 && (

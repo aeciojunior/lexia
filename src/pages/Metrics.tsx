@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -148,20 +149,12 @@ const Metrics = () => {
   );
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-              <BarChart3 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-overline text-primary mb-0.5">Análise</p>
-              <h1 className="text-display-lg">Produtividade & Métricas</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="space-y-6 max-w-7xl">
+      <LexPageHeader
+        overline="Análise"
+        title="Produtividade & Métricas"
+        actions={
+          <>
             <Button variant="outline" onClick={() => aiMutation.mutate()} disabled={aiMutation.isPending} className="gap-2">
               {aiMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
               Análise IA
@@ -175,9 +168,9 @@ const Metrics = () => {
                 <SelectItem value="12m">12 meses</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </div>
-      </motion.div>
+          </>
+        }
+      />
 
       {/* AI Analysis Panel */}
       {aiAnalysis && (

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -180,12 +181,12 @@ const Organization = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-4xl">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="text-overline text-primary mb-1">Configurações</p>
-        <h1 className="text-display-lg">Organização</h1>
-        <p className="text-body-sm text-muted-foreground mt-1">Gerencie dados, membros, preferências e manutenção</p>
-      </motion.div>
+    <div className="space-y-6 max-w-4xl">
+      <LexPageHeader
+        overline="Configurações"
+        title="Organização"
+        description="Gerencie dados, membros, preferências e manutenção"
+      />
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="bg-muted/50">

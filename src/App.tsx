@@ -9,6 +9,7 @@ import AppLayout from "@/components/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Processes from "./pages/Processes";
+import ProcessKanban from "./pages/ProcessKanban";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import Documents from "./pages/Documents";
@@ -94,6 +95,7 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/processes" element={<Processes />} />
+              <Route path="/processes/kanban" element={<ProcessKanban />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/documents" element={<Documents />} />

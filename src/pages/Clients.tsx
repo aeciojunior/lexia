@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -213,19 +214,19 @@ const Clients = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <p className="text-overline text-primary mb-1">Gestão</p>
-          <h1 className="text-display-lg">Clientes</h1>
-          <p className="text-body-sm text-muted-foreground mt-1">Gerencie seus clientes e suas informações</p>
-        </div>
-        {canManage && (
-          <Button variant="hero" onClick={() => { setEditingId(null); setForm(emptyForm); setFormTouched(false); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4" /> Novo Cliente
-          </Button>
-        )}
-      </motion.div>
+    <div className="space-y-6">
+      <LexPageHeader
+        overline="Gestão"
+        title="Clientes"
+        description="Gerencie seus clientes e suas informações"
+        actions={
+          canManage ? (
+            <Button variant="hero" onClick={() => { setEditingId(null); setForm(emptyForm); setFormTouched(false); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4" /> Novo Cliente
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Stats */}
       {stats && (

@@ -51,6 +51,14 @@ grep -rEn "LegalFlow|Lex IA|Lexia|LEXIA|LexAI|Lex\.IA" src index.html README.md 
 
 Se o comando retornar resultados, substitua todas as ocorrências por **LexIA** (ou `lexia` quando se tratar de identificador técnico).
 
+## 🎨 Design System (v3)
+
+- **Documentação:** [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) — tokens, componentes, navegação e padrões de formulário
+- **Guia visual:** rota `/design-system` na aplicação (também em **Conta & Configurações → Design System**)
+- **Wiki:** banner na `/wiki` com link para o guia visual
+- **Cabeçalho de páginas:** use `LexPageHeader` (`src/components/lexia/LexPageHeader.tsx`)
+- **Menu:** categorias em `src/lib/navigation.ts`; favoritos (pin) persistidos por usuário via `useNavFavorites`
+
 ## ✨ Principais funcionalidades
 
 - **Núcleo Jurídico**: cadastro de processos com validação CNJ (`0000000-00.0000.0.00.0000`), audiências, prazos, movimentações e timeline visual.

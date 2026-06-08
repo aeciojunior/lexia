@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -151,19 +152,19 @@ const LegalReferences = () => {
   const totalPages = Math.ceil((data?.count || 0) / PAGE_SIZE);
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <p className="text-overline text-primary mb-1">Pesquisa</p>
-          <h1 className="text-display-lg">Biblioteca Jurídica</h1>
-          <p className="text-body-sm text-muted-foreground mt-1">Jurisprudência, legislação, doutrina e referências</p>
-        </div>
-        {canManage && (
-          <Button variant="hero" onClick={() => { resetForm(); setDialog(true); }}>
-            <Plus className="h-4 w-4" /> Nova Referência
-          </Button>
-        )}
-      </motion.div>
+    <div className="space-y-6">
+      <LexPageHeader
+        overline="Pesquisa"
+        title="Biblioteca Jurídica"
+        description="Jurisprudência, legislação, doutrina e referências"
+        actions={
+          canManage ? (
+            <Button variant="hero" onClick={() => { resetForm(); setDialog(true); }}>
+              <Plus className="h-4 w-4" /> Nova Referência
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Filters */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-wrap gap-3">

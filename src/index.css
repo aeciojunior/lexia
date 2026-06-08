@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 /* ============================================
-   LexIA Design System v2 — BOLD, DARK, TECH
+   LexIA Design System v3 — Refined, Accessible
    ============================================ */
 
 @layer base {
@@ -52,6 +52,19 @@
 
     /* ── Radius ── */
     --radius: 0.75rem;
+    --radius-sm: 0.5rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+
+    /* ── Surfaces (elevation) ── */
+    --surface-1: 228 16% 10%;
+    --surface-2: 228 15% 12%;
+    --surface-3: 228 14% 15%;
+    --surface-elevated: 228 16% 13%;
+
+    /* ── Focus (accessibility) ── */
+    --focus-ring: 192 95% 55%;
+    --focus-offset: 228 18% 7%;
 
     /* ── Feedback ── */
     --success: 155 75% 48%;
@@ -146,10 +159,21 @@
     @apply border-border;
   }
 
+  *:focus-visible {
+    outline: 2px solid hsl(var(--focus-ring) / 0.65);
+    outline-offset: 2px;
+  }
+
   body {
     @apply bg-background text-foreground font-primary antialiased;
     background-image: var(--gradient-mesh);
     background-attachment: fixed;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -302,6 +326,44 @@
 
   .section-grid {
     @apply grid grid-cols-1 gap-5 md:grid-cols-2 xl:gap-6;
+  }
+
+  /* ── App shell ── */
+  .page-shell {
+    animation: fade-up 0.35s var(--ease-out) forwards;
+  }
+
+  .app-topbar {
+    box-shadow: 0 1px 0 hsl(var(--border) / 0.4);
+  }
+
+  .surface-card {
+    @apply rounded-2xl border border-border/70 bg-card/80 backdrop-blur-sm;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .surface-interactive {
+    @apply surface-card transition-all duration-normal;
+  }
+
+  .surface-interactive:hover {
+    border-color: hsl(var(--primary) / 0.25);
+    box-shadow: var(--shadow-md);
+  }
+
+  .input-field {
+    @apply h-10 rounded-xl border border-border bg-background/80 px-3 text-sm;
+    @apply transition-colors duration-normal;
+    @apply placeholder:text-muted-foreground/60;
+    @apply focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20;
+  }
+
+  .btn-focus-safe {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .nav-group-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
   }
 
   /* ── Landing page ── */

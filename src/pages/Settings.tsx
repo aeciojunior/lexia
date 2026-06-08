@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanLimits, PLAN_LABELS } from "@/hooks/usePlanLimits";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -132,12 +133,12 @@ const Settings = () => {
   ];
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 max-w-5xl">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="text-overline text-primary mb-1">Configurações</p>
-        <h1 className="text-display-lg">Plano & Uso</h1>
-        <p className="text-body-sm text-muted-foreground mt-1">Gerencie o plano da sua organização e acompanhe o uso de recursos</p>
-      </motion.div>
+    <div className="space-y-8 max-w-5xl">
+      <LexPageHeader
+        overline="Configurações"
+        title="Plano & Uso"
+        description="Gerencie o plano da sua organização e acompanhe o uso de recursos"
+      />
 
       {/* Current Plan */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>

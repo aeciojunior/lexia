@@ -1,6 +1,8 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LexLogo } from "@/components/lexia/LexLogo";
+import { LexPageHeader, LexSection } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { ChatMessage, AIProcessingIndicator, AISuggestionCard } from "@/components/lexia/AIChat";
@@ -47,9 +49,16 @@ const Index = () => (
           <h1 className="text-display-2xl mb-4 max-w-3xl mx-auto">Design System</h1>
           <p className="text-body-lg text-muted-foreground mb-10 max-w-2xl mx-auto">Tokens, componentes e padrões visuais para a plataforma jurídica inteligente</p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button variant="hero" size="xl">Começar agora</Button>
-            <Button variant="hero-outline" size="xl">Documentação</Button>
+            <Button variant="hero" size="xl" asChild>
+              <a href="#colors">Explorar tokens</a>
+            </Button>
+            <Button variant="hero-outline" size="xl" asChild>
+              <Link to="/dashboard">Voltar ao app</Link>
+            </Button>
           </div>
+          <p className="text-caption text-muted-foreground mt-6">
+            Documentação completa em <code className="text-primary">docs/DESIGN_SYSTEM.md</code> · v3 — navegação, favoritos, LexPageHeader
+          </p>
         </motion.div>
       </div>
     </div>
@@ -88,6 +97,20 @@ const Index = () => (
           <div><p className="text-overline text-primary mb-2">Overline</p><p className="text-overline">OVERLINE TEXT — 11PX — 700 — 0.12EM</p></div>
           <div><p className="text-overline text-primary mb-2">Gradient Text</p><p className="text-display-lg gradient-text">Gradient Primary</p><p className="text-display-lg gradient-text-accent">Gradient Accent</p></div>
         </div>
+      </Section>
+
+      <Section title="2b. Layout de página" id="page-header">
+        <LexSection title="LexPageHeader — padrão de cabeçalho">
+          <LexPageHeader
+            overline="Gestão"
+            title="Exemplo de página"
+            description="Todos os módulos principais usam este cabeçalho unificado"
+            actions={<Button variant="hero" size="sm">Ação principal</Button>}
+          />
+        </LexSection>
+        <p className="text-body-sm text-muted-foreground mt-4">
+          Navegação: 12 categorias colapsáveis, busca no menu e favoritos (pin) — até 12 rotas por usuário.
+        </p>
       </Section>
 
       <Section title="3. Botões" id="buttons">

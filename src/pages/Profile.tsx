@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -259,12 +260,12 @@ const Profile = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 max-w-3xl">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="text-overline text-primary mb-1">Conta</p>
-        <h1 className="text-display-lg">Meu Perfil</h1>
-        <p className="text-body-sm text-muted-foreground mt-1">Gerencie suas informações pessoais e preferências</p>
-      </motion.div>
+    <div className="space-y-8 max-w-3xl">
+      <LexPageHeader
+        overline="Conta"
+        title="Meu Perfil"
+        description="Gerencie suas informações pessoais e preferências"
+      />
 
       {/* Avatar & Info */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>

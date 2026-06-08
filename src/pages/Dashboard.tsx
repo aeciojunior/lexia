@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanLimits, PLAN_LABELS } from "@/hooks/usePlanLimits";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { RiskIndicator } from "@/components/lexia/LegalComponents";
@@ -297,21 +298,22 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-8">
-      {/* Header */}
-      <motion.div {...anim(0)}>
-        <p className="text-overline text-primary mb-1">Dashboard</p>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-display-lg">
-              Olá, {user?.user_metadata?.full_name?.split(" ")[0] || "Advogado"}{" "}
-              <span className="inline-block animate-float">👋</span>
-            </h1>
-            <p className="text-body-sm text-muted-foreground mt-1">
-              Visão geral da organização • Plano{" "}
-              <span className="text-primary font-semibold">{PLAN_LABELS[plan]}</span>
-            </p>
-          </div>
+    <div className="space-y-8">
+      <LexPageHeader
+        overline="Dashboard"
+        title={
+          <>
+            Olá, {user?.user_metadata?.full_name?.split(" ")[0] || "Advogado"}{" "}
+            <span className="inline-block animate-float">👋</span>
+          </>
+        }
+        description={
+          <>
+            Visão geral da organização • Plano{" "}
+            <span className="text-primary font-semibold">{PLAN_LABELS[plan]}</span>
+          </>
+        }
+        actions={
           <ReportExportButton
             kpis={kpis.map(k => ({ label: k.label, value: k.value }))}
             processStatusData={processStatusData}
@@ -331,8 +333,8 @@ const Dashboard = () => {
               processMonth: chartRefProcessMonth,
             }}
           />
-        </div>
-      </motion.div>
+        }
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

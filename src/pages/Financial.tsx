@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -872,12 +873,12 @@ const Financial = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-8">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="text-overline text-primary mb-1">Financeiro</p>
-        <h1 className="text-display-lg">Gestão Financeira</h1>
-        <p className="text-body-sm text-muted-foreground mt-1">Faturas, pagamentos, contratos e controle financeiro</p>
-      </motion.div>
+    <div className="space-y-8">
+      <LexPageHeader
+        overline="Financeiro"
+        title="Gestão Financeira"
+        description="Faturas, pagamentos, contratos e controle financeiro"
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

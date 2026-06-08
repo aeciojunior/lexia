@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { LexCard, LexCardHeader, LexCardTitle } from "@/components/lexia/LexCard";
 import { LexBadge } from "@/components/lexia/LexBadge";
 import { Button } from "@/components/ui/button";
@@ -352,17 +353,17 @@ const Documents = () => {
   const totalPages = Math.ceil((data?.count || 0) / PAGE_SIZE);
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <p className="text-overline text-primary mb-1">Gestão</p>
-          <h1 className="text-display-lg">Documentos</h1>
-          <p className="text-body-sm text-muted-foreground mt-1">Gerencie seus documentos jurídicos</p>
-        </div>
-        <Button variant="hero" onClick={() => { resetUploadForm(); setUploadDialog(true); }}>
-          <Upload className="h-4 w-4" /> Enviar Documento
-        </Button>
-      </motion.div>
+    <div className="space-y-6">
+      <LexPageHeader
+        overline="Gestão"
+        title="Documentos"
+        description="Gerencie seus documentos jurídicos"
+        actions={
+          <Button variant="hero" onClick={() => { resetUploadForm(); setUploadDialog(true); }}>
+            <Upload className="h-4 w-4" /> Enviar Documento
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-col sm:flex-row gap-3">

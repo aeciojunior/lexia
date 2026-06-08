@@ -1,177 +1,143 @@
-import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePermissions, ROLE_LABELS } from "@/hooks/usePermissions";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import { LexLogo } from "@/components/lexia/LexLogo";
-import {
-  LayoutDashboard, Scale, MessageSquare, LogOut, ChevronLeft, ChevronRight, Sparkles, UserCircle, FileText, CalendarDays, Shield, Building2, DollarSign, Settings, Users, Wand2, Clock, Gavel, GitCommitHorizontal, BookTemplate, Library, Zap, ScrollText, UsersRound, BarChart3, Calendar, Mail, Brain, ClipboardList, ShieldCheck, ShieldAlert, Plug, BellRing, TrendingUp, GitBranch, Ticket, BookOpen, Timer, FileSearch, AlertTriangle, PenLine, PieChart, MessageSquareText, KeyRound, Target, Landmark, Lock, Package, Building, Bot, BookText, Eye,
-} from "lucide-react";
-import { useState } from "react";
+import { SidebarNav, SidebarSearch, getVisibleNavGroups } from "@/components/SidebarNav";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ChevronLeft, ChevronRight, LogOut, Menu } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Permission } from "@/hooks/usePermissions";
+import { cn } from "@/lib/utils";
 
-interface NavItem {
-  title: string;
-  url: string;
-  icon: any;
-  accent?: boolean;
-  /** At least one of these permissions required to show */
-  permissions?: Permission[];
+interface AppSidebarProps {
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
-const navItems: NavItem[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Processos", url: "/processes", icon: Scale, permissions: ["VIEW_PROCESSES"] },
-  { title: "Prazos", url: "/deadlines", icon: CalendarDays, permissions: ["VIEW_TASKS"] },
-  { title: "Audiências", url: "/hearings", icon: Gavel, permissions: ["VIEW_HEARINGS"] },
-  { title: "Movimentações", url: "/movements", icon: GitCommitHorizontal, permissions: ["VIEW_PROCESSES"] },
-  { title: "Documentos", url: "/documents", icon: FileText, permissions: ["VIEW_DOCUMENTS"] },
-  { title: "Modelos", url: "/templates", icon: BookTemplate, permissions: ["VIEW_DOCUMENTS"] },
-  { title: "Biblioteca", url: "/legal-references", icon: Library, permissions: ["VIEW_LEGAL_REFS"] },
-  { title: "Tribunais", url: "/court-integrations", icon: Building2, permissions: ["MANAGE_PROCESSES"] },
-  { title: "Monitoramento", url: "/court-monitoring", icon: Eye, permissions: ["VIEW_COURT_MONITORING"] },
-  { title: "Legislação", url: "/legislative-updates", icon: ScrollText, permissions: ["VIEW_LEGISLATIVE_UPDATES"] },
-  { title: "Regulatório", url: "/regulatory", icon: ShieldCheck, permissions: ["VIEW_REGULATORY"] },
-  { title: "Inteligência", url: "/legal-intelligence", icon: Brain, accent: true, permissions: ["VIEW_LEGAL_INTELLIGENCE"] },
-  { title: "Precedentes", url: "/precedents", icon: BookOpen, permissions: ["VIEW_INTERNAL_PRECEDENTS"] },
-  { title: "Estratégia", url: "/legal-strategy", icon: Target, accent: true, permissions: ["VIEW_LEGAL_STRATEGY"] },
-  { title: "Previsões", url: "/process-predictions", icon: TrendingUp, accent: true, permissions: ["VIEW_PREDICTIONS"] },
-  { title: "Clusters", url: "/case-clustering", icon: GitBranch, permissions: ["VIEW_CASE_CLUSTERING"] },
-  { title: "Impacto Financeiro", url: "/financial-impact", icon: DollarSign, accent: true, permissions: ["VIEW_FINANCIAL_IMPACT"] },
-  { title: "Due Diligence", url: "/due-diligence", icon: FileSearch, accent: true, permissions: ["VIEW_DUE_DILIGENCE"] },
-  { title: "Litígios Repetitivos", url: "/mass-litigation", icon: Users, permissions: ["VIEW_MASS_LITIGATION"] },
-  { title: "Clientes", url: "/clients", icon: Users, permissions: ["VIEW_CLIENTS"] },
-  { title: "Chat IA", url: "/chat", icon: MessageSquare, accent: true, permissions: ["USE_IA_BASIC"] },
-  { title: "IA Jurídica", url: "/ai-legal", icon: Wand2, accent: true, permissions: ["USE_IA_ADVANCED"] },
-  { title: "Minutas", url: "/drafts", icon: FileText, accent: true, permissions: ["USE_IA_ADVANCED"] },
-  { title: "Glossário", url: "/legal-glossary", icon: BookText, permissions: ["USE_IA_ADVANCED"] },
-  { title: "Comparar Textos", url: "/text-comparison", icon: FileText, accent: true, permissions: ["USE_IA_ADVANCED"] },
-  { title: "Contratos", url: "/contracts", icon: ScrollText, permissions: ["VIEW_CONTRACTS"] },
-  { title: "Financeiro", url: "/financial", icon: DollarSign, permissions: ["VIEW_FINANCIAL"] },
-  { title: "Horas", url: "/timesheet", icon: Clock, permissions: ["VIEW_PROCESSES"] },
-  { title: "Times", url: "/teams", icon: UsersRound, permissions: ["VIEW_TEAMS"] },
-  { title: "Produtividade", url: "/metrics", icon: BarChart3, permissions: ["VIEW_METRICS"] },
-  { title: "Agenda", url: "/agenda", icon: Calendar, permissions: ["VIEW_AGENDA"] },
-  { title: "Comunicações", url: "/communications", icon: Mail, permissions: ["VIEW_EXTERNAL_MESSAGES"] },
-  { title: "Templates IA", url: "/ai-templates", icon: Brain, accent: true, permissions: ["VIEW_AI_TEMPLATES"] },
-  { title: "Automações", url: "/automations", icon: Zap, permissions: ["VIEW_AUTOMATIONS"] },
-  { title: "Relatórios", url: "/reports", icon: ClipboardList, permissions: ["VIEW_REPORTS"] },
-  { title: "ACL", url: "/acl", icon: ShieldCheck, permissions: ["MANAGE_ACL"] },
-  { title: "Compliance", url: "/compliance", icon: ShieldAlert, permissions: ["VIEW_COMPLIANCE"] },
-  { title: "Integrações", url: "/integrations", icon: Plug, permissions: ["MANAGE_INTEGRATIONS"] },
-  { title: "Regras de Notificação", url: "/notification-rules", icon: BellRing, permissions: ["MANAGE_NOTIFICATION_RULES"] },
-  { title: "IA Preditiva", url: "/predictions", icon: TrendingUp, accent: true, permissions: ["VIEW_PREDICTIONS"] },
-  { title: "Workflows", url: "/workflows", icon: GitBranch, permissions: ["VIEW_WORKFLOWS"] },
-  { title: "Tickets", url: "/tickets", icon: Ticket, permissions: ["VIEW_TICKETS"] },
-  { title: "Wiki", url: "/wiki", icon: BookOpen, permissions: ["VIEW_WIKI"] },
-  { title: "SLA", url: "/sla", icon: Timer, permissions: ["VIEW_SLA"] },
-  { title: "Auditoria", url: "/audit-logs", icon: FileSearch, permissions: ["VIEW_AUDIT_ADVANCED"] },
-  { title: "Riscos", url: "/risks", icon: AlertTriangle, permissions: ["VIEW_RISKS"] },
-  { title: "Assinaturas", url: "/signatures", icon: PenLine, permissions: ["VIEW_SIGNATURES"] },
-  { title: "Relatórios Financeiros", url: "/financial-reports", icon: PieChart, permissions: ["VIEW_FINANCIAL_REPORTS"] },
-  { title: "Templates de Mensagens", url: "/communication-templates", icon: MessageSquareText, permissions: ["VIEW_COMMUNICATION_TEMPLATES"] },
-  { title: "OKRs & KPIs", url: "/okrs", icon: Target, permissions: ["VIEW_OKRS"] },
-  { title: "Governança", url: "/governance", icon: Landmark, permissions: ["VIEW_GOVERNANCE"] },
-  { title: "Cofre Seguro", url: "/vault", icon: Lock, permissions: ["MANAGE_VAULT"] },
-  { title: "Secrets", url: "/secret-manager", icon: KeyRound, permissions: ["MANAGE_SECRETS"] },
-  { title: "Relatórios IA", url: "/ai-reports", icon: Brain, accent: true, permissions: ["VIEW_AI_REPORTS"] },
-  { title: "Logs Segurança", url: "/security-logs", icon: ShieldAlert, permissions: ["VIEW_SECURITY_LOGS"] },
-  { title: "Inventário", url: "/assets", icon: Package, permissions: ["VIEW_ASSETS"] },
-  { title: "Fornecedores", url: "/vendors", icon: Building, permissions: ["VIEW_VENDORS"] },
-  { title: "Chatbot IA", url: "/legal-chatbot", icon: Bot, accent: true, permissions: ["USE_CHATBOT"] },
-  { title: "Organização", url: "/organization", icon: Building2, permissions: ["MANAGE_ORGANIZATION", "VIEW_USERS", "VIEW_PROCESSES"] },
-  { title: "Admin", url: "/admin", icon: Shield, permissions: ["MANAGE_USERS"] },
-  { title: "Plano & Uso", url: "/settings", icon: Settings, permissions: ["MANAGE_ORGANIZATION"] },
-  { title: "Perfil", url: "/profile", icon: UserCircle },
-];
-
-export const AppSidebar = () => {
+export const AppSidebar = ({ mobileOpen, onMobileOpenChange }: AppSidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [search, setSearch] = useState("");
   const { signOut, user } = useAuth();
-  const { activeOrgId, organizations } = useOrganization();
-  const { role, hasAnyPermission, isClient } = usePermissions();
+  const { hasAnyPermission, role, isClient } = usePermissions();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  const visibleGroups = useMemo(
+    () => getVisibleNavGroups(hasAnyPermission, isClient),
+    [hasAnyPermission, isClient],
+  );
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
 
-  const visibleItems = [
-    // For clients, show Portal instead of Dashboard
-    ...(isClient
-      ? [{ title: "Portal", url: "/portal", icon: Shield } as NavItem]
-      : []),
-    ...navItems.filter((item) => {
-      // Clients already get portal injected above, skip the navItems version
-      if (isClient && item.url === "/portal") return false;
-      if (!item.permissions) return !isClient || item.url === "/profile";
-      return hasAnyPermission(...item.permissions);
-    }),
-  ];
+  const sidebarFooter = (
+    <div className="shrink-0 border-t border-sidebar-border space-y-2 p-3 bg-sidebar/80 backdrop-blur-sm">
+      <OrgSwitcher collapsed={collapsed && !isMobile} />
+      {!collapsed && user && (
+        <div className="px-2.5 py-2 rounded-lg bg-sidebar-accent/30">
+          <p className="text-xs font-semibold text-sidebar-foreground truncate">{user.email}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">
+            {ROLE_LABELS[role] || role}
+          </p>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={handleSignOut}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+          "text-muted-foreground hover:bg-sidebar-accent hover:text-destructive transition-all",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40",
+          collapsed && !isMobile && "justify-center",
+        )}
+      >
+        <LogOut className="h-4 w-4 shrink-0" />
+        {(!collapsed || isMobile) && <span>Sair</span>}
+      </button>
+    </div>
+  );
+
+  const sidebarInner = (
+    <>
+      <div className="shrink-0 flex items-center justify-between p-4 h-16 border-b border-sidebar-border/60">
+        {(!collapsed || isMobile) && <LexLogo size="sm" />}
+        {!isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(!collapsed)}
+            className="text-sidebar-foreground hover:bg-sidebar-accent h-8 w-8 shrink-0"
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
+      </div>
+
+      <SidebarSearch value={search} onChange={setSearch} collapsed={collapsed && !isMobile} />
+
+      <ScrollArea className="flex-1 px-2">
+        <nav className="py-2 pr-2" aria-label="Navegação principal">
+          <SidebarNav
+            groups={visibleGroups}
+            collapsed={collapsed && !isMobile}
+            searchQuery={search}
+            onNavigate={() => onMobileOpenChange?.(false)}
+          />
+        </nav>
+      </ScrollArea>
+
+      {sidebarFooter}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
+        <SheetContent
+          side="left"
+          className="w-[min(320px,88vw)] p-0 bg-sidebar text-sidebar-foreground border-sidebar-border flex flex-col"
+        >
+          <TooltipProvider delayDuration={300}>{sidebarInner}</TooltipProvider>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
-    <aside
-      className={`flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-normal border-r border-sidebar-border relative ${
-        collapsed ? "w-[72px]" : "w-72"
-      }`}
-    >
-      {/* Ambient top glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 h-16">
-        {!collapsed && <LexLogo size="sm" />}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="text-sidebar-foreground hover:bg-sidebar-accent h-8 w-8 shrink-0"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {!collapsed && <p className="text-overline text-muted-foreground px-3 mb-3">Menu</p>}
-        {visibleItems.map((item) => (
-          <NavLink
-            key={item.url}
-            to={item.url}
-            end={item.url === "/dashboard"}
-            className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-normal ${collapsed ? "justify-center" : ""}`}
-            activeClassName="bg-sidebar-accent text-sidebar-primary shadow-sm neon-border"
-          >
-            <item.icon className={`h-5 w-5 shrink-0 ${item.accent ? "text-secondary" : ""}`} />
-            {!collapsed && <span className="leading-snug">{item.title}</span>}
-            {!collapsed && item.accent && (
-              <Sparkles className="h-3 w-3 text-secondary ml-auto animate-pulse-glow" />
-            )}
-          </NavLink>
-        ))}
-      </nav>
-
-      {/* User & Logout */}
-      <div className="p-3 border-t border-sidebar-border space-y-2">
-        {/* Org switcher */}
-        <OrgSwitcher collapsed={collapsed} />
-        {!collapsed && user && (
-          <div className="px-3 py-2">
-            <p className="text-xs font-semibold text-sidebar-foreground truncate">{user.email}</p>
-            <p className="text-overline text-muted-foreground mt-0.5">{ROLE_LABELS[role] || role}</p>
-          </div>
+    <TooltipProvider delayDuration={300}>
+      <aside
+        className={cn(
+          "hidden md:flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-normal",
+          "border-r border-sidebar-border relative shrink-0",
+          collapsed ? "w-[72px]" : "w-72",
         )}
-        <button
-          onClick={handleSignOut}
-          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-destructive transition-all ${collapsed ? "justify-center" : ""}`}
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>Sair</span>}
-        </button>
-      </div>
-    </aside>
+      >
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        {sidebarInner}
+      </aside>
+    </TooltipProvider>
+  );
+};
+
+/** Botão para abrir menu mobile — usar no header */
+export function MobileMenuButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      className="md:hidden h-9 w-9 rounded-xl border-border/60"
+      onClick={onClick}
+      aria-label="Abrir menu"
+    >
+      <Menu className="h-4 w-4" />
+    </Button>
   );
 };

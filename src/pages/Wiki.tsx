@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { LexPageHeader } from "@/components/lexia/LexPageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Plus, BookOpen, FolderOpen, Tag, Search, Edit, History } from "lucide-react";
+import { Plus, BookOpen, FolderOpen, Tag, Search, Edit, History, Sparkles, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 
 const Wiki = () => {
@@ -105,49 +107,68 @@ const Wiki = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Wiki Jurídica</h1>
-          <p className="text-muted-foreground">Base de conhecimento interno da organização</p>
-        </div>
-        <div className="flex gap-2">
+      <LexPageHeader
+        overline="Conhecimento"
+        title="Wiki Jurídica"
+        description="Base de conhecimento interno da organização"
+        actions={
           <RoleGuard permissions={["MANAGE_WIKI"]}>
-            <Dialog open={openCategory} onOpenChange={setOpenCategory}>
-              <DialogTrigger asChild>
-                <Button variant="outline"><FolderOpen className="h-4 w-4 mr-2" />Nova Categoria</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Criar Categoria</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                  <Input placeholder="Nome da categoria" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
-                  <Button onClick={() => createCategory.mutate()} disabled={!categoryName}>Criar</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-            <Dialog open={openArticle} onOpenChange={setOpenArticle}>
-              <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" />Novo Artigo</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader><DialogTitle>Criar Artigo</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                  <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
-                  <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger><SelectValue placeholder="Categoria (opcional)" /></SelectTrigger>
-                    <SelectContent>
-                      {categories?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Textarea placeholder="Conteúdo do artigo..." className="min-h-[200px]" value={content} onChange={(e) => setContent(e.target.value)} />
-                  <Input placeholder="Tags (separadas por vírgula)" value={tags} onChange={(e) => setTags(e.target.value)} />
-                  <Button onClick={() => createArticle.mutate()} disabled={!title || !content}>Publicar</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <div className="flex gap-2">
+              <Dialog open={openCategory} onOpenChange={setOpenCategory}>
+                <DialogTrigger asChild>
+                  <Button variant="outline"><FolderOpen className="h-4 w-4 mr-2" />Nova Categoria</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Criar Categoria</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <Input placeholder="Nome da categoria" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
+                    <Button onClick={() => createCategory.mutate()} disabled={!categoryName}>Criar</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Dialog open={openArticle} onOpenChange={setOpenArticle}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="h-4 w-4 mr-2" />Novo Artigo</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader><DialogTitle>Criar Artigo</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
+                    <Select value={categoryId} onValueChange={setCategoryId}>
+                      <SelectTrigger><SelectValue placeholder="Categoria (opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        {categories?.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Textarea placeholder="Conteúdo do artigo..." className="min-h-[200px]" value={content} onChange={(e) => setContent(e.target.value)} />
+                    <Input placeholder="Tags (separadas por vírgula)" value={tags} onChange={(e) => setTags(e.target.value)} />
+                    <Button onClick={() => createArticle.mutate()} disabled={!title || !content}>Publicar</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </RoleGuard>
+        }
+      />
+
+      <div className="surface-card p-4 flex flex-col sm:flex-row sm:items-center gap-4 border-primary/20 bg-primary/5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground">Design System LexIA v3</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Tokens, componentes, navegação categorizada e favoritos. Documentação em{" "}
+            <code className="text-primary">docs/DESIGN_SYSTEM.md</code>
+          </p>
+        </div>
+        <Button variant="outline" size="sm" asChild className="shrink-0 gap-2">
+          <Link to="/design-system">
+            Ver guia visual <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
       </div>
 
       <div className="relative">
